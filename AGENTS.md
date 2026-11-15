@@ -141,6 +141,14 @@ These are hard rules. A change that breaks one needs an ADR first.
   squash-merged with the PR title (a Conventional Commit header) as the commit message.
 - Sessions spawned for a piece of work run in their own Git worktree and branch, never in the
   shared checkout. They push and open the PR; the main session reviews and merges.
+- Every Claude Code task loads the taste skills (`ecc:taste`, `taste-skill:design-taste-frontend`)
+  and the frontend guideline skills (`ecc:frontend-patterns`, `ecc:frontend-a11y`,
+  `web-design-guidelines`) before it starts work.
+- Before a PR merges, its session runs a review round in parallel subagents, as many as the change
+  needs: the skills above, `simplify`, `ecc:code-review`, `engineering:code-review` and
+  `mattpocock-skills:code-review`, a tests subagent that drops filler tests and folds near-duplicates
+  into one `it.each` (rule 17), and a SOLID and DRY subagent (rule 11). The PR body lists the
+  findings it applied and the ones it dropped, with a reason for each.
 - After a merge: archive the session, remove its worktree and branch, and rebase any open branch
   that the merge left behind onto `main`.
 - PR descriptions carry no AI attribution or trailers.
