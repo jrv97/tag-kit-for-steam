@@ -77,6 +77,7 @@ export const AI_KIND: KindDefinition<AiDisclosed> = {
   id: "ai",
   fromGetItems,
   fromAppPage,
+  translated: true,
 
   stored: STORED,
 

@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { make } from "../../tests/helpers/factory";
 import { fake } from "../../tests/helpers/fakes";
-import { mergeVerdicts, translatedVerdicts } from "./app-page";
 import { parseAppPage } from "./detect/app-page";
 import type { AiVerdict } from "./kinds/ai";
 import { KINDS } from "./kinds/registry";
 import { type KindVerdicts, UNKNOWN_KINDS, withRelations } from "./kinds/verdicts";
+import { mergeVerdicts, translatedVerdicts } from "./page-verdicts";
 
 const ID = make.appId();
 const ARC_RAIDERS = make.fixture.app.arcRaiders;
@@ -77,13 +77,20 @@ describe("mergeVerdicts", () => {
     expect(disagree).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["shows a disclosure", disclosingPage, UNKNOWN_KINDS.error],
-    ["shows none", quietPage, UNKNOWN_KINDS["rate-limited"]],
-  ])("keeps the page's answer when it %s and Steam's data could not answer", (_, pageFor, data) => {
-    const page = pageFor();
-    expect(mergeVerdicts(page, data, none).ai).toBe(page.ai);
+  it("keeps the page's disclosure when Steam's data could not answer", () => {
+    const page = disclosingPage();
+    expect(mergeVerdicts(page, UNKNOWN_KINDS.error, none).ai).toBe(page.ai);
   });
+
+  it.each(["missing", "malformed", "error", "rate-limited"] as const)(
+    "keeps the page's not disclosed when Steam's data is unknown %s, without a report",
+    (reason) => {
+      const disagree = vi.fn();
+      const merged = mergeVerdicts(quietPage(), UNKNOWN_KINDS[reason], disagree);
+      expect(merged.ai).toBe(make.verdict.notDisclosed("html"));
+      expect(disagree).not.toHaveBeenCalled();
+    },
+  );
 
   it("settles a page that shows none and data that has none as not disclosed", () => {
     const data = aiOnly(make.verdict.notDisclosed());

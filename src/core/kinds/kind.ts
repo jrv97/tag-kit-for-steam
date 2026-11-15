@@ -74,6 +74,11 @@ export interface KindDefinition<Disclosed extends DisclosedBase> {
   /** Who states the kind's facts; the developer when absent. */
   readonly source?: KindSource;
   /**
+   * Set when the disclosed verdict holds developer text in the `language` GetItems was asked in.
+   * A page in another language then asks GetItems again for that text (`page-verdicts.ts`).
+   */
+  readonly translated?: Disclosed extends { readonly language: SteamLanguage; } ? true : never;
+  /**
    * The values a person can choose to tag, in display order; absent for a kind with one value. A
    * disclosed verdict carries one as `facet`, and only a chosen one is drawn (`kinds/facets.ts`).
    */
