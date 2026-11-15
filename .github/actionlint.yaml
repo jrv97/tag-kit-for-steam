@@ -1,0 +1,5 @@
+# actionlint 1.7.12 lists no ubuntu-26.04 label, though GitHub hosts that runner.
+# Declaring it here stops the runner-label check from failing on it.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
