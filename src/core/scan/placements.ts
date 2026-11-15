@@ -228,7 +228,7 @@ export interface ListPlacement {
   readonly list: string;
   /** A store element above the list; when the page has it, the block goes right after it. */
   readonly after?: string;
-  /** A direct child of the list; the block goes right before it instead of before the list. */
+  /** A direct child of the list; the block goes right before it, and nowhere without it. */
   readonly before?: string;
 }
 
@@ -275,12 +275,13 @@ export function findList(
 ): FoundList | undefined {
   for (const placement of placements) {
     const list = doc.querySelector(placement.list);
-    if (list !== null) {
+    // A list that lacks its `before` child is skipped, so the block never lands outside it.
+    const before = list === null || placement.before === undefined
+      ? list
+      : list.querySelector(`:scope > ${placement.before}`);
+    if (list !== null && before !== null) {
       const after = placement.after === undefined ? null : doc.querySelector(placement.after);
-      const child = placement.before === undefined
-        ? null
-        : list.querySelector(`:scope > ${placement.before}`);
-      return { list, after, before: child ?? list };
+      return { list, after, before };
     }
   }
   return undefined;
