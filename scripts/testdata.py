@@ -3,11 +3,24 @@
 One namespace per script under test. Tables pair inputs with expected results.
 """
 
+import json
+import zipfile
 from datetime import date
+from pathlib import Path
 from typing import Final
 
 from calver import MAX_SEGMENT, Version
 from catalogs import Catalog, Entry, used_placeholders
+from check_bundle import (
+    BACKGROUND,
+    HEADER_END,
+    HEADER_START,
+    OFF_ICONS,
+    SETTINGS_LINKS,
+    STORE_MATCH,
+    fixed_header_fields,
+)
+from repo import SLUG
 from ts_literals import Literal
 
 # A description that every test catalog entry shares; the checks never read it.
@@ -312,3 +325,249 @@ class Notes:
     ONE_LONG_LINE: Final = "### Added\n- " + "c" * 500
     ONE_LONG_LINE_LIMIT: Final = 200
     CUT_LINE_END: Final = "c...\n"
+
+
+def write_tree(root: Path, files: dict[str, str]) -> None:
+    """Writes each file under the root; a `.zip` name becomes a deflated archive of one member."""
+    for name, text in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.suffix == ".zip":
+            with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("member.txt", text)
+        else:
+            path.write_text(text, encoding="utf-8")
+
+
+def userscript_header(*extra: str, noframes: bool = True) -> str:
+    """A userscript header whose fixed fields all pass, with these lines added."""
+    fields = [
+        f"// {key} {value}" for key, values in fixed_header_fields().items() for value in values
+    ]
+    frames = ["// @noframes"] if noframes else []
+    return "\n".join([HEADER_START, *fields, *frames, *extra, HEADER_END]) + "\n"
+
+
+def catalog_json(**messages: str) -> str:
+    """A catalog file of these messages by key, each with a description that breaks rule 4."""
+    return json.dumps(
+        {
+            key: {"message": message, "description": "Never call a game slop."}
+            for key, message in messages.items()
+        }
+    )
+
+
+class CheckBundle:
+    """Manifests, bundles and secrets for the gates of check_bundle.py."""
+
+    CONTENT: Final = "dist/chromium/content.js"
+    OPTIONS: Final = "dist/gecko/options.js"
+    BACKGROUND_JS: Final = "dist/chromium/background.js"
+    DEV: Final = "dist/dev/inject.js"
+    USERSCRIPT_META: Final = f"dist/userscript/{SLUG}.meta.js"
+    STORE_SCRIPT: Final[dict[str, object]] = {"matches": STORE_MATCH, "js": ["content.js"]}
+    # The keys every target's manifest needs, and the ones of each target.
+    SHARED: Final[dict[str, object]] = {
+        "permissions": ["storage"],
+        "action": {"default_icon": OFF_ICONS},
+        "content_scripts": [STORE_SCRIPT],
+    }
+    OWN: Final[dict[str, dict[str, object]]] = {
+        "chromium": {"background": BACKGROUND["chromium"]},
+        "gecko": {"background": BACKGROUND["gecko"], "browser_specific_settings": {}},
+    }
+
+    @classmethod
+    def manifest(cls, target: str, overrides: dict[str, object]) -> dict[str, object]:
+        """A manifest that passes every shape rule for its target; a None override drops a key."""
+        merged = {**cls.SHARED, **cls.OWN[target], **overrides}
+        return {key: value for key, value in merged.items() if value is not None}
+
+    # (target, overrides, problems after the manifest path): keys outside the allowlist in sorted
+    # order, the permissions, the content script's world and matches, the background script, the
+    # action icon and the Gecko settings both ways.
+    MANIFESTS: Final[tuple[tuple[str, dict[str, object], tuple[str, ...]], ...]] = (
+        ("chromium", {}, ()),
+        ("gecko", {}, ()),
+        (
+            "chromium",
+            {
+                "web_accessible_resources": [{"resources": ["icons/*"], "matches": STORE_MATCH}],
+                "host_permissions": STORE_MATCH,
+                "externally_connectable": {"matches": STORE_MATCH},
+                "content_security_policy": {},
+            },
+            (
+                "content_security_policy is not allowed",
+                "externally_connectable is not allowed",
+                "host_permissions is not allowed",
+                "web_accessible_resources is not allowed",
+            ),
+        ),
+        (
+            "gecko",
+            {"permissions": ["storage", "tabs"]},
+            ('permissions must be exactly ["storage"]',),
+        ),
+        (
+            "chromium",
+            {"content_scripts": [{**STORE_SCRIPT, "world": "MAIN"}]},
+            ("content scripts must run in the isolated world",),
+        ),
+        ("gecko", {"content_scripts": [{**STORE_SCRIPT, "world": "ISOLATED"}]}, ()),
+        (
+            "chromium",
+            {"content_scripts": [{**STORE_SCRIPT, "matches": ["<all_urls>"]}]},
+            (f"content script matches must be {STORE_MATCH}",),
+        ),
+        ("gecko", {"content_scripts": []}, ("content_scripts is missing",)),
+        (
+            "chromium",
+            {"background": BACKGROUND["gecko"]},
+            (f"background must be exactly {BACKGROUND['chromium']}",),
+        ),
+        ("gecko", {"action": {}}, (f"the action's default_icon must be {OFF_ICONS}",)),
+        (
+            "chromium",
+            {"browser_specific_settings": {}},
+            ("browser_specific_settings is not allowed",),
+        ),
+        ("gecko", {"browser_specific_settings": None}, ("browser_specific_settings is missing",)),
+    )
+
+    STORE_FETCH: Final = (
+        'fetch("https://api.steampowered.com/IStoreBrowseService/GetItems/v1");'
+        'fetch("https://store.steampowered.com/app/1");'
+    )
+    COOKIE: Final = "writes a cookie"
+    PAGE_CODE: Final = "builds a <script>, markup or an inline handler"
+    REMOTE_CODE: Final = "runs code from a string"
+    GITHUB: Final = "URL to a host outside the allowlist: github.com"
+
+    # (bundle path, text, isolated, problems after the path): each form of remote code, cookie
+    # write and page code, hosts and the settings links, and userscript headers.
+    SCRIPTS: Final[tuple[tuple[str, str, bool, tuple[str, ...]], ...]] = (
+        (CONTENT, STORE_FETCH, True, ()),
+        (CONTENT, "eval(code);", True, (REMOTE_CODE,)),
+        (CONTENT, "(0, eval)(code);", True, (REMOTE_CODE,)),
+        (CONTENT, "new Function(code);", True, (REMOTE_CODE,)),
+        (CONTENT, "Function(code)();", True, (REMOTE_CODE,)),
+        (DEV, 'setTimeout("run()", 1);', False, (REMOTE_CODE,)),
+        (CONTENT, "setTimeout(run, 1); isFunction(x); evaluate(x);", True, ()),
+        (CONTENT, 'document.cookie = "a=1";', True, (COOKIE,)),
+        (OPTIONS, 'document.cookie+="a=1";', True, (COOKIE,)),
+        (CONTENT, 'document["cookie"] ??= "a=1";', True, (COOKIE,)),
+        (DEV, 'cookieStore.set("a", "1");', False, (COOKIE,)),
+        (CONTENT, "cookieStore?.delete(name);", True, (COOKIE,)),
+        (CONTENT, "const jar = document.cookie; if (document.cookie == jar) {}", True, ()),
+        (CONTENT, 'document.createElement("script");', True, (PAGE_CODE,)),
+        (OPTIONS, "document.createElementNS(ns, 'SCRIPT');", True, (PAGE_CODE,)),
+        (CONTENT, "range.createContextualFragment(html);", True, (PAGE_CODE,)),
+        (CONTENT, 'node.insertAdjacentHTML("beforeend", html);', True, (PAGE_CODE,)),
+        (CONTENT, "node.innerHTML = html;", True, (PAGE_CODE,)),
+        (CONTENT, 'node.setAttribute("onclick", code);', True, (PAGE_CODE,)),
+        (DEV, 'document.createElement("script"); node.innerHTML = html;', False, ()),
+        (CONTENT, 'document.createElement("div"); const html = node.innerHTML;', True, ()),
+        (
+            CONTENT,
+            'fetch("https://example.com/x");',
+            True,
+            ("URL to a host outside the allowlist: example.com",),
+        ),
+        (
+            CONTENT,
+            'new WebSocket("wss://example.com");',
+            True,
+            ("URL to a host outside the allowlist: example.com",),
+        ),
+        (OPTIONS, "".join(SETTINGS_LINKS), True, ()),
+        (CONTENT, SETTINGS_LINKS[0], True, (GITHUB,)),
+        (BACKGROUND_JS, SETTINGS_LINKS[0], True, (GITHUB,)),
+        (OPTIONS, SETTINGS_LINKS[-1].replace('/"', '/evil"'), True, (GITHUB,)),
+        (OPTIONS, '"see ' + SETTINGS_LINKS[0][1:], True, (GITHUB,)),
+        (
+            CONTENT,
+            userscript_header(),
+            True,
+            ("a userscript header belongs in the userscript only",),
+        ),
+        (USERSCRIPT_META, "", False, ("the userscript header is missing",)),
+        (USERSCRIPT_META, userscript_header(), False, ()),
+        (
+            USERSCRIPT_META,
+            userscript_header("// @connect example.com"),
+            False,
+            ("@connect is not allowed",),
+        ),
+        (
+            USERSCRIPT_META,
+            userscript_header("// @match https://example.com/*"),
+            False,
+            (f"@match must be {STORE_MATCH}",),
+        ),
+        (USERSCRIPT_META, userscript_header(noframes=False), False, ("@noframes is missing",)),
+    )
+
+    PLANTED_KEY: Final = "fake-steam-api-key-0123"
+    # (STEAM_API_KEY value, files by path, the files that hold it, in path order): a value under 8
+    # characters checks nothing, and a zip archive is searched member by member.
+    SECRETS: Final[tuple[tuple[str, dict[str, str], tuple[str, ...]], ...]] = (
+        ("1234567", {"content.js": "1234567"}, ()),
+        ("12345678", {"content.js": "x12345678x"}, ("content.js",)),
+        (
+            PLANTED_KEY,
+            {
+                "content.js": PLANTED_KEY,
+                "gecko/options.js": "nothing",
+                "gecko/source.zip": PLANTED_KEY,
+            },
+            ("content.js", "gecko/source.zip"),
+        ),
+    )
+
+
+class CheckWording:
+    """Phrases and repo files for the wording guard of check_wording.py."""
+
+    # (text, forbidden phrases found): each phrase in any case and both languages; Steam's AI
+    # headings and the names of other projects pass, a claim before a heading does not, and a
+    # phrase inside a longer word is no phrase.
+    HITS: Final[tuple[tuple[str, list[str]], ...]] = (
+        ("This game uses AI.", ["uses AI"]),
+        ("AI-free!", ["AI-free"]),
+        ("Contains no AI", ["no AI"]),
+        ("More AI slop", ["slop"]),
+        ("A Clean store", ["Clean"]),
+        ("Made by humans, for a human", ["humans", "human"]),
+        ("human-made", ["human"]),
+        ("It has AI-generated content", ["AI-generated content"]),
+        ("ai generated content", ["ai generated content"]),
+        ("AI Generated Content Disclosure", []),
+        ("No AI Generated Content Disclosure", ["No AI"]),
+        ("AI Generated Content Filter for Steam and Slop-Inator", []),
+        ("cleaning, sloppy, humane, piano AI", []),
+        ("Este juego usa IA, sin IA", ["usa IA", "sin IA"]),
+        ("Libre de IA y limpio, hecho por humanos", ["Libre de IA", "limpio", "humanos"]),
+        ("Tiene contenido generado por IA", ["contenido generado por IA"]),
+        ("Informaci\u00f3n sobre contenido generado por IA", []),
+    )
+
+    # Files under a repo root: the catalogs, README.md and the store copy's text files are
+    # scanned; a binary store file, other docs and catalog descriptions are not.
+    FILES: Final[dict[str, str]] = {
+        "src/locales/en/messages.json": catalog_json(kind_ai_chip="AI", kind_ai_line="No AI here"),
+        "tests/locales/xx/messages.json": catalog_json(banner_undo="It uses AI"),
+        "README.md": "# Tag Kit\nA clean store.\n",
+        "docs/store/listing.mdx": "Made by humans.\n",
+        "docs/store/assets/graphics.css": ".chip { color: red; }\n/* AI-generated content */\n",
+        "docs/store/assets/tile.png": "\0slop",
+        "docs/adr/0001-example.mdx": "slop",
+    }
+    PROBLEMS: Final = (
+        "src/locales/en/messages.json: kind_ai_line: forbidden wording 'No AI' (rule 4)",
+        "tests/locales/xx/messages.json: banner_undo: forbidden wording 'uses AI' (rule 4)",
+        "README.md:2: forbidden wording 'clean' (rule 4)",
+        "docs/store/assets/graphics.css:2: forbidden wording 'AI-generated content' (rule 4)",
+        "docs/store/listing.mdx:1: forbidden wording 'humans' (rule 4)",
+    )

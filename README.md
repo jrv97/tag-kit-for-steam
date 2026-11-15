@@ -52,7 +52,7 @@ Each tag follows Steam's own words:
 - Family Sharing: Steam lists Family Sharing among the game's features, which Valve computes. The chip reads "Family Sharing", or "No Family Sharing" for a paid game whose list leaves it out. For that game the card reads "Family Sharing is not supported for this game" and "According to the features Steam lists for this game", and the banner and the settings keep Steam's words, "Family Sharing not Available".
 - Early Access: the developer set the game's release state to Early Access, and Steam flags the game. The chip reads "Early Access", and the card carries Steam's line "Early Access Game", the developer's note, the release date and, on the game's own page, the latest update post.
 
-The AI badge does not say a game uses AI, and the absence of a badge does not mean a game is AI-free: the report comes from the developer, and the badge marks what developers chose to report.
+The AI badge marks what the developer chose to report and claims nothing more. A game without the badge carries no claim either way: developers report their AI use themselves.
 
 ### On the store
 
