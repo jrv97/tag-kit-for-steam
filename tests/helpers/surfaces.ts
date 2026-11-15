@@ -1,6 +1,10 @@
+import { DATA_CANDIDATE } from "../../src/core/scan/candidates";
 import dlcRows from "../fixtures/app-page/1808500-ai-only.html?raw";
+import bundle from "../fixtures/surfaces/bundle/items.html?raw";
+import curator from "../fixtures/surfaces/curator/reviews.html?raw";
 import developer from "../fixtures/surfaces/developer/widgets.html?raw";
 import discoveryQueue from "../fixtures/surfaces/discovery-queue/player.html?raw";
+import franchise from "../fixtures/surfaces/franchise/page.html?raw";
 import home from "../fixtures/surfaces/home/capsules.html?raw";
 import nextFest from "../fixtures/surfaces/next-fest/feed.html?raw";
 import searchSuggestions from "../fixtures/surfaces/search-suggestions/popup.html?raw";
@@ -15,11 +19,20 @@ export const SURFACES = {
   "tag-hub": tagHub,
   "next-fest": nextFest,
   "developer": developer,
+  "curator": curator,
+  "bundle": bundle,
+  "franchise": franchise,
   "wishlist": wishlist,
   "search-suggestions": searchSuggestions,
   "dlc-rows": dlcRows,
   "discovery-queue": discoveryQueue,
 } as const;
+
+/** A store row for one app. A package row names several apps and carries a package ID. */
+export const APP_ROW = `${DATA_CANDIDATE}:not([data-ds-packageid])`;
+
+/** An included game's row on the captured bundle page. */
+export const BUNDLE_ROW = `.bundle_package_item ${APP_ROW}`;
 
 /** Replaces the global document's head and body with those of `html`. */
 export function loadPage(html: string): void {

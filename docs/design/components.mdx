@@ -1104,7 +1104,7 @@ A block at the top of a package page (`/sub/<id>/`) that sums up the chips of th
 
 ### When to use
 
-- On a list surface named in `SUMMARY_PLACEMENTS` (`scan/placements.ts`): the package page's included games first. An entry is the same `ListPlacement` shape as the hidden results notice: the selector of the element that holds the hosts and, in `after`, the store element the block follows. A bundle page is one more entry once a capture shows its markup.
+- On a list surface named in `SUMMARY_PLACEMENTS` (`scan/placements.ts`): the package page's included games first, then a bundle page's included items. An entry is the same `ListPlacement` shape as the hidden results notice: the selector of the element that holds the hosts, in `after` the store element the block follows, and in `before` a child of the list the block precedes; a list without that child gets no block. On a bundle page the block sits under the item heading ("Items included in this bundle"), right above the first row, inside the section it sums up, and counts the rows of the column that holds `.bundle_package_item`; a package row inside a bundle names several apps, gets no host and stays out of the count.
 - One line for each kind that at least one included game shows a chip for, in the tag order: disclosed, not ignored for the game (`isIgnored`, through the capsule UI's `allowed`), enabled and with its badge switch on. A kind with no such game has no line, never a zero.
 - With no line to show, there is no block and no label.
 

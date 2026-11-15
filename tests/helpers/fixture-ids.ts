@@ -132,6 +132,12 @@ export const SURFACE_APPS = {
   tagHub: appIds(632360, 3845070, 2124120),
   nextFest: appIds(5053640, 4783070, 4631870),
   developer: appIds(1902490, 546560),
+  /** The curator's first three reviews. */
+  curator: appIds(4322380, 4379590, 3405340),
+  /** The bundle's included games; the package row between them names two apps. */
+  bundle: appIds(240, 300),
+  /** The franchise's large carousel capsule, then its two sale widgets. */
+  franchise: appIds(360, 546560, 360),
   wishlist: appIds(5072580, 3664320),
   /** The DLC rows of the ARC Raiders page in `SURFACES["dlc-rows"]`. */
   dlcRows: appIds(5201760, 3948510, 4920260, 4210150, 4424920, 4741040),

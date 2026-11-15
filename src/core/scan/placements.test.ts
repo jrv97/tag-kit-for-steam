@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { GENERIC, PLACEMENTS } from "./placements";
+import { setBody } from "../../../tests/helpers/surfaces";
+import { findList, GENERIC, type ListPlacement, PLACEMENTS } from "./placements";
+
+describe("findList", () => {
+  const ROWS: ListPlacement = { id: "rows", list: "#list", before: ".row" };
+
+  it.each([
+    [
+      "finds the child the block goes before",
+      `<div id="list"><h2></h2><p class="row"></p></div>`,
+      "row",
+    ],
+    ["skips a list that lacks that child", `<div id="list"><h2></h2></div>`, undefined],
+  ])("%s", (_, markup, expected) => {
+    setBody(markup);
+    expect(findList(document, [ROWS])?.before.className).toBe(expected);
+  });
+});
 
 describe("PLACEMENTS", () => {
   it.each(PLACEMENTS.map((placement) => [placement.id, placement] as const))(

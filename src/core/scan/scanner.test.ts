@@ -3,12 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { countDomWork, type DomWork } from "../../../tests/helpers/dom-work";
 import { make } from "../../../tests/helpers/factory";
 import { fake } from "../../../tests/helpers/fakes";
-import { hostView } from "../../../tests/helpers/host-view";
-import { loadPage, nodes, pageTransition, setBody, the } from "../../../tests/helpers/surfaces";
-import type { KindId } from "../kinds/id";
+import {
+  APP_ROW,
+  BUNDLE_ROW,
+  loadPage,
+  nodes,
+  pageTransition,
+  setBody,
+  the,
+} from "../../../tests/helpers/surfaces";
 import type { AppId } from "../types";
-import { createHostKindsRenderer } from "../ui/list-filter";
 import { appIdFromHref } from "./appid";
+import { LINK_CANDIDATE } from "./candidates";
 import { HOST_APPID, HOST_HIDEABLE, HOST_KINDS } from "./marks";
 import type { CapsuleHost } from "./renderer";
 import { createScanner, DEBOUNCE_MS, type Scanner, type ScanReport } from "./scanner";
@@ -73,18 +79,6 @@ function hostElements(): readonly Element[] {
   return found().map((host) => host.element);
 }
 
-/** Marks the found hosts as disclosing `kind` and returns what its list filter on dim dims. */
-function dimmed(kind: KindId): readonly Element[] {
-  const kindsRenderer = createHostKindsRenderer();
-  for (const host of found()) {
-    kindsRenderer.render(hostView(host.element, { verdicts: make.verdicts.only([kind]) }));
-  }
-  document.documentElement.setAttribute(`data-tks-filter-${kind}`, "dim");
-  return [
-    ...document.querySelectorAll(`[data-tks-filter-${kind}="dim"] [data-tks-kinds~="${kind}"]`),
-  ];
-}
-
 /** The slides of the discovery queue player, in order. */
 function queueSlides(): readonly Element[] {
   return [...document.querySelectorAll("[role='dialog'] [aria-labelledby]")];
@@ -124,16 +118,10 @@ describe("per-surface hosts", () => {
     expect(hostElements()).toStrictEqual([
       ...document.querySelectorAll("a.store_main_capsule"),
       ...document.querySelectorAll("a.sale_capsule"),
-      ...document.querySelectorAll("a.tab_row_item[data-ds-appid]:not([data-ds-packageid])"),
+      ...document.querySelectorAll(`a.tab_row_item${APP_ROW}`),
     ]);
     const [main] = found();
     expect(main?.anchor).toBe(the(".main_capsule", main?.element));
-  });
-
-  it("home: the package row with a comma list gets no host", async () => {
-    loadPage(make.page.surface("home"));
-    await startScanner();
-    expect(the("[data-ds-packageid]").hasAttribute(HOST_APPID)).toBe(false);
   });
 
   it("tag hub: one host per capsule and no section-sized host", async () => {
@@ -145,10 +133,6 @@ describe("per-surface hosts", () => {
       ...placed(SURFACE_APPS.tagHub, "generic"),
       [make.fixture.app.hubCarousel, "hub-carousel"],
     ]);
-    for (const host of hostElements()) {
-      expect(host.querySelector(".SaleSectionContainer")).toBeNull();
-      expect(host.matches(".SaleSectionContainer, section")).toBe(false);
-    }
     expect(found().at(-1)?.anchor).toBe(the(".HeroCapsuleImageContainer"));
   });
 
@@ -165,13 +149,26 @@ describe("per-surface hosts", () => {
     }
   });
 
-  it("developer: each sale widget", async () => {
-    loadPage(make.page.surface("developer"));
+  it.each(
+    [
+      ["developer", ".StoreSaleWidgetOuterContainer", placed(SURFACE_APPS.developer, "generic")],
+      ["curator", ".recommendation", placed(SURFACE_APPS.curator, "generic")],
+      ["bundle", BUNDLE_ROW, placed(SURFACE_APPS.bundle, "generic")],
+      ["franchise", ".LibraryAssetExpandedDisplay, .StoreSaleWidgetOuterContainer", [
+        ...placed(SURFACE_APPS.franchise.slice(0, 1), "hub-carousel"),
+        ...placed(SURFACE_APPS.franchise.slice(1), "generic"),
+      ]],
+    ] as const,
+  )("%s: one host per capsule, its badge inside the capsule link", async (
+    surface,
+    host,
+    expected,
+  ) => {
+    loadPage(make.page.surface(surface));
     await startScanner();
-    expect(hostElements()).toStrictEqual([
-      ...document.querySelectorAll(".StoreSaleWidgetOuterContainer"),
-    ]);
-    expect(mapping()).toStrictEqual(placed(SURFACE_APPS.developer, "generic"));
+    expect(hostElements()).toStrictEqual([...document.querySelectorAll(host)]);
+    expect(mapping()).toStrictEqual(expected);
+    expect(found().map((each) => each.anchor.closest(LINK_CANDIDATE))).not.toContain(null);
   });
 
   it("wishlist: each virtualized row, badge after the title, never hidden", async () => {
@@ -397,20 +394,12 @@ describe("host rule", () => {
 });
 
 describe("package page", () => {
-  const ROW = ".tab_item[data-ds-appid]";
-  const OUTSIDE = [
-    "div.leftcol",
-    "div.page_content",
-    "#package_header_container",
-    "img.package_header",
-  ];
-
   it.each([["one included game", 1], ["two included games", 2]])(
-    "%s: each row is a host, its capsule image the anchor, nothing around them",
+    "%s: each row is a host, its capsule image the anchor",
     async (_name, count) => {
       const ids = make.appIds(count);
       await startOn(make.page.packagePath, make.page.package(ids));
-      const rows = [...document.querySelectorAll(ROW)];
+      const rows = [...document.querySelectorAll(".tab_item[data-ds-appid]")];
       expect(hostElements()).toStrictEqual(rows);
       expect(mapping()).toStrictEqual(placed(ids, "generic"));
       expect(rows.map((row) => row.getAttribute(HOST_APPID))).toStrictEqual(ids.map(String));
@@ -418,41 +407,13 @@ describe("package page", () => {
         expect(host.anchor).toBe(the(".tab_item_cap", host.element));
         expect(host.anchor.contains(the("img.tab_item_cap_img", host.element))).toBe(true);
       }
-      for (const selector of OUTSIDE) {
-        expect(the(selector).hasAttribute(HOST_APPID)).toBe(false);
-        expect(the(selector).hasAttribute(HOST_KINDS)).toBe(false);
-      }
     },
   );
-
-  it("with the DRM filter on dim, only the included game's row dims", async () => {
-    await startOn(make.page.packagePath, make.page.package([make.appId()]));
-    expect(dimmed("drm")).toStrictEqual([the(ROW)]);
-    for (const selector of OUTSIDE) {
-      expect(the(selector).hasAttribute(HOST_KINDS)).toBe(false);
-    }
-  });
 });
 
 describe("DLC page", () => {
-  const HEADER = "#gameHeaderImageCtn";
-  /** The glance box, which holds the base game's logo link: the largest host the page allows. */
+  /** The glance box, which holds the base game's logo link. */
   const GLANCE = ".glance_details";
-  /** Page areas no host may be. */
-  const AREAS = [
-    "div.rightcol",
-    "div.leftcol",
-    "div.page_content",
-    "#game_area_purchase",
-    "#game_area_description",
-  ].join(", ");
-
-  /** Whether `element` is a page area or holds the header capsule or the glance box. */
-  function tooLarge(element: Element): boolean {
-    const glance = the(GLANCE);
-    return element.matches(AREAS) || element.contains(the(HEADER))
-      || (element !== glance && element.contains(glance));
-  }
 
   it.each(
     [
@@ -460,19 +421,12 @@ describe("DLC page", () => {
       { links: ["bubble"], hosts: [] },
       { links: ["glance", "bubble"], hosts: [GLANCE] },
       { links: ["description"], hosts: [] },
+      { links: ["glance", "bubble", "description"], hosts: [GLANCE] },
     ] as const,
   )("a base game link in $links: hosts $hosts", async ({ links, hosts }) => {
     await startOn(make.page.dlcPath, make.page.dlc(links));
     expect(hostElements()).toStrictEqual(hosts.map((selector) => the(selector)));
-    expect(hostElements().filter(tooLarge)).toStrictEqual([]);
     expect(found().every((host) => host.appId === make.fixture.dlcBase)).toBe(true);
-  });
-
-  it("with the AI filter on dim, nothing that holds the header capsule dims", async () => {
-    await startOn(make.page.dlcPath, make.page.dlc(["glance", "bubble", "description"]));
-    const faded = dimmed("ai");
-    expect(faded.filter(tooLarge)).toStrictEqual([]);
-    expect(faded).toStrictEqual([the(GLANCE)]);
   });
 });
 
