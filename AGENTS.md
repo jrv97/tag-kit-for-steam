@@ -39,11 +39,13 @@ These are hard rules. A change that breaks one needs an ADR first.
    developer-declared kind, has such an exception. A tag uses Steam's own words for its kind and
    names its source: the developer, or Valve for what Valve computes. Our own copy never says
    "uses AI", "AI-free" or "no AI", and states nothing about a game beyond Steam's words and data,
-   apart from that qualified exception. The developer's own text is rendered verbatim through
-   `textContent`. A person may replace a kind's chip text with their own words (ADR 0017); the
-   hover card, the banner's headings, the settings heading and the package summary keep Steam's
-   words, every chip's accessible name begins with the chip's visible text and then gives Steam's
-   words, and the person's text is rendered through `textContent` and never enters a catalog.
+   apart from that qualified exception. The developer's own text is rendered verbatim, each word
+   a text node and never parsed as HTML; a field Steam stores as BBCode shows Steam's formatting
+   for a fixed set of tags, with a link's words but no link and no picture (ADR 0030). A person
+   may replace a kind's chip text with their own words (ADR 0017); the hover card, the banner's
+   headings, the settings heading and the package summary keep Steam's words, every chip's
+   accessible name begins with the chip's visible text and then gives Steam's words, and the
+   person's text is rendered through `textContent` and never enters a catalog.
    A tag also has a key, our short name, which names it only where the settings navigate: the
    tab labels, the Tag order rows and the toolbar popup's rows (ADR 0023). Steam's heading stays
    wherever the tag makes its claim: the hover card, the banner, the tab panel's title, the

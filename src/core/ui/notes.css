@@ -1,0 +1,70 @@
+/* The formatting of a developer's BBCode notes, in the hover card and the banner (ui/notes.ts).
+   Rules match classes, never tags: the hover card's reset unsets every element it holds, and
+   these rules come after it. */
+
+.tks-bb-bold,
+.tks-bb-heading {
+  font-weight: var(--tks-weight-bold);
+}
+
+.tks-bb-italic {
+  font-style: italic;
+}
+
+.tks-bb-underline {
+  text-decoration: underline;
+}
+
+.tks-bb-strike {
+  text-decoration: line-through;
+}
+
+/* Hidden as on the store, and shown under the pointer */
+.tks-bb-spoiler {
+  background: var(--tks-color-text);
+  color: transparent;
+}
+
+.tks-bb-spoiler:hover {
+  background: none;
+  color: inherit;
+}
+
+.tks-bb-heading,
+.tks-bb-quote,
+.tks-bb-code,
+.tks-bb-list {
+  display: block;
+  margin: 0;
+}
+
+.tks-bb-quote {
+  padding-inline-start: var(--tks-space-2);
+  border-inline-start: 1px solid var(--tks-color-divider);
+}
+
+.tks-bb-code {
+  font-family: ui-monospace, monospace;
+  font-style: normal;
+  white-space: pre-wrap;
+}
+
+.tks-bb-list {
+  padding-inline-start: var(--tks-space-4);
+  list-style: disc outside;
+}
+
+ol.tks-bb-list {
+  list-style-type: decimal;
+}
+
+.tks-bb-item {
+  display: list-item;
+}
+
+.tks-bb-rule {
+  display: block;
+  margin: var(--tks-space-1) 0;
+  border: 0;
+  border-block-start: 1px solid var(--tks-color-divider);
+}

@@ -7,7 +7,7 @@ import type { MessageCatalog } from "../ports";
 import { createElement } from "./element";
 import { KIND_ATTRIBUTE } from "./kind-attributes";
 import { fromValve, fullGameLine, type KindDetail, kindDetails, sourceLine } from "./kind-details";
-import { normalizeBreaks } from "./notes";
+import { fillNotes } from "./notes";
 
 /** The card's id, the target of `aria-describedby` while focus holds it open. */
 export const HOVER_CARD_ID = "tks-hovercard";
@@ -245,7 +245,8 @@ export function createHoverCard(
       case "text":
         return line("tks-hovercard-detail", detail.text);
       case "quote": {
-        const quote = line("tks-hovercard-notes", normalizeBreaks(detail.text));
+        const quote = createElement(doc, "div", "tks-hovercard-notes");
+        fillNotes(quote, detail.text, detail.markup);
         quotes.push(quote);
         return quote;
       }

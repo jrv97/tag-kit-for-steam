@@ -40,7 +40,7 @@ describe("kindDetails", () => {
   const drm = make.verdict.disclosed("drm", { text: drmText, activationLimit: limit });
   const { activationLimit: _limit, ...unlimitedDrm } = drm;
   const account = make.verdict.disclosed("account", { text: accountText });
-  const AI_NOTES: KindDetail = { kind: "quote", text: notes };
+  const AI_NOTES: KindDetail = { kind: "quote", text: notes, markup: "plain" };
   const DRM_TEXT: KindDetail = { kind: "text", text: drmText };
   const ACCOUNT_TEXT: KindDetail = { kind: "text", text: accountText };
 
@@ -97,7 +97,7 @@ describe("kindDetails", () => {
     const { released, updated } = make.fixture;
     const noted = make.verdict.disclosed("earlyaccess", { note, released });
     const { note: _note, released: _released, ...bare } = noted;
-    const NOTE: KindDetail = { kind: "quote", text: note };
+    const NOTE: KindDetail = { kind: "quote", text: note, markup: "bbcode" };
     const RELEASED: KindDetail = {
       kind: "dated",
       key: "kind_earlyaccess_released",

@@ -220,6 +220,8 @@
   line-clamp: var(--tks-hovercard-notes-lines);
 }
 
+@import "./notes.css";
+
 .tks-hovercard-service-name {
   color: var(--tks-color-text);
 }

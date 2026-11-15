@@ -25,7 +25,7 @@ Every class, attribute and custom property starts with `tks-`.
 
 1. **Label the report, never judge it.** A report can cover one marketing image or live generated gameplay, and some notes say AI was barely used. Attribute every fact to the developer ("reported", "named by the developer", "in the developer's own words"). No red, no warning triangles. Our own colors carry no verdict. A person's custom tag color (experimental, decision 49) is their pick for that tag, so it changes how a tag looks and never what it says.
 2. **Nothing for absence.** "Not disclosed" and "unknown" render nothing: no neutral chip, no check mark. The host's `data-tks-kinds` leaves them out.
-3. **Quote verbatim.** The developer's notes are data: set with `textContent` and `white-space: pre-line`, never translated, summarized or highlighted.
+3. **Quote verbatim.** The developer's notes are data: set as text nodes with `white-space: pre-line`, never translated, summarized or highlighted. A note Steam stores as BBCode keeps Steam's formatting through `tks-bb-*` classes (ADR 0030).
 4. **Feel native.** Look and behave as close to the store's own UI as possible: its sizes, type, neutrals, surfaces and interaction patterns, so injected UI has no seam. Model each store-page component on its closest store element (the banner on the notice bubbles, the full badge on the tag chips, the compact badge on the corner flags, the tag section on the store's tag row). Only the violet hue marks a component as ours, so nobody mistakes it for a store feature. A person can swap the violet for their own color per tag (experimental, decision 49); the defaults stay violet.
 5. **Never block.** No modals over store pages, no overlays over content, no focus stealing, no layout shift after a component's first paint.
 6. **Copy lives in catalogs.** Components hold message keys, never text. Leave room for translations about 40% longer than English.
@@ -983,7 +983,7 @@ Preview: `previews/HoverCard.html`.
 <div class="tks-hovercard" id="tks-hovercard" role="tooltip" popover="manual" data-tks-side="below" hidden>
   <div class="tks-hovercard-entry">
     <p class="tks-hovercard-title">t('kind_ai_heading')</p>
-    <p class="tks-hovercard-notes">notes, verbatim</p>
+    <div class="tks-hovercard-notes">notes, verbatim</div>
     <p class="tks-hovercard-service">t('badge_card_service_label') <span class="tks-hovercard-service-name">service</span></p>
   </div>
   <div class="tks-hovercard-entry">

@@ -117,11 +117,11 @@ from repo import (
 
 KIB = 1024
 BUDGETS = {
-    **{DIST / target / "content.js": 245 * KIB for target in EXTENSION_TARGETS},
+    **{DIST / target / "content.js": 250 * KIB for target in EXTENSION_TARGETS},
     **{DIST / target / "options.js": 260 * KIB for target in EXTENSION_TARGETS},
     **{DIST / target / "announce.js": 1 * KIB for target in EXTENSION_TARGETS},
     **{DIST / target / "background.js": 1 * KIB for target in EXTENSION_TARGETS},
-    DIST / "userscript" / f"{SLUG}.user.js": 430 * KIB,
+    DIST / "userscript" / f"{SLUG}.user.js": 440 * KIB,
 }
 # The one background script each build ships (rule 3, ADR 0027).
 BACKGROUND = {

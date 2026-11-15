@@ -5,6 +5,7 @@ import { pvpCategoryMessage } from "../kinds/pvp";
 import { KIND_BY_ID } from "../kinds/registry";
 import type { AnyDisclosed } from "../kinds/verdicts";
 import type { MessageCatalog } from "../ports";
+import type { NotesMarkup } from "./notes";
 
 /** One line of a kind's entry in the hover card or the banner, below its heading. */
 export type KindDetail =
@@ -12,8 +13,8 @@ export type KindDetail =
   | { readonly kind: "message"; readonly key: BareMessageKey; }
   /** The developer's short text, set verbatim. */
   | { readonly kind: "text"; readonly text: string; }
-  /** The developer's long text, set verbatim and clamped. */
-  | { readonly kind: "quote"; readonly text: string; }
+  /** The developer's long text, plain or in Steam's BBCode, and clamped. */
+  | { readonly kind: "quote"; readonly text: string; readonly markup: NotesMarkup; }
   /** A catalog label followed by the developer's text. */
   | { readonly kind: "labeled"; readonly key: BareMessageKey; readonly text: string; }
   /** A catalog line holding a date, given in Unix seconds and formatted by the surface. */
@@ -24,7 +25,11 @@ type DateMessageKey = "kind_earlyaccess_released" | "kind_earlyaccess_updated";
 
 const message = (key: BareMessageKey): KindDetail => ({ kind: "message", key });
 const text = (value: string): KindDetail => ({ kind: "text", text: value });
-const quote = (value: string): KindDetail => ({ kind: "quote", text: value });
+const quote = (value: string, markup: NotesMarkup): KindDetail => ({
+  kind: "quote",
+  text: value,
+  markup,
+});
 const labeled = (key: BareMessageKey, value: string): KindDetail => ({
   kind: "labeled",
   key,
@@ -50,7 +55,7 @@ export function kindDetails(verdict: AnyDisclosed): readonly KindDetail[] {
   switch (verdict.kind) {
     case "ai":
       return [
-        quote(verdict.notes),
+        quote(verdict.notes, "plain"),
         ...(present(verdict.service) ? [labeled("badge_card_service_label", verdict.service)] : []),
       ];
     case "kernel":
@@ -84,9 +89,9 @@ export function kindDetails(verdict: AnyDisclosed): readonly KindDetail[] {
         ? [message("kind_family_unsupported_line")]
         : facetLines(verdict);
     case "earlyaccess":
-      // The developer's note verbatim, then the release date, then the app page's latest update.
+      // The developer's note in its BBCode, then the release date, then the latest update.
       return [
-        ...(present(verdict.note) ? [quote(verdict.note)] : []),
+        ...(present(verdict.note) ? [quote(verdict.note, "bbcode")] : []),
         ...dated("kind_earlyaccess_released", verdict.released),
         ...dated("kind_earlyaccess_updated", verdict.updated),
       ];
