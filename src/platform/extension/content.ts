@@ -28,7 +28,7 @@ const app = start({
 
 // Listening from the first moment, so a popup opened while the app starts still connects
 const progress = followProgress(
-  app.then((running) => running.progress, (problem: unknown) => {
+  app.catch((problem: unknown) => {
     console.error(problem);
     return undefined;
   }),

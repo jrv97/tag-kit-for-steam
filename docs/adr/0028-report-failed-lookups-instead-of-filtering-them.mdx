@@ -1,0 +1,106 @@
+---
+status: accepted
+date: 2026-11-15
+decision-makers: Jorge Rodriguez de la Vega
+---
+
+# Report failed lookups instead of filtering them
+
+## Context and problem statement
+
+A tag's list filter dims or hides the games that carry the tag. A game whose lookup failed carries no tag, and Dim and Hide leave it at full opacity next to the games Steam answered for. A request that broke, a breaker pause that outlived the retry rounds or a malformed answer look the same as a clean game. A person who set AI to Hide sees a list that looks filtered and is not.
+
+Rule 4 says unknown is never stored or shown as not disclosed. Treating a failure as disclosed is just as wrong: the game may not carry the tag at all. How should Dim and Hide treat a game whose lookup failed, and how does a person learn about it?
+
+## Decision drivers
+
+- Rule 4: three verdict states, and unknown never reads as either answer.
+- Principle 2 of the design (`docs/design/components.mdx`): nothing renders for absence. A failure is an absence of data.
+- Rule 18: turning something off never moves the layout, and the load strip keeps one height.
+- Rule 13: no polling, no per-node listeners, the count read from marks the renderers write.
+- A failure should be recoverable without a reload, at the cost of one GetItems batch.
+
+## Considered options
+
+1. Keep the current behavior: a failed game shows like a clean one.
+2. Dim unknown games under both Dim and Hide.
+3. Unknown games follow the mode fully: dimmed under Dim, hidden under Hide.
+4. A new global setting that picks one of the above.
+5. Never filter a failed game; report the count in the hidden results notice and offer Check again in the load strip (chosen).
+6. A "Not checked" marker on each failed capsule.
+
+## Decision outcome
+
+Chosen option 5. A failed game is neither dimmed nor hidden. The list filter keeps leaving unknown kinds out of `data-tks-kinds`, and no style rule changes.
+
+- A failure is an unknown with the reason `error` or `rate-limited` after its last retry round, or `malformed` (`isFailed` in `cache/ttl.ts`). `gated` and `missing` mean Steam gave an answer with no data for the kind; reporting them would flag the same games on every page view for as long as Steam keeps them that way, and Check again could never clear them. `unrequested` was never asked.
+- The host renderer writes `data-tks-failed` with the failed kinds that are not ignored, and none while a retry round is ahead. No CSS reads it.
+- On a list surface, the hidden results notice adds "2 titles could not be checked." (`notice_list_failed`) for the kinds on Dim or Hide, even when nothing is hidden. A kind on Off filters nothing, and its failures go unreported there.
+- `LoadProgress` gains `failed`, the answered games with a failed kind. In `done` with `failed` above zero, the load strip of the toolbar popup and the userscript dialog says "Tags loaded for 46 games. 2 could not be checked" (`options_progress_done_failed`) and shows a quiet Check again button in the count's place: a 16px box on its line with a 24px hit area. The popup posts `tks-recheck` on the progress port; the dialog calls the running app.
+- `App.recheck` takes from the capsules and the app page the games whose lookup failed for good. The tracker counts them as waiting and stops counting as failed the games no host on the page shows any more. The cache drops their failed entries in one call (`VerdictCache.forgetFailed`), a demo's full game included when the game's own entry failed, and an entry that did not fail stays. Each surface then detects its games in one call, with the retry rounds they have left. While the GetItems breaker pause holds, those calls wait for it to end on one timer, so a press during the pause shows the strip's countdown and then sends its batch. The strip takes one press per progress it hears, and a surface skips games whose lookup still runs.
+
+### Library check (rule 12)
+
+Nothing adopted. The change is a reason table, one attribute, one counted set and one port message over code the project has.
+
+### Accepted trade-offs
+
+- A recheck resets no retry rounds, so one press costs one GetItems batch. A game that answers `error` or `rate-limited` again stays failed until the next press.
+- Check again stays on offer while the GetItems pause holds. A press then waits out the pause before it asks. A disabled button would need its own copy to say why, and a second press once the pause ends.
+- Games past the HTML fallback budget answer `rate-limited` for the page view (`detect/budget.ts`). They count as failed, and each press spends one GetItems batch on them that may change nothing.
+- `forgetFailed` drops a `malformed` entry before its 6 h cache life ends, for one request.
+- A game whose host left the page still counts as failed until the next press, so Check again can show once for a game nothing on the page asks about.
+- A title that is hidden for one kind and failed for another counts in both sentences of the notice: both are true of it.
+
+### Consequences
+
+- Good: no failed game reads as filtered or as clean once the page says how many could not be checked, and no copy claims anything about a game.
+- Good: no style rule, setting or stored value is added, and a failure costs one attribute per host.
+- Good: a failure after a breaker pause clears without a reload.
+- Bad: the notice reports a count and names no title; a person cannot point at the failed row from the list.
+- Bad: Check again lives in the popup and the dialog, one step away from the list that reports the count.
+- Neutral: a list surface outside `LIST_PLACEMENTS` reports nothing; the load strip still offers Check again there.
+
+### Confirmation
+
+Unit tests cover the reasons table (`ttl.test.ts`), the renderer's `data-tks-failed` (`list-filter.test.ts`), the notice's failed sentence, order, focus, live region and reveal end (`hidden-notice.test.ts`), the progress count and its recheck (`progress.test.ts`), the port message (`progress-port.test.ts`), `forgetFailed` and `forgetQuietly` (`verdict-cache.test.ts`, `cached-detector.test.ts`), what each surface takes to recheck (`capsules.test.ts`, `app-page.test.ts`) and the strip's message, button, single press and focus (`load-strip.test.ts`). Every `ProgressSource` passes one contract (`tests/contracts/progress-source.contract.ts`). One `app.test.ts` case runs a malformed row through the notice and two presses of Check again to its tags with one GetItems call; another presses Check again during the GetItems pause and sees one batch go out once it ends.
+
+## Pros and cons of the options
+
+### 1. Keep as is
+
+- Good: no work.
+- Bad: under Hide a failed game sits among the results as if Steam had cleared it.
+
+### 2. Dim unknown under Dim and Hide
+
+- Good: a failed game stands out from a clean one.
+- Bad: a dimmed game reads as one that carries the tag, which breaks rule 4.
+- Bad: during a breaker pause every row of a page dims at once.
+
+### 3. Unknown follows the mode
+
+- Good: the filter errs on the side the person asked for.
+- Bad: rule 4, harder than option 2: a hidden game is gone from the list on a guess.
+- Bad: a network fault empties a search page under Hide.
+
+### 4. A new global setting
+
+- Good: each person picks options 1, 2 or 3.
+- Bad: every choice it offers but option 1 breaks rule 4, and option 1 is the problem.
+- Bad: one more setting to explain, store and back up.
+
+### 5. Report in the notice and the load strip
+
+- Good: rule 4 holds, nothing renders on a capsule and a failure can be cleared.
+- Bad: the report is a count, and the action sits in the popup or dialog.
+
+### 6. A "Not checked" marker on each capsule
+
+- Good: a person sees which titles failed.
+- Bad: it renders something for absence, against principle 2.
+- Bad: a breaker pause would stamp dozens of capsules at once, and each marker is copy beside a game that says nothing Steam said.
+
+## More information
+
+- Related: [ADR 0016 (derive Family Sharing from Valve's list)](0016-derive-family-sharing-from-valves-list.mdx), the one kind that may derive a value from a list that lacks its category; it does not apply to a failed lookup.

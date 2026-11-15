@@ -59,6 +59,17 @@ type PerKindVerdicts = {
  */
 export type KindVerdicts = PerKindVerdicts & Relations & Provenance;
 
+/** The full game of a demo; undefined for any other app, a DLC included. */
+export function fullGameOf(verdicts: KindVerdicts): AppId | undefined {
+  return verdicts.demo === true ? verdicts.parent : undefined;
+}
+
+/** The apps whose cached answers a recheck of `id` drops: the app, and a demo's full game. */
+export function recheckIds(id: AppId, verdicts: KindVerdicts): readonly AppId[] {
+  const game = fullGameOf(verdicts);
+  return game === undefined ? [id] : [id, game];
+}
+
 /** Relations as read from data: each one may be missing. */
 export type FoundRelations = { readonly [Key in keyof Relations]?: Relations[Key] | undefined; };
 

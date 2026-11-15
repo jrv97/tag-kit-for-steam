@@ -12,6 +12,12 @@ export const HOST_APPID = "data-tks-appid";
  * list filter and the layout rules match one id with `~=`.
  */
 export const HOST_KINDS = "data-tks-kinds";
+/**
+ * On each host whose lookup failed for good: the kinds that failed and are not ignored, as kind
+ * ids separated by spaces in registry order. The hidden results notice counts them; no style reads
+ * it.
+ */
+export const HOST_FAILED = "data-tks-failed";
 /** On hosts whose placement must not be hidden (`"false"`); the list filter dims them instead. */
 export const HOST_HIDEABLE = "data-tks-hideable";
 

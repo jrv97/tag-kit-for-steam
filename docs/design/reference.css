@@ -284,6 +284,15 @@
   display: none !important;
 }
 
+/* A sentence or button the bar does not need now */
+.tks-list-notice [hidden] {
+  display: none !important;
+}
+
+.tks-list-notice-failed:not([hidden]) ~ .tks-list-notice-text {
+  margin-inline-start: var(--tks-space-1);
+}
+
 .tks-list-notice-button {
   margin-inline-start: var(--tks-space-1);
   color: var(--tks-store-notice-fg);

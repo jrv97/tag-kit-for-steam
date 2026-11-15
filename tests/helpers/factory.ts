@@ -148,7 +148,7 @@ import {
 /** A page's load progress with fresh counts, one game still loading; overrides win. */
 function loadProgress(overrides: Partial<LoadProgress> = {}): LoadProgress {
   const total = freshCount();
-  return { total, answered: total - 1, unknown: 0, ...overrides };
+  return { total, answered: total - 1, unknown: 0, failed: 0, ...overrides };
 }
 
 /**

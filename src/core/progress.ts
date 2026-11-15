@@ -1,4 +1,4 @@
-import { isTransient } from "./cache/ttl";
+import { failedForGood, isTransient } from "./cache/ttl";
 import { KINDS } from "./kinds/registry";
 import type { KindVerdicts } from "./kinds/verdicts";
 import type { Unsubscribe } from "./ports";
@@ -12,16 +12,36 @@ export interface LoadProgress {
   readonly answered: number;
   /** The answered games with no known kind, after their retry rounds or in a final answer. */
   readonly unknown: number;
+  /** The answered games whose lookup failed for some kind for good (`failedForGood`). */
+  readonly failed: number;
   /** When GetItems requests go out again (epoch milliseconds), while Steam's limit holds them. */
   readonly pausedUntil?: number;
 }
 
 /** What the capsule UI and the app page report about the games they ask for. */
 export interface LoadTracker {
-  /** Counts the games not seen before; a game asked for again keeps its state until it lands. */
+  /**
+   * Counts the games not seen before. A game asked for again keeps its state until it lands,
+   * unless its lookup failed: it waits again.
+   */
   asked(ids: Iterable<AppId>): void;
   /** Records a game's answer; `retrying` when a retry round will ask for it again. */
   answered(id: AppId, verdicts: KindVerdicts, retrying: boolean): void;
+  /**
+   * Counts the failed games among `ids` as waiting again, as a recheck asks for them, and stops
+   * counting the other failed games as failed: no host on the page asks for them now.
+   */
+  recheck(ids: Iterable<AppId>): void;
+}
+
+/** The games one surface asks again after their lookup failed for good. */
+export interface Recheck {
+  /** The games asked again. */
+  readonly games: readonly AppId[];
+  /** The apps whose failed answers the cache drops first (`recheckIds`). */
+  readonly forget: readonly AppId[];
+  /** Asks about the games again, once the cache dropped `forget`. */
+  lookUp(): void;
 }
 
 /** The page's progress and its changes. */
@@ -31,32 +51,46 @@ export interface LoadProgressFeed {
   subscribe(listener: (progress: LoadProgress) => void): Unsubscribe;
 }
 
+/** A running page's progress, and a way to ask its failed games again. */
+export interface PageProgress {
+  readonly progress: LoadProgressFeed;
+  /** Asks again, past the cache, about the games whose lookup failed for good. */
+  recheck(): void;
+}
+
 /** What a load strip follows: a page's progress, or `undefined` when no store page answers. */
 export interface ProgressSource {
   /** Hears the progress now and each change after it, until the returned call stops it. */
   subscribe(listener: (progress: LoadProgress | undefined) => void): Unsubscribe;
+  /** Asks the page to look up its failed games again; nothing happens without a page. */
+  recheck(): void;
 }
 
 /**
  * The progress of an app that is starting: its snapshot once it runs, then each change. An app
  * that failed to start is `undefined`, heard as no store page.
  */
-export function followProgress(feed: Promise<LoadProgressFeed | undefined>): ProgressSource {
+export function followProgress(page: Promise<PageProgress | undefined>): ProgressSource {
   return {
     subscribe(listener) {
       let unsubscribe: Unsubscribe | undefined;
       let open = true;
-      void feed.then((running) => {
+      void page.then((running) => {
         if (!open) {
           return;
         }
-        listener(running?.snapshot());
-        unsubscribe = running?.subscribe(listener);
+        listener(running?.progress.snapshot());
+        unsubscribe = running?.progress.subscribe(listener);
       });
       return () => {
         open = false;
         unsubscribe?.();
       };
+    },
+    recheck() {
+      void page.then((running) => {
+        running?.recheck();
+      });
     },
   };
 }
@@ -71,18 +105,19 @@ function tellsAnything(verdicts: KindVerdicts): boolean {
 
 function sameProgress(a: LoadProgress, b: LoadProgress): boolean {
   return a.total === b.total && a.answered === b.answered && a.unknown === b.unknown
-    && a.pausedUntil === b.pausedUntil;
+    && a.failed === b.failed && a.pausedUntil === b.pausedUntil;
 }
 
 /**
- * One progress record per page. It keeps a state per game and running counts, so a snapshot
- * costs no walk, and it tells listeners once per microtask however many games landed.
- * `pausedUntil` reads the GetItems breaker's pause when a snapshot is taken.
+ * One progress record per page. It keeps a state per game, the set of failed games and running
+ * counts, so a snapshot costs no walk, and it tells listeners once per microtask however many
+ * games landed. `pausedUntil` reads the GetItems breaker's pause when a snapshot is taken.
  */
 export function createLoadProgress(
   pausedUntil: () => number | undefined,
 ): LoadTracker & LoadProgressFeed {
   const games = new Map<AppId, GameState>();
+  const failed = new Set<AppId>();
   let answered = 0;
   let unknown = 0;
   const listeners = new Set<(progress: LoadProgress) => void>();
@@ -91,7 +126,7 @@ export function createLoadProgress(
 
   function snapshot(): LoadProgress {
     const until = pausedUntil();
-    const counts = { total: games.size, answered, unknown };
+    const counts = { total: games.size, answered, unknown, failed: failed.size };
     return until === undefined ? counts : { ...counts, pausedUntil: until };
   }
 
@@ -130,14 +165,27 @@ export function createLoadProgress(
     games.set(id, next);
   }
 
+  function asked(ids: Iterable<AppId>): void {
+    for (const id of ids) {
+      const wasFailed = failed.delete(id);
+      if (!games.has(id) || wasFailed) {
+        move(id, "waiting");
+      }
+    }
+    changed();
+  }
+
   return {
-    asked(ids) {
-      for (const id of ids) {
-        if (!games.has(id)) {
-          move(id, "waiting");
+    asked,
+
+    recheck(ids) {
+      const due = new Set(ids);
+      for (const id of failed) {
+        if (!due.has(id)) {
+          failed.delete(id);
         }
       }
-      changed();
+      asked(due);
     },
 
     answered(id, verdicts, retrying) {
@@ -148,6 +196,11 @@ export function createLoadProgress(
         next = "unknown";
       }
       move(id, next);
+      if (failedForGood(verdicts, next === "retrying")) {
+        failed.add(id);
+      } else {
+        failed.delete(id);
+      }
       changed();
     },
 

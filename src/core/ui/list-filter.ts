@@ -1,35 +1,33 @@
+import { isFailed } from "../cache/ttl";
 import { KINDS } from "../kinds/registry";
-import { HOST_HIDEABLE, HOST_KINDS } from "../scan/marks";
+import { HOST_FAILED, HOST_HIDEABLE, HOST_KINDS } from "../scan/marks";
 import type { HostRenderer } from "./host";
-import { setAttributeOnce } from "./kind-attributes";
+import { setOrRemove } from "./kind-attributes";
 
 /**
- * Records on each host which kinds it carries, for the list filter and the layout rules:
- * `data-tks-kinds` holds the ids of the kinds tagged for the game (disclosed, with a chosen value
- * for a kind with values, and not ignored), and `data-tks-hideable="false"` marks hosts where
- * hiding would break the list. The style rules turn the root's per-kind filters into dim or hide
- * on these hosts (`applyKindSettings`). Writes only what changed, so a rescan or a setting change
- * causes no mutation churn.
+ * Marks each host for the list filter: `data-tks-kinds` holds its tagged kinds, `data-tks-failed`
+ * the kinds whose lookup failed for good, and `data-tks-hideable="false"` a host that cannot hide.
+ * It writes only what changed, so a rescan or a setting change causes no mutation churn.
  */
 export function createHostKindsRenderer(): HostRenderer {
   return {
-    render({ host, verdicts, allowed, hideable }) {
-      let present = "";
+    render({ host, verdicts, allowed, hideable, pending }) {
+      const present: string[] = [];
+      const failed: string[] = [];
       for (const kind of KINDS) {
-        if (verdicts[kind.id].state === "disclosed" && !allowed[kind.id]) {
-          present = present === "" ? kind.id : `${present} ${kind.id}`;
+        const verdict = verdicts[kind.id];
+        if (allowed[kind.id]) {
+          continue;
+        }
+        if (verdict.state === "disclosed") {
+          present.push(kind.id);
+        } else if (!pending && isFailed(verdict)) {
+          failed.push(kind.id);
         }
       }
-      if (present === "") {
-        host.removeAttribute(HOST_KINDS);
-      } else {
-        setAttributeOnce(host, HOST_KINDS, present);
-      }
-      if (hideable) {
-        host.removeAttribute(HOST_HIDEABLE);
-      } else {
-        setAttributeOnce(host, HOST_HIDEABLE, String(false));
-      }
+      setOrRemove(host, HOST_KINDS, present.join(" "));
+      setOrRemove(host, HOST_FAILED, failed.join(" "));
+      setOrRemove(host, HOST_HIDEABLE, hideable ? "" : String(false));
     },
   };
 }

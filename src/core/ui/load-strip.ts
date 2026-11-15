@@ -1,7 +1,7 @@
-import type { Delay } from "../detect/retry";
+import { type Delay, timeout } from "../detect/retry";
 import type { MessageCatalog } from "../ports";
 import type { LoadProgress, ProgressSource } from "../progress";
-import { createElement } from "./element";
+import { createElement, quietButton } from "./element";
 
 /** The strip's five states, as its `data-tks-load` attribute names them. */
 type StripState = "loading" | "paused" | "done" | "empty" | "none";
@@ -15,6 +15,8 @@ interface StripView {
   readonly count: string;
   readonly answered: number;
   readonly total: number;
+  /** Whether the Check again button takes the count's place. */
+  readonly recheck: boolean;
 }
 
 export interface LoadStripOptions {
@@ -37,12 +39,8 @@ const STATE_ATTRIBUTE = "data-tks-load";
 const SHARE_PROPERTY = "--tks-load-share";
 const MS_PER_SECOND = 1000;
 
-function timeout(callback: () => void, ms: number): () => void {
-  const id = setTimeout(callback, ms);
-  return () => {
-    clearTimeout(id);
-  };
-}
+/** The parts of a view with nothing to count. */
+const NOTHING = { seconds: "", count: "", answered: 0, total: 0, recheck: false } as const;
 
 /** The view of a progress at `now`; undefined progress is a tab with no store page. */
 function viewOf(
@@ -53,15 +51,15 @@ function viewOf(
 ): StripView {
   if (progress === undefined) {
     const message = i18n.t("options_progress_no_page");
-    return { state: "none", message, seconds: "", count: "", answered: 0, total: 0 };
+    return { ...NOTHING, state: "none", message };
   }
-  const { total, answered, unknown, pausedUntil } = progress;
+  const { total, answered, unknown, failed, pausedUntil } = progress;
   if (total === 0) {
     const message = i18n.t("options_progress_no_games");
-    return { state: "empty", message, seconds: "", count: "", answered: 0, total: 0 };
+    return { ...NOTHING, state: "empty", message };
   }
   const counts = { answered: numbers.format(answered), total: numbers.format(total) };
-  const base = { seconds: "", answered, total };
+  const base = { seconds: "", answered, total, recheck: false };
   if (answered < total && pausedUntil !== undefined && pausedUntil > now) {
     const left = numbers.format(Math.ceil((pausedUntil - now) / MS_PER_SECOND));
     const seconds = i18n.t("options_progress_seconds", { seconds: left });
@@ -75,17 +73,24 @@ function viewOf(
     return { ...base, state: "loading", message, count };
   }
   const loaded = total - unknown;
-  const message = unknown === 0
-    ? i18n.plural("options_progress_done", loaded)
-    : i18n.plural("options_progress_done_unknown", loaded, { unknown: numbers.format(unknown) });
+  let message = i18n.plural("options_progress_done", loaded);
+  if (failed > 0) {
+    message = i18n.plural("options_progress_done_failed", loaded, {
+      failed: numbers.format(failed),
+    });
+  } else if (unknown > 0) {
+    message = i18n.plural("options_progress_done_unknown", loaded, {
+      unknown: numbers.format(unknown),
+    });
+  }
   const count = i18n.t("options_progress_count", { ...counts, answered: counts.total });
-  return { ...base, state: "done", message, count };
+  return { ...base, state: "done", message, count, recheck: failed > 0 };
 }
 
 /**
- * The load strip of the toolbar popup and the userscript dialog: a status line over a bar. It
- * draws at most once a second, so its `role="status"` line speaks at most once a second, and
- * while Steam's pause runs it draws once a second to count down. It has no timer otherwise.
+ * The load strip of the popup and the userscript dialog: a status line over a bar, drawn at most
+ * once a second, and each second while Steam's pause counts down. Once every game answered and
+ * some lookups failed, Check again takes the count's place; it asks once per progress heard.
  */
 export function createLoadStrip(
   doc: Document,
@@ -98,16 +103,34 @@ export function createLoadStrip(
   const numbers = new Intl.NumberFormat(i18n.locale.replaceAll("_", "-"));
 
   const element = createElement(doc, "div", "tks-load");
-  const line = createElement(doc, "p", "tks-load-line");
-  line.setAttribute("role", "status");
+  const line = createElement(doc, "div", "tks-load-line");
+  const status = createElement(doc, "p", "tks-load-status");
+  status.id = `${options.idPrefix}load-status`;
+  status.setAttribute("role", "status");
   const message = createElement(doc, "span", "tks-load-message");
   message.id = `${options.idPrefix}load-message`;
   const count = createElement(doc, "span", "tks-load-count");
-  line.append(message, count);
+  status.append(message, count);
+  const recheck = quietButton(doc, i18n.t("options_progress_recheck"));
+  recheck.classList.add("tks-load-recheck");
+  recheck.setAttribute("aria-describedby", status.id);
+  recheck.hidden = true;
+  /** A press went out and no progress came back since. */
+  let asked = false;
+  const onRecheck = (): void => {
+    if (!asked) {
+      asked = true;
+      source.recheck();
+    }
+  };
+  recheck.addEventListener("click", onRecheck);
+  line.append(status, recheck);
   const bar = createElement(doc, "div", "tks-load-bar");
   bar.setAttribute("role", "progressbar");
   bar.setAttribute("aria-valuemin", String(0));
   bar.setAttribute("aria-labelledby", message.id);
+  // Takes focus from Check again when the button hides; it is no live region
+  bar.tabIndex = -1;
   bar.append(createElement(doc, "div", "tks-load-fill"));
   element.append(line, bar);
 
@@ -136,6 +159,11 @@ export function createLoadStrip(
       );
     }
     count.textContent = view.count;
+    count.hidden = view.recheck;
+    if (!view.recheck && recheck.matches(":focus")) {
+      bar.focus();
+    }
+    recheck.hidden = !view.recheck;
     const max = Math.max(view.total, 1);
     bar.setAttribute("aria-valuemax", String(max));
     bar.setAttribute("aria-valuenow", String(view.state === "done" ? max : view.answered));
@@ -148,6 +176,7 @@ export function createLoadStrip(
 
   function update(progress: LoadProgress | undefined): void {
     latest = { progress };
+    asked = false;
     if (cancelDraw === undefined) {
       const wait = drawnAt + MS_PER_SECOND - now();
       if (wait > 0) {
@@ -163,6 +192,7 @@ export function createLoadStrip(
     element,
     stop() {
       unsubscribe();
+      recheck.removeEventListener("click", onRecheck);
       cancelDraw?.();
       cancelDraw = undefined;
     },

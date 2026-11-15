@@ -34,6 +34,8 @@ export interface HostView {
   readonly slot: BadgeSlot | undefined;
   /** False where hiding would break the list (virtualized, carousel); hide then dims. */
   readonly hideable: boolean;
+  /** A lookup or a retry round will answer for the game again, so a failure is not final yet. */
+  readonly pending: boolean;
 }
 
 /**

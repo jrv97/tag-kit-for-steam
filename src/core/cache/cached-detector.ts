@@ -69,6 +69,17 @@ function saveQuietly(
   });
 }
 
+/** Drops the failed answers of `ids`; a failed drop is logged, and the call never rejects. */
+export function forgetQuietly(
+  cache: VerdictCache,
+  ids: readonly AppId[],
+  logger: Pick<Logger, "error">,
+): Promise<void> {
+  return cache.forgetFailed(ids).catch((problem: unknown) => {
+    logger.error(problem);
+  });
+}
+
 async function lookupQuietly(
   cache: VerdictCache,
   ids: readonly AppId[],

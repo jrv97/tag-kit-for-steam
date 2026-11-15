@@ -7,6 +7,7 @@ import { LEGACY_SETTINGS_KEY } from "../../src/core/storage-keys";
 import { fileTransferContract } from "../contracts/file-transfer.contract";
 import { httpContract } from "../contracts/http.contract";
 import { keyValueStoreContract } from "../contracts/key-value-store.contract";
+import { progressSourceContract } from "../contracts/progress-source.contract";
 import { make } from "./factory";
 import { fake } from "./fakes";
 import { strongestFilter } from "./settings";
@@ -14,6 +15,19 @@ import { strongestFilter } from "./settings";
 keyValueStoreContract("memoryStore", () => fake.store());
 httpContract("fakeHttp", fake.http);
 fileTransferContract("fakeFileTransfer", fake.fileTransferHarness);
+progressSourceContract("fakeProgressSource", () => {
+  const source = fake.progressSource();
+  return {
+    source,
+    open: (page) => {
+      source.send(page ? make.progress() : undefined);
+    },
+    send: (progress) => {
+      source.send(progress);
+    },
+    rechecks: () => source.rechecks,
+  };
+});
 
 describe("memoryStore", () => {
   it("starts from initial values", async () => {

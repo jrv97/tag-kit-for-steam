@@ -73,9 +73,9 @@ export function extensionUrl(path: string): string {
 
 function tabPort(port: chrome.runtime.Port): TabPort {
   return {
-    post: (progress) => {
+    post: (message) => {
       try {
-        port.postMessage(progress);
+        port.postMessage(message);
       } catch {
         // The popup closed before its disconnect arrived; nobody is left to tell.
       }

@@ -357,7 +357,8 @@
 
 /* Hidden results notice: our own bar in the look of the store's notice bar above search results,
    right after it when the page has one: its ground, yellowish text, padding and type, full width.
-   The button is an underlined link in the sentence, as the store's own link there. */
+   The button is an underlined link in the sentence, as the store's own link there. The sentence
+   on failed lookups comes first in the same type, so the bar ends on its link. */
 
 .tks-list-notice {
   display: block;
@@ -366,6 +367,10 @@
   background: var(--tks-store-notice-bg);
   color: var(--tks-store-notice-fg);
   font: var(--tks-store-notice-font);
+}
+
+.tks-list-notice-failed:not([hidden]) ~ .tks-list-notice-text {
+  margin-inline-start: var(--tks-space-1);
 }
 
 .tks-list-notice-button {

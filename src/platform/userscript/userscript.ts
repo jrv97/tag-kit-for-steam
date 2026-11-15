@@ -77,7 +77,7 @@ export async function startUserscript(env: UserscriptEnv): Promise<App | undefin
       return undefined;
     }
   })();
-  const progress = followProgress(started.then((app) => app?.progress));
+  const progress = followProgress(started);
 
   env.registerMenuCommand?.(i18n.t("userscript_menu_settings"), () => {
     void (async () => {

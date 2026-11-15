@@ -15,7 +15,8 @@ export const RETRY_DELAY_MS = DEFAULT_BACKOFF.baseMs + DEFAULT_BACKOFF.jitterMs 
 /** Runs a callback after a delay and returns its cancel. */
 export type Delay = (callback: () => void, ms: number) => () => void;
 
-function timeout(callback: () => void, ms: number): () => void {
+/** The `Delay` over `setTimeout`. */
+export function timeout(callback: () => void, ms: number): () => void {
   const id = setTimeout(callback, ms);
   return () => {
     clearTimeout(id);

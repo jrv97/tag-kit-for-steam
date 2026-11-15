@@ -20,7 +20,8 @@
 .tks-options [hidden],
 .tks-hovercard[hidden],
 .tks-hovercard [hidden],
-.tks-list-notice[hidden] {
+.tks-list-notice[hidden],
+.tks-list-notice [hidden] {
   display: none !important;
 }
 

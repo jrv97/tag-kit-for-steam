@@ -51,6 +51,34 @@ export function isTransient(verdicts: KindVerdicts): boolean {
   return transient;
 }
 
+/**
+ * The unknown reasons of a lookup that failed: the request or its answer broke (`error`,
+ * `malformed`) or a breaker held it back. `gated`, `missing` and `unrequested` are answers Steam
+ * gave.
+ */
+const FAILED_REASONS = [
+  "error",
+  "rate-limited",
+  "malformed",
+] as const satisfies readonly UnknownReason[];
+
+const FAILED: ReadonlySet<UnknownReason> = new Set(FAILED_REASONS);
+
+/** Whether the lookup of this kind failed (`FAILED_REASONS`). */
+export function isFailed(verdict: Verdict): boolean {
+  return verdict.state === "unknown" && FAILED.has(verdict.reason);
+}
+
+/** Whether the lookup of some kind failed (`isFailed`). */
+export function hasFailed(verdicts: KindVerdicts): boolean {
+  return KINDS.some((kind) => isFailed(verdicts[kind.id]));
+}
+
+/** Whether the lookup of some kind failed and no lookup or retry round will answer it again. */
+export function failedForGood(verdicts: KindVerdicts, pending: boolean): boolean {
+  return !pending && hasFailed(verdicts);
+}
+
 /** How long one verdict stays fresh, given the TTLs of its kind. */
 export function ttlMs(ttl: KindTtl, verdict: Verdict): number {
   switch (verdict.state) {

@@ -14,7 +14,7 @@ import { T0 } from "../../tests/helpers/timer-clock";
 import { type App, start } from "./app";
 import type { CreatorRole } from "./creator";
 import { API_BREAKER_KEY, DEFAULT_BACKOFF } from "./detect/breaker";
-import { RETRY_DELAY_MS } from "./detect/retry";
+import { MAX_RETRIES, RETRY_DELAY_MS } from "./detect/retry";
 import { DEFAULT_SPACING_MS } from "./detect/throttle";
 import { dateFormat } from "./i18n/date-format";
 import { SHIPPED_CATALOGS } from "./i18n/shipped";
@@ -229,6 +229,31 @@ describe("start on the search page", () => {
     expect(await store.get([SETTINGS_KEY])).toStrictEqual(stored);
   });
 
+  it("reports a row whose lookup failed and tags it after one request for two checks", async () => {
+    const id = searchId(0);
+    const broken = make.item.details({ vetted: true, content_survey_ai_notes: 5 }, {}, id);
+    const server = fake.swappingRoute(
+      make.item.route([...SEARCH_ITEMS, broken]),
+      make.item.route([...SEARCH_ITEMS, make.item.disclosed(id)]),
+    );
+    const { http } = await startOnSearch({
+      initial: storing(make.settings.kind("ai", { filter: "dim" })),
+      route: server.route,
+      clock: fake.timerClock(),
+    });
+    const failed = () => document.querySelector(".tks-list-notice-failed");
+    await expect.poll(() => failed()?.textContent).toBe(i18n.plural("notice_list_failed", 1));
+
+    server.swap();
+    app?.recheck();
+    app?.recheck();
+    await vi.advanceTimersByTimeAsync(DEFAULT_SPACING_MS);
+    await expect.poll(() => marks(id)).toBe("ai");
+    expect(http.calls.map((url) => getItemsRequest(url).ids)).toStrictEqual([SEARCH_IDS, [id]]);
+    const notice = () => document.querySelector(".tks-list-notice");
+    await expect.poll(() => notice()?.hasAttribute("hidden")).toBe(true);
+  });
+
   it("asks again once a breaker left open by a past page closes, and tags every row", async () => {
     const until = T0 + DEFAULT_BACKOFF.baseMs + DEFAULT_BACKOFF.jitterMs;
     const { http } = await startOnSearch({
@@ -241,6 +266,29 @@ describe("start on the search page", () => {
     expect(document.querySelectorAll("[data-tks-kinds]")).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(1000);
     expect(http.calls).toHaveLength(1);
+    await expect.poll(() => SEARCH_IDS.map(marks)).toEqual(SEARCH_IDS.map(() => "ai"));
+  });
+
+  it("holds a recheck until Steam's pause ends, then asks once for every failed row", async () => {
+    const server = fake.swappingRoute(
+      make.item.route(SEARCH_ITEMS, { status: 429 }),
+      make.item.route(SEARCH_IDS.map((id) => make.item.disclosed(id))),
+    );
+    const { http } = await startOnSearch({ route: server.route, clock: fake.timerClock() });
+    await expect.poll(() => http.calls.length).toBe(1);
+    await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS * MAX_RETRIES);
+    await expect.poll(() => app?.progress.snapshot().failed).toBe(SEARCH_IDS.length);
+    const refused = http.calls.length;
+
+    server.swap();
+    app?.recheck();
+    await vi.advanceTimersByTimeAsync(DEFAULT_BACKOFF.baseMs - 1);
+    expect(http.calls).toHaveLength(refused);
+    expect(app?.progress.snapshot().answered).toBe(0);
+    expect(app?.progress.snapshot().pausedUntil).toBeGreaterThan(Date.now());
+    await vi.advanceTimersByTimeAsync(DEFAULT_BACKOFF.jitterMs + 1);
+    const asked = http.calls.slice(refused).map((url) => getItemsRequest(url).ids);
+    expect(asked).toStrictEqual([SEARCH_IDS]);
     await expect.poll(() => SEARCH_IDS.map(marks)).toEqual(SEARCH_IDS.map(() => "ai"));
   });
 

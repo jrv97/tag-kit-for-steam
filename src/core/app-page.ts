@@ -1,3 +1,4 @@
+import { failedForGood } from "./cache/ttl";
 import { type Creator, CREATOR_ROLES, type CreatorKey, type CreatorRole } from "./creator";
 import { withLastUpdate } from "./detect/early-access-update";
 import { createTransientRetry, type Delay } from "./detect/retry";
@@ -8,11 +9,11 @@ import type { KindId } from "./kinds/id";
 import { type ChipWords, effectiveSettings } from "./kinds/kind-settings";
 import { kindsInOrder } from "./kinds/order";
 import { perKind } from "./kinds/registry";
-import { type KindVerdict, type KindVerdicts, UNKNOWN_KINDS } from "./kinds/verdicts";
+import { type KindVerdict, type KindVerdicts, recheckIds, UNKNOWN_KINDS } from "./kinds/verdicts";
 import type { Logger } from "./log";
 import { mergeVerdicts, translatedVerdicts } from "./page-verdicts";
 import type { Detector, MessageCatalog } from "./ports";
-import type { LoadTracker } from "./progress";
+import type { LoadTracker, Recheck } from "./progress";
 import { ALLOW_SCOPES, type AllowScope, perScope } from "./settings/allow-data";
 import type { Settings } from "./settings/settings";
 import type { AppId } from "./types";
@@ -69,6 +70,11 @@ export interface AppPage {
   render(): void;
   /** Looks the game up again, as when a kind that reads a section the answer lacks turns on. */
   redetect(): void;
+  /**
+   * Takes the game when its lookup failed with no retry ahead, to look it up again once the cache
+   * dropped its failed answers; undefined otherwise, and until that lookup lands.
+   */
+  recheck(): Recheck | undefined;
   /** Stops a lookup that has not finished from drawing, and cancels a pending retry. */
   stop(): void;
 }
@@ -92,6 +98,8 @@ export function startAppPage(
   const retry = createTransientRetry<typeof page>(() => {
     lookUp();
   }, deps.delay);
+  /** The apps a recheck drops from the cache; empty unless the last lookup failed for good. */
+  let failed: readonly AppId[] = [];
 
   /** The game's developers and publishers, with the scopes each is ignored in for its role. */
   function creatorRows(): readonly BannerCreator[] {
@@ -176,12 +184,14 @@ export function startAppPage(
         known = next;
         render();
         const retrying = retry.offer(page, detected);
+        failed = failedForGood(detected, retrying) ? recheckIds(id, detected) : [];
         answered = true;
         deps.progress?.answered(id, detected, retrying);
       }
     } finally {
       // A failed lookup still ends the wait, as unknown.
       if (!answered && !stopped) {
+        failed = [id];
         deps.progress?.answered(id, UNKNOWN_KINDS.error, false);
       }
     }
@@ -198,6 +208,14 @@ export function startAppPage(
   return {
     render,
     redetect: lookUp,
+    recheck() {
+      if (failed.length === 0 || stopped) {
+        return undefined;
+      }
+      const forget = failed;
+      failed = [];
+      return { games: [id], forget, lookUp };
+    },
     stop() {
       stopped = true;
       retry.cancel();
