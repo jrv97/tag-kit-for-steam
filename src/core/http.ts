@@ -3,8 +3,11 @@ import type { Http, HttpResult } from "./ports";
 /** The part of `fetch` the HTTP port uses; composition roots pass `globalThis.fetch`. */
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
-/** Every request goes without cookies or HTTP auth (rule 1), as the spikes ran them. */
-const REQUEST: RequestInit = { credentials: "omit" };
+/**
+ * Every request goes without cookies or HTTP auth (rule 1). It sends no Referer, which keeps the
+ * page address out of these requests.
+ */
+const REQUEST: RequestInit = { credentials: "omit", referrerPolicy: "no-referrer" };
 
 /** How long a request may take before it counts as failed, so a hung one cannot hold a queue. */
 const REQUEST_TIMEOUT_MS = 15_000;

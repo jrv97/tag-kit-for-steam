@@ -39,8 +39,9 @@ export interface HttpWithheld {
 export type HttpResult = HttpResponse | HttpFailure | HttpWithheld;
 
 /**
- * GET requests to the two Valve hosts (rule 1), always without credentials. Never rejects: every
- * outcome is an `HttpResult`. Decorators such as a throttle wrap an `Http` and are one themselves.
+ * GET requests to the two Valve hosts (rule 1), always without credentials or a Referer. Never
+ * rejects: every outcome is an `HttpResult`. Decorators such as a throttle wrap an `Http` and are
+ * one themselves.
  */
 export interface Http {
   get(url: string): Promise<HttpResult>;
