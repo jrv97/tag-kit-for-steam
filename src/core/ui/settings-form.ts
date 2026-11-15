@@ -37,7 +37,7 @@ import {
   RESTORE_ATTRIBUTE,
   SCOPE_ATTRIBUTE,
 } from "./allow-view";
-import { announce, POLITE } from "./announce";
+import { announce, liveRegion } from "./announce";
 import { createBackupCard } from "./backup-card";
 import { ownText } from "./badge";
 import { type ActionCard, cardButton } from "./card-parts";
@@ -686,8 +686,7 @@ export async function mountSettingsForm(
       group: { after: GENERAL_TAB, caption: i18n.t("options_tabs_group_tags") },
     });
   const scopes = new Map<AllowScope, ScopeCard>();
-  const live = element("div", "tks-vh");
-  live.setAttribute("aria-live", POLITE);
+  const live = liveRegion(doc, "div");
   // The popup's rows follow the same order as the tabs
   const rows = element("div", "tks-kind-rows");
   const rowOf = new Map<KindId, HTMLElement>();

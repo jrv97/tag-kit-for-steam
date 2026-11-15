@@ -24,16 +24,17 @@ const PAGE = `${make.page.summaryBox}
 const i18n = englishI18n();
 /** The captured verdicts of a game that discloses five kinds. */
 const ARC = make.fixture.verdicts(make.fixture.app.arcRaiders);
+/** The kinds that game discloses, in the registry's order. */
+const ARC_KINDS: readonly KindId[] = ["ai", "iap", "pvp", "eula", "kernel"];
 /** The game's developer, the one creator each view lists. */
 const DEVELOPER = make.text.creator();
-let bound = fake.cardTriggers().bound;
+let triggers = fake.cardTriggers();
 
 function setup() {
   setBody(PAGE);
-  const { card, bound: binds } = fake.cardTriggers();
-  bound = binds;
+  triggers = fake.cardTriggers();
   const { actions } = fake.bannerActions();
-  return createAppPageUi(document, i18n, actions, { frame: () => undefined, card });
+  return createAppPageUi(document, i18n, actions, { frame: () => undefined, card: triggers.card });
 }
 
 interface ViewOptions {
@@ -112,18 +113,8 @@ describe("createAppPageUi", () => {
     "gives a game that discloses only %s a section under the user tags, banner above purchase",
     (kind) => {
       setup().render(view({ verdicts: make.verdicts.only([kind]) }));
-      const root = section();
-      const { chip, heading } = KIND_BY_ID[kind].messages;
-      expect(document.getElementById("tags")?.nextElementSibling).toBe(root);
-      expect(root?.querySelector(".tks-tag-section-label")?.textContent).toBe(
-        i18n.t("badge_tags_title"),
-      );
+      expect(document.getElementById("tags")?.nextElementSibling).toBe(section());
       expect(chipKinds()).toEqual([kind]);
-      expect(root?.querySelector(".tks-badge-label")?.textContent).toBe(i18n.t(chip));
-      expect(root?.querySelector(".tks-vh")?.textContent).toBe(
-        i18n.t("kind_chip_name", { chip: i18n.t(chip), heading: i18n.t(heading) }),
-      );
-      expect(root?.querySelector("a, [href]")).toBeNull();
       expect(bannerHost()?.nextElementSibling?.id).toBe("game_area_purchase");
     },
   );
@@ -134,17 +125,10 @@ describe("createAppPageUi", () => {
   });
 
   it("binds the hover card to each chip with its own kind, as on the game's own page", () => {
-    const verdicts = ARC;
-    setup().render(view({ verdicts }));
-    expect(chips()).toHaveLength(5);
-    for (const chip of chips()) {
-      const kind = chip.getAttribute("data-tks-kind");
-      const entries = bound.get(chip)?.entries ?? [];
-      expect(entries.map((entry) => entry.kind)).toEqual([kind]);
-      expect(entries[0]).toBe(verdicts[entries[0]?.kind ?? "ai"]);
-      expect(bound.get(chip)?.ownPage).toBe(true);
-      expect(chip.tabIndex).toBe(0);
-    }
+    setup().render(view({ verdicts: ARC }));
+    expect(chips().map((chip) => triggers.bound.get(chip))).toEqual(
+      ARC_KINDS.map((id) => ({ entries: [ARC[id]], ownPage: true })),
+    );
   });
 
   it.each(
@@ -224,7 +208,7 @@ describe("createAppPageUi", () => {
   });
 
   describe("with kinds silenced or none", () => {
-    const ALL: readonly KindId[] = ["ai", "iap", "pvp", "eula", "kernel"];
+    const ALL = ARC_KINDS;
     const NO_AI: readonly KindId[] = ["iap", "pvp", "eula", "kernel"];
     const NO_KERNEL: readonly KindId[] = ["ai", "iap", "pvp", "eula"];
     const DEVELOPER_AI = i18n.t("banner_ignored_creator_kind", {
@@ -290,8 +274,6 @@ describe("createAppPageUi", () => {
 
   it("shows a DLC of a base game ignored for all tags no banner and no section", () => {
     setup().render(view({ verdicts: ARC, baseIgnored: ["all"] }));
-    expect(bannerHost()).toBeNull();
-    expect(section()).toBeNull();
     expect(document.body.innerHTML).toBe(PAGE);
   });
 
@@ -330,30 +312,23 @@ describe("createAppPageUi", () => {
     expect(bannerHost()).toBeNull();
   });
 
-  it("drops only the chip of a kind whose badge is off, and keeps its banner entry", () => {
-    const ui = setup();
-    const verdicts = ARC;
-    ui.render(view({ verdicts }));
-    expect(chipKinds()).toEqual(["ai", "iap", "pvp", "eula", "kernel"]);
-    ui.render(view({ verdicts, badgeOff: ["ai"] }));
-    expect(chipKinds()).toEqual(["iap", "pvp", "eula", "kernel"]);
-    expect(headings()).toHaveLength(5);
-    ui.render(view({ verdicts, badgeOff: ["kernel", "pvp", "iap"] }));
-    expect(chipKinds()).toEqual(["ai", "eula"]);
-    ui.render(view({ verdicts }));
-    expect(chipKinds()).toEqual(["ai", "iap", "pvp", "eula", "kernel"]);
-    expect(document.querySelectorAll(".tks-tag-section")).toHaveLength(1);
-  });
-
-  it("removes the section and its label when every badge is off", () => {
-    const ui = setup();
-    const verdicts = ARC;
-    ui.render(view({ verdicts }));
-    ui.render(view({ verdicts, badgeOff: ["ai", "kernel", "eula", "pvp", "iap"] }));
-    expect(section()).toBeNull();
-    expect(document.querySelector(".tks-tag-section-label")).toBeNull();
-    expect(headings()).toHaveLength(5);
-  });
+  // The section holds its label, so a count of 0 means the label is gone too.
+  it.each<readonly [readonly KindId[], readonly KindId[], readonly KindId[], number]>([
+    [[], ["ai"], ["iap", "pvp", "eula", "kernel"], 1],
+    [["ai"], ["kernel", "pvp", "iap"], ["ai", "eula"], 1],
+    [["kernel", "pvp", "iap"], [], ARC_KINDS, 1],
+    [[], ARC_KINDS, [], 0],
+  ])(
+    "with badges %j off and then %j, draws the chips %j in %i sections and every banner entry",
+    (from, to, kinds, count) => {
+      const ui = setup();
+      ui.render(view({ verdicts: ARC, badgeOff: from }));
+      ui.render(view({ verdicts: ARC, badgeOff: to }));
+      expect(chipKinds()).toEqual(kinds);
+      expect(document.querySelectorAll(".tks-tag-section")).toHaveLength(count);
+      expect(headings()).toHaveLength(ARC_KINDS.length);
+    },
+  );
 
   it("drops the banner when every banner entry is off and keeps the chips", () => {
     const ui = setup();

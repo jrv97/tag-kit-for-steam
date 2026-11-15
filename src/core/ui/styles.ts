@@ -1,3 +1,4 @@
+import { createElement } from "./element";
 import { PAGE_CSS, TOKENS_CSS } from "./styles.gen";
 
 export { BANNER_CSS, DIALOG_CSS, PAGE_CSS, SETTINGS_CSS, TOKENS_CSS } from "./styles.gen";
@@ -54,8 +55,6 @@ export function adoptStyles(root: Document | ShadowRoot, css: string): void {
   } catch {
     // Fall through to a style element.
   }
-  const style = doc.createElement("style");
-  style.className = "tks-styles";
-  style.textContent = css;
+  const style = createElement(doc, "style", "tks-styles", css);
   ("host" in root ? root : root.head).append(style);
 }

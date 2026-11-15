@@ -24,7 +24,7 @@ import { DEFAULT_SETTINGS, parseSettings } from "../settings/settings";
 import { createSettingsSource } from "../settings/settings-source";
 import { LEGACY_SETTINGS_KEY, UI_STATE_KEY } from "../storage-keys";
 import type { AppId } from "../types";
-import { QUIET_VARIANT, VARIANT_ATTRIBUTE } from "./element";
+import { FIELD_ERROR, QUIET_VARIANT, VARIANT_ATTRIBUTE } from "./element";
 import { keyDescription, keyText } from "./kind-keys";
 import { DEFAULT_TAG_COLOR, type SettingsFormDeps } from "./settings-form";
 import { TOKENS_CSS } from "./styles";
@@ -442,14 +442,14 @@ describe("changing a setting", () => {
     const badge = input("anticheat", "badge");
     badge.checked = false;
     change(badge);
-    const error = badge.parentElement?.querySelector<HTMLElement>(".tks-field-error");
+    const error = badge.parentElement?.querySelector<HTMLElement>(`.${FIELD_ERROR}`);
     await vi.waitFor(() => {
       expect(error?.hidden).toBe(false);
     });
     expect(badge.checked).toBe(true);
     expect(error?.textContent).toBe(i18n.t("error_settings_save"));
     const other = input("anticheat", "banner").parentElement?.querySelector<HTMLElement>(
-      ".tks-field-error",
+      `.${FIELD_ERROR}`,
     );
     expect(other?.hidden).toBe(true);
   });
@@ -726,7 +726,7 @@ describe("the color field", () => {
     vi.spyOn(settings, "patch").mockRejectedValue(new Error());
     typeColor(input("ai", "color"), make.color());
     const failure = card("ai").querySelector<HTMLElement>(
-      ".tks-color > .tks-field-error:not([id])",
+      `.tks-color > .${FIELD_ERROR}:not([id])`,
     );
     await vi.waitFor(() => {
       expect(failure?.hidden).toBe(false);
@@ -1424,22 +1424,25 @@ describe("the ignored items", () => {
     expect(ignored(of).querySelector(".tks-empty")?.textContent).toBe(i18n.t(key));
   });
 
-  it("says that a list could not be read, not that nothing is ignored", async () => {
-    const lists = createIgnoreLists(fake.store(), fake.clock(make.time()));
-    vi.spyOn(lists.games, "list").mockRejectedValue(new Error());
-    const { ignored } = await setup({ lists });
-    for (const  of of[ALLOW_ALL, "drm"] as const) {
-      expect(ignored(of).textContent).toContain(i18n.t("error_allow_list_load"));
+  it.each([ALLOW_ALL, "drm"] as const)(
+    "says that the %s list could not be read, not that nothing is ignored",
+    async (of) => {
+      const lists = createIgnoreLists(fake.store(), fake.clock(make.time()));
+      vi.spyOn(lists.games, "list").mockRejectedValue(new Error());
+      const { ignored } = await setup({ lists });
+      const error = ignored(of).querySelector<HTMLElement>(`.${FIELD_ERROR}`);
+      expect(error?.hidden).toBe(false);
+      expect(error?.textContent).toBe(i18n.t("error_allow_list_load"));
       expect(ignored(of).querySelector(".tks-empty")).toBeNull();
-    }
-  });
+    },
+  );
 
   it("keeps an item and shows an error when stopping to ignore it fails", async () => {
     const { allowList, control, games } = await setup();
     vi.spyOn(allowList, "remove").mockRejectedValue(new Error());
     const button = control(restore(games.newer.id, "ai"));
     button.click();
-    const error = button.parentElement?.querySelector<HTMLElement>(".tks-field-error");
+    const error = button.parentElement?.querySelector<HTMLElement>(`.${FIELD_ERROR}`);
     await vi.waitFor(() => {
       expect(error?.hidden).toBe(false);
     });
@@ -1508,7 +1511,7 @@ describe("the quiet buttons", () => {
 describe("a failed read of the settings", () => {
   it("shows the defaults and an error above the tabs when settings cannot be read", async () => {
     const { root } = await mountForm({ settings: unreadableSettings() });
-    const error = root.querySelector<HTMLElement>(":scope > .tks-field-error");
+    const error = root.querySelector<HTMLElement>(`:scope > .${FIELD_ERROR}`);
     expect(error?.hidden).toBe(false);
     expect(error?.textContent).toBe(i18n.t("error_settings_load"));
     expect(error?.nextElementSibling?.querySelector("[role=tablist]")).not.toBeNull();
@@ -1523,7 +1526,7 @@ describe("a failed read of the settings", () => {
     const settings = createSettingsSource(store);
     store.break();
     const { root } = await mountForm({ settings, locales: ["en", "es"] });
-    const error = root.querySelector<HTMLElement>(":scope > .tks-field-error");
+    const error = root.querySelector<HTMLElement>(`:scope > .${FIELD_ERROR}`);
     expect(error?.hidden).toBe(false);
     const controls = [...root.querySelectorAll<HTMLInputElement>("[data-tks-setting]")];
     expect(controls.length).toBeGreaterThan(KINDS.length);
@@ -1562,7 +1565,7 @@ describe("a failed read of the settings", () => {
     expect(banner?.disabled).toBe(true);
     await writeSettings(settings, make.settings.kind("ai", { banner: false }));
     expect(banner?.disabled).toBe(false);
-    expect(root.querySelector<HTMLElement>(":scope > .tks-field-error")?.hidden).toBe(true);
+    expect(root.querySelector<HTMLElement>(`:scope > .${FIELD_ERROR}`)?.hidden).toBe(true);
     expect(banner?.checked).toBe(false);
   });
 });
@@ -1674,7 +1677,9 @@ describe.each(CREATOR_ROLES)("the ignored %ss", (role) => {
     const { lists, form, ignored } = await setup();
     vi.spyOn(lists.creators[role], "list").mockRejectedValue(new Error());
     await form.refreshAllowList();
-    expect(block(ignored(ALLOW_ALL))?.textContent).toContain(i18n.t("error_creator_list_load"));
+    const error = block(ignored(ALLOW_ALL))?.querySelector<HTMLElement>(`.${FIELD_ERROR}`);
+    expect(error?.hidden).toBe(false);
+    expect(error?.textContent).toBe(i18n.t("error_creator_list_load"));
   });
 
   it("keeps the creator and shows an error when stopping to ignore it fails", async () => {
@@ -1682,7 +1687,7 @@ describe.each(CREATOR_ROLES)("the ignored %ss", (role) => {
     vi.spyOn(list, "remove").mockRejectedValue(new Error());
     const button = control(stop(byClan.key, "ai"));
     button.click();
-    const error = button.parentElement?.querySelector<HTMLElement>(".tks-field-error");
+    const error = button.parentElement?.querySelector<HTMLElement>(`.${FIELD_ERROR}`);
     await vi.waitFor(() => {
       expect(error?.hidden).toBe(false);
     });

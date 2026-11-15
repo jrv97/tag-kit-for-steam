@@ -2,8 +2,8 @@ import {
   createElement,
   errorLine,
   FIELD_ERROR,
-  plainButton,
   PRIMARY_VARIANT,
+  secondaryButton,
   VARIANT_ATTRIBUTE,
 } from "./element";
 import { withIcon } from "./icon";
@@ -35,9 +35,9 @@ export function actionOf<A extends string>(
 /** A secondary button with its text, and with a Lucide icon before it when given. */
 export function cardButton(doc: Document, text: string, icon?: LucideName): HTMLButtonElement {
   if (icon === undefined) {
-    return plainButton(doc, "tks-button", text);
+    return secondaryButton(doc, text);
   }
-  return withIcon(plainButton(doc, "tks-button"), icon, text);
+  return withIcon(secondaryButton(doc), icon, text);
 }
 
 /** A wrapping row of buttons; `end` puts it on the right, as the store's dialogs do. */

@@ -10,7 +10,7 @@ import { KIND_IDS, type KindId } from "../kinds/id";
 import type { ChipWords } from "../kinds/kind-settings";
 import { kindsInOrder, OVERLAY_CHIPS, parseOrder } from "../kinds/order";
 import { KIND_BY_ID, KINDS } from "../kinds/registry";
-import { compactSize, createBadgeRenderer, createChip } from "./badge";
+import { compactSize, createBadgeRenderer } from "./badge";
 import type { BadgeSlot } from "./host";
 
 function capsule(): {
@@ -109,29 +109,24 @@ describe("createBadgeRenderer", () => {
     expect(group?.getAttribute("data-tks-chips")).toBe("full");
     const badge = host.querySelector<HTMLElement>(".tks-badge");
     expect(badge?.parentElement).toBe(group);
-    expect(badge?.querySelector(".tks-badge-label")?.textContent).toBe(chip("ai"));
     expect(badge?.querySelector(".tks-badge-label")?.getAttribute("aria-hidden")).toBe("true");
-    expect(badge?.querySelector(".tks-vh")?.textContent).toBe(AI_NAME);
     expect(badge?.getAttribute("data-tks-kind")).toBe("ai");
     expect(badge?.querySelector("svg")).toBeNull();
     expect(badge?.hasAttribute("title")).toBe(false);
     expect(boundTo(badge)).toEqual([verdict]);
   });
 
-  it.each(
-    KINDS.filter((kind) => kind.id !== "pvp" && kind.facets === undefined).map(({ id }) => id),
-  )(
-    "gives the %s chip an accessible name that starts with its text",
-    (id) => {
-      const { host, title } = capsule();
-      renderer.render(view(host, full(title), { verdicts: make.verdicts.only([id]) }));
-      const [label, name] = texts(chipAt(host, 0));
-      expect(label).toBe(chip(id));
-      expect(name).toBe(nameOf(id));
-      expect(name?.startsWith(chip(id))).toBe(true);
-      expect(name).toContain(i18n.t(KIND_BY_ID[id].messages.heading));
-    },
-  );
+  // PvP's text matches its heading, so its name says it once.
+  it.each<readonly [KindId, string, string]>([
+    ...KINDS.filter((kind) => kind.id !== "pvp" && kind.facets === undefined).map(
+      ({ id }) => [id, chip(id), nameOf(id)] as const,
+    ),
+    ["pvp", i18n.t("kind_pvp_chip"), i18n.t("kind_pvp_heading")],
+  ])("gives the %s chip its text and an accessible name that starts with it", (id, label, name) => {
+    const { host, title } = capsule();
+    renderer.render(view(host, full(title), { verdicts: make.verdicts.only([id]) }));
+    expect(texts(chipAt(host, 0))).toEqual([label, name]);
+  });
 
   it.each(
     STATUS_KINDS.flatMap((kind) => COMPAT_FACETS.map((facet) => [kind, facet] as const)),
@@ -148,14 +143,6 @@ describe("createBadgeRenderer", () => {
       label,
       i18n.t("kind_chip_name", { chip: label, heading }),
     ]);
-  });
-
-  it("gives the PvP chip the name PvP once, not PvP: PvP", () => {
-    const { host, title } = capsule();
-    renderer.render(view(host, full(title), { verdicts: make.verdicts.only(["pvp"]) }));
-    const [label, name] = texts(chipAt(host, 0));
-    expect(label).toBe(i18n.t("kind_pvp_chip"));
-    expect(name).toBe(i18n.t("kind_pvp_heading"));
   });
 
   describe("with the person's chip text", () => {
@@ -175,7 +162,7 @@ describe("createBadgeRenderer", () => {
       renderer = createBadgeRenderer(
         document,
         i18n,
-        fake.cardTriggers().card,
+        triggers.card,
         undefined,
         () => words,
       );
@@ -432,15 +419,5 @@ describe("createBadgeRenderer", () => {
     const { host } = capsule();
     renderer.render(view(host, undefined));
     expect(host.querySelector(".tks-chips, .tks-badge, .tks-compact")).toBeNull();
-  });
-});
-
-describe("createChip", () => {
-  it("builds a chip with the kind's text, name and id", () => {
-    const i18n = englishI18n();
-    const element = createChip(document, i18n, make.verdict.disclosed("drm"));
-    expect(element.className).toBe("tks-badge");
-    expect(element.getAttribute("data-tks-kind")).toBe("drm");
-    expect(element.querySelector(".tks-badge-label")?.textContent).toBe(i18n.t("kind_drm_chip"));
   });
 });

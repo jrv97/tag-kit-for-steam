@@ -6,6 +6,7 @@ import { dialogDeps as deps } from "../../../tests/helpers/settings-dialog";
 import { KINDS } from "../../core/kinds/registry";
 import { parseSettings } from "../../core/settings/settings";
 import { createSettingsSource } from "../../core/settings/settings-source";
+import { FIELD_ERROR } from "../../core/ui/element";
 import { createUiState } from "../../core/ui/ui-state";
 import { openSettingsDialog } from "./settings-dialog";
 
@@ -114,7 +115,7 @@ describe("openSettingsDialog", () => {
     const options = dialog()?.querySelector(".tks-options");
     const strip = options?.querySelector(".tks-load");
     expect(strip?.getAttribute("data-tks-load")).toBe("loading");
-    expect(strip?.nextElementSibling?.matches(".tks-field-error")).toBe(true);
+    expect(strip?.nextElementSibling?.matches(`.${FIELD_ERROR}`)).toBe(true);
     dialog()?.close();
     expect(progress.listening).toBe(0);
   });

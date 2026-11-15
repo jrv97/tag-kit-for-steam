@@ -12,6 +12,7 @@ import type { AnyDisclosed } from "../kinds/verdicts";
 import type { MessageCatalog } from "../ports";
 import { ALLOW_ALL, type AllowScope } from "../settings/allow-data";
 import {
+  BANNER_ERROR,
   type BannerActions,
   type BannerOptions,
   type BannerView,
@@ -301,7 +302,7 @@ describe("the captured games' entries", () => {
     expect(texts(root, "h2")).toEqual(shown.map(heading));
     expect(root.querySelectorAll(".tks-banner-entry")).toHaveLength(shown.length);
     expect(options(root, "tags")).toHaveLength(shown.length);
-    expect(root.querySelector("p:not(.tks-banner-error)")).toBeNull();
+    expect(root.querySelector(`p:not(.${BANNER_ERROR})`)).toBeNull();
   });
 
   it("quotes the AI notes of a game that also declares an anti-cheat and a EULA", () => {
@@ -862,10 +863,10 @@ describe("ignoring from the menu", () => {
       query(root, control).click();
       calls[0]?.reject();
       await vi.waitFor(() => {
-        expect(query(root, ".tks-banner-error").hidden).toBe(false);
+        expect(query(root, `.${BANNER_ERROR}`).hidden).toBe(false);
       });
-      expect(query(root, ".tks-banner-error").textContent).toBe(i18n.t(error));
-      expect(query(root, ".tks-banner-error").getAttribute("role")).toBe("alert");
+      expect(query(root, `.${BANNER_ERROR}`).textContent).toBe(i18n.t(error));
+      expect(query(root, `.${BANNER_ERROR}`).getAttribute("role")).toBe("alert");
       expect(query(root, "aside")).toBe(aside);
     },
   );

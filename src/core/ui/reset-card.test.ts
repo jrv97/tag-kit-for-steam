@@ -10,6 +10,7 @@ import { KIND_IDS } from "../kinds/id";
 import { perScope } from "../settings/allow-data";
 import { DEFAULT_SETTINGS, parseSettings, wholePatch } from "../settings/settings";
 import { createSettingsSource } from "../settings/settings-source";
+import { FIELD_ERROR } from "./element";
 
 const i18n = englishI18n();
 
@@ -101,7 +102,7 @@ describe("the settings reset", () => {
     await click("options_reset_settings");
     store.breakWrites();
     await click("options_reset_settings_confirm");
-    expect(shown(".tks-field-error")).toStrictEqual([i18n.t("error_reset_settings")]);
+    expect(shown(`.${FIELD_ERROR}`)).toStrictEqual([i18n.t("error_reset_settings")]);
     expect(shown(".tks-confirm-title")).toHaveLength(1);
   });
 });
@@ -148,7 +149,7 @@ describe("the ignore lists reset", () => {
     await Promise.all([lists.games.clear(), lists.creators.developer.clear()]);
     store.breakWrites();
     await click("options_reset_lists_confirm");
-    expect(shown(".tks-field-error")).toStrictEqual([i18n.t("error_reset_lists")]);
+    expect(shown(`.${FIELD_ERROR}`)).toStrictEqual([i18n.t("error_reset_lists")]);
     expect(shown(".tks-confirm-title")).toHaveLength(1);
     expect(root.querySelector(".tks-allow-name")).toBeNull();
   });

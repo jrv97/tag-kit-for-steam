@@ -12,7 +12,7 @@ import { KIND_BY_ID } from "../kinds/registry";
 import type { AnyDisclosed } from "../kinds/verdicts";
 import type { MessageCatalog } from "../ports";
 import { ALLOW_ALL, type AllowScope, toAllowScope } from "../settings/allow-data";
-import { announce, POLITE } from "./announce";
+import { announce, liveRegion } from "./announce";
 import { ROLE_LABELS } from "./creator-roles";
 import { elementFactory, errorLine, plainButton, VARIANT_ATTRIBUTE } from "./element";
 import {
@@ -103,7 +103,8 @@ const ACTIONS = ["toggle", ...MENU_ACTIONS] as const;
 /** How long a menu opened by hover stays open after the pointer leaves the button and menu. */
 export const HOVER_CLOSE_MS = 300;
 const SPLIT_SELECTOR = ".tks-ignore";
-const BANNER_ERROR = "tks-banner-error";
+/** The class of the line that says a banner action failed. */
+export const BANNER_ERROR = "tks-banner-error";
 
 type Action = (typeof ACTIONS)[number];
 
@@ -205,8 +206,7 @@ export function createBanner(
   adoptStyles(shadow, BANNER_CSS);
 
   let box = element("aside");
-  const live = element("div", "tks-vh");
-  live.setAttribute("aria-live", POLITE);
+  const live = liveRegion(doc, "div");
   shadow.append(box, live);
 
   let shown: BannerView | undefined;

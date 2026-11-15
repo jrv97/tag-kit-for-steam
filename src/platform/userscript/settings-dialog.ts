@@ -4,8 +4,7 @@ import type { IgnoreLists } from "../../core/ignored";
 import type { Clock, KeyValueStore } from "../../core/ports";
 import type { ProgressSource } from "../../core/progress";
 import type { StoredSettings } from "../../core/settings/settings-source";
-import { cardButton } from "../../core/ui/card-parts";
-import { elementFactory } from "../../core/ui/element";
+import { elementFactory, secondaryButton } from "../../core/ui/element";
 import { mountSettingsForm } from "../../core/ui/settings-form";
 import { adoptStyles, DIALOG_CSS } from "../../core/ui/styles";
 import type { UiState } from "../../core/ui/ui-state";
@@ -54,7 +53,7 @@ export async function openSettingsDialog(deps: SettingsDialogDeps): Promise<void
   title.id = "tks-dialog-title";
   dialog.setAttribute("aria-labelledby", title.id);
 
-  const close = cardButton(doc, i18n.t("userscript_close"));
+  const close = secondaryButton(doc, i18n.t("userscript_close"));
   close.setAttribute(CLOSE_ATTRIBUTE, "");
 
   const head = element("div", "tks-dialog-head");
