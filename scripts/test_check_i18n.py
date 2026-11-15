@@ -13,7 +13,7 @@ from check_i18n import (
     copy_problems,
     scanned_sources,
 )
-from testdata import CheckI18n, catalog
+from testdata import CheckI18n, catalog, write_tree
 
 
 def keys(index: CopyIndex, *parts: str) -> list[str]:
@@ -64,9 +64,7 @@ class ScanTest(unittest.TestCase):
         self.root = Path(folder.name)
 
     def write(self, relative: str, text: str) -> None:
-        path = self.root / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        write_tree(self.root, {relative: text})
 
     def test_reports_each_literal_with_its_line_and_keys(self) -> None:
         for name, source in CheckI18n.REPORTED_FILES:

@@ -54,7 +54,7 @@ Each tag follows Steam's own words:
 - Family Sharing: Steam lists Family Sharing among the game's features, which Valve computes. The chip reads "Family Sharing", or "No Family Sharing" for a paid game whose list leaves it out. For that game the card reads "Family Sharing is not supported for this game" and "According to the features Steam lists for this game", and the banner and the settings keep Steam's words, "Family Sharing not Available".
 - Early Access: the developer set the game's release state to Early Access, and Steam flags the game. The chip reads "Early Access", and the card carries Steam's line "Early Access Game", the developer's note, the release date and, on the game's own page, the latest update post.
 
-The AI badge marks what developers chose to report on Steam. Its absence says nothing about how a game was made.
+The AI badge marks what the developer chose to report and claims nothing more. A game without the badge carries no claim either way: developers report their AI use themselves.
 
 ### On the store
 
@@ -119,7 +119,7 @@ The toolbar popup lists every tag by its short name, with its Show, Dim and Hide
 
 ### Why does a game have no chip?
 
-A chip appears only when Steam's data carries one of the tags you switched on and that tag's badge switch is on. A game whose developer reported nothing for a tag, or for which Steam sent no data, gets no chip; there is no "clean" or "checked" chip. A missing AI chip means Steam's data for the game lacks an AI Generated Content Disclosure, or the lookup got no answer. It says nothing about how the game was made.
+A chip appears only when Steam's data carries one of the tags you switched on and that tag's badge switch is on. A game whose developer reported nothing for a tag, or for which Steam sent no data, gets no chip, and no other mark stands in for one. A missing AI chip means Steam's data for the game lacks an AI Generated Content Disclosure, or the lookup got no answer. It says nothing about how the game was made.
 
 The Steam Deck and Steam Machine tags work the same way: a game Valve has not rated gets no chip. Family Sharing is the one tag that can show a missing feature. A paid game whose features Steam lists without Family Sharing gets "No Family Sharing", and its card names the features Steam lists as the source.
 

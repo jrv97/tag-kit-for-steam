@@ -2,11 +2,6 @@ import * as v from "valibot";
 import { describe, expect, it } from "vitest";
 import { KINDS } from "../src/core/kinds/registry";
 
-// Rule 4: the product reports what developers disclosed and never judges a game. A catalog in
-// any locale that says a game "uses AI", is "AI-free" or has "no AI" fails here, as it fails
-// scripts/check_i18n.py.
-const FORBIDDEN = /\buses AI\b|\bAI-free\b|\bno AI\b/i;
-
 // Rule 4 for every tag: no message says "no" and a tag's name, and none that names a tag says
 // "none", "free of" or "<tag>-free". Names are each kind's heading and chip in the same catalog.
 const ABSENCE = /(?<![\p{L}\p{N}])(?:none|free of)(?![\p{L}\p{N}])|-free(?![\p{L}\p{N}])/iu;
@@ -62,18 +57,6 @@ function offending(
 describe("catalog wording", () => {
   it("finds the shipped catalogs", () => {
     expect(Object.keys(catalogs)).toContain(ENGLISH);
-  });
-
-  it.each(Object.keys(catalogs))(
-    "%s never says a game uses AI, is AI-free or has no AI",
-    (path) => {
-      const offending = messages(path).filter(([, message]) => FORBIDDEN.test(message));
-      expect(offending).toEqual([]);
-    },
-  );
-
-  it.each(["This game uses AI.", "AI-free!", "Contains no AI"])("catches %j", (message) => {
-    expect(FORBIDDEN.test(message)).toBe(true);
   });
 
   it.each(Object.keys(catalogs))("%s never states a tag's absence as a claim", (path) => {

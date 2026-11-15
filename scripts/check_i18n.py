@@ -9,8 +9,8 @@ Shipped catalogs (src/locales/<locale>/messages.json):
 - every English key is used: as a string in src/**/*.ts, as `__MSG_<key>__` in a manifest, or in
   scripts/build.py (the userscript header).
 
-Every catalog, shipped or test-only (tests/locales/), must be valid and must not say "uses AI",
-"AI-free" or "no AI": the product reports disclosures, it does not judge games.
+Every catalog, shipped or test-only (tests/locales/), must be valid. scripts/check_wording.py
+checks the words of the messages against rule 4.
 
 No string literal under src/ or tests/ may repeat catalog text (rule 9): code and tests read copy
 from the catalog. The detection constants (DETECTION_CONSTANTS) are the one exception. A literal is
@@ -36,6 +36,8 @@ from pathlib import Path
 
 from catalogs import (
     DEFAULT_LOCALE,
+    SHIPPED_DIR,
+    TEST_DIR,
     Catalog,
     load,
     plural_base,
@@ -46,8 +48,8 @@ from catalogs import (
 from repo import ROOT, fail
 from ts_literals import string_literals
 
-SHIPPED = ROOT / "src" / "locales"
-TEST_CATALOGS = ROOT / "tests" / "locales"
+SHIPPED = ROOT / SHIPPED_DIR
+TEST_CATALOGS = ROOT / TEST_DIR
 PREFIXES = (
     "badge_",
     "banner_",
@@ -61,7 +63,6 @@ PREFIXES = (
 )
 KEY = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
 CONTENT = re.compile(r"^\$[1-9]$")
-FORBIDDEN = re.compile(r"\buses AI\b|\bAI-free\b|\bno AI\b", re.IGNORECASE)
 
 # Steam's own words that detection matches on the store page. A catalog message may repeat one, as
 # the AI heading does, without making the detection literal a copy of the message.
@@ -136,8 +137,6 @@ def entry_problems(path: Path, catalog: Catalog) -> list[str]:
             problems.append(f"{where}: missing description")
         if used_placeholders(entry.message) != entry.placeholders:
             problems.append(f"{where}: $name$ tokens do not match the declared placeholders")
-        if FORBIDDEN.search(entry.message):
-            problems.append(f"{where}: forbidden wording (rule 4)")
     raw = path.read_text(encoding="utf-8")
     for content in re.findall(r'"content"\s*:\s*"([^"]*)"', raw):
         if not CONTENT.match(content):
