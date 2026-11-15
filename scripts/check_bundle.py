@@ -90,6 +90,7 @@ ALLOWED_HOSTS = {"api.steampowered.com", "store.steampowered.com"}
 SETTINGS_LINKS = tuple(
     f'"{link}"'
     for link in (
+        f"{REPO_URL}#faq",
         f"{ISSUES_URL}/new?template=bug_report.yml",
         f"{ISSUES_URL}/new?template=feature_request.yml",
         f"{REPO_URL}/releases/tag/",

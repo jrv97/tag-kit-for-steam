@@ -2,6 +2,11 @@ name: Translation or language support
 description: Request a new language or report a missing or incorrect translation
 labels: [translation]
 body:
+  - type: markdown
+    attributes:
+      value: >-
+        To translate the text yourself, read CONTRIBUTING.md in the repository. It describes the
+        catalog files and the checks.
   - type: dropdown
     id: request_type
     attributes:

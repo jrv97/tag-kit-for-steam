@@ -39,6 +39,9 @@ body:
         - Edge
         - Another Chromium browser
         - Firefox
+        - Firefox for Android
+        - Steam desktop client
+        - Steam Deck desktop mode
         - Userscript in Tampermonkey
         - Userscript in Violentmonkey
         - Other

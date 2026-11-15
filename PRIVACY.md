@@ -83,7 +83,7 @@ The Chrome Web Store and Firefox Add-ons update the extension. Tampermonkey and 
 
 ## Links in the settings
 
-The feedback links in the settings footer open GitHub's bug report and feature request forms, and the popup's update line opens the release notes on GitHub, each in a new tab. The name of each ignored game links to its store page. These are plain links that load only when you click them. Neither the extension nor the userscript requests them.
+The links in the settings footer open the FAQ in the README and GitHub's bug report and feature request forms, and the popup's update line opens the release notes on GitHub, each in a new tab. The name of each ignored game links to its store page. These are plain links that load only when you click them. Neither the extension nor the userscript requests them.
 
 ## What is never read or sent
 
