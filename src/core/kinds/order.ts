@@ -14,6 +14,9 @@ export const SUGGESTION_CHIPS = 2;
 /** Chips a row with room for words shows beside its title: search, wishlist and DLC rows. */
 export const ROW_CHIPS = 3;
 
+/** Chips a store hover card shows: all, as no pointer reaches the classic card's "+N" chip. */
+export const CARD_CHIPS = KINDS.length;
+
 /**
  * Every kind once: the known ids of `stored` in its order, then the kinds it lacks in registry
  * order, so a new kind comes last. An unknown or repeated id is dropped.

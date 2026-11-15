@@ -9,7 +9,7 @@ import { fake } from "../../tests/helpers/fakes";
 import { getItemsRequest, itemIds, requestFlags } from "../../tests/helpers/getitems";
 import { englishI18n } from "../../tests/helpers/i18n";
 import { writeSettings } from "../../tests/helpers/settings";
-import { loadPage } from "../../tests/helpers/surfaces";
+import { loadPage, the } from "../../tests/helpers/surfaces";
 import { T0 } from "../../tests/helpers/timer-clock";
 import { type App, start } from "./app";
 import type { CreatorRole } from "./creator";
@@ -25,6 +25,7 @@ import type { KindId } from "./kinds/id";
 import { parseOrder } from "./kinds/order";
 import { KIND_BY_ID } from "./kinds/registry";
 import type { Clock, SettingsSource } from "./ports";
+import { HOVER_CANDIDATE } from "./scan/candidates";
 import type { AllowScope } from "./settings/allow-data";
 import { DEFAULT_SETTINGS, encodeSettings, type Settings } from "./settings/settings";
 import { createSettingsSource } from "./settings/settings-source";
@@ -183,6 +184,51 @@ describe("start on a package page", () => {
       i18n.plural("badge_summary_games", games, { kind, tagged: "1" }),
     );
     expect(lines()).toHaveLength(1);
+    expect(http.calls).toHaveLength(1);
+  });
+});
+
+describe("store hover cards", () => {
+  const CLASSIC = make.fixture.surfaceApps.hoverCard;
+  const LAYERED = make.fixture.surfaceApps.hoverLayer;
+  const blocks = () => [...document.querySelectorAll(HOVER_CANDIDATE)];
+
+  /** Starts on the classic card's capture, every app block's game declaring AI use. */
+  async function startOnClassic(settings: Settings = DEFAULT_SETTINGS) {
+    loadPage(make.page.surface("hover-card"));
+    const started = await startOnLoaded({
+      initial: storing(settings),
+      items: CLASSIC.map((id) => make.item.disclosed(id)),
+    });
+    await expect.poll(() => blocks().map((block) => block.lastElementChild?.className))
+      .toStrictEqual(CLASSIC.map(() => "tks-chips"));
+    return started;
+  }
+
+  it("ends each classic app block with its game's chips, from one request", async () => {
+    const { http } = await startOnClassic();
+    expect(http.calls).toHaveLength(1);
+    expect(getItemsRequest(http.calls[0] ?? "").ids).toEqual(CLASSIC);
+  });
+
+  it("never dims a classic hover card, whose game a kind on Dim marks", async () => {
+    await startOnClassic(make.settings.kind("ai", { filter: "dim" }));
+    expect(blocks().map((block) => getComputedStyle(block).filter))
+      .toStrictEqual(CLASSIC.map(() => "none"));
+  });
+
+  it("tags a React hover card on every mount with no request after the page's", async () => {
+    loadPage(make.page.surface("hover-layer"));
+    const card = the("[popover]");
+    card.remove();
+    const { http } = await startOnLoaded({ items: LAYERED.map((id) => make.item.disclosed(id)) });
+    await drawn(http);
+    for (let hover = 0; hover < 3; hover++) {
+      the("[data-key='hover div']").prepend(card.cloneNode(true));
+      const mounted = the("[popover]");
+      await expect.poll(() => mounted.querySelectorAll(".tks-badge").length).toBe(1);
+      mounted.remove();
+    }
     expect(http.calls).toHaveLength(1);
   });
 });

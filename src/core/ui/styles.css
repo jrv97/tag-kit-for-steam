@@ -78,6 +78,25 @@
   margin-inline-start: var(--tks-space-2);
 }
 
+/* Store hover cards: the chips end the card's app block as one more line of it. The classic card
+   is a light ground, so its chips take the compact badge's solid surface and light text, 12.65:1
+   on that surface and 11:1 or more between the surface and the card. */
+#global_hover .tks-chips {
+  display: flex;
+  margin-block-start: var(--tks-space-1);
+}
+
+#global_hover .tks-badge {
+  background: var(--tks-tag-solid, var(--tks-compact-bg));
+  color: var(--tks-tag-light, var(--tks-compact-fg));
+}
+
+/* The React card's info block: the store's tags sit 4px in from its padding */
+[popover] .tks-chips {
+  display: flex;
+  margin-inline-start: var(--tks-space-1);
+}
+
 /* Compact badge: mirrors the store's corner flags, at the inline-end corner. The group sits there
    and its chips shrink to the image's width, the label ending in an ellipsis. */
 
@@ -229,6 +248,12 @@
 /* The store's game hover stays hidden while the card is open, or both open on a search row */
 [data-tks-hovercard="open"] #global_hover {
   visibility: hidden !important;
+}
+
+/* The classic hover card shows the one game the pointer rests on, so no list filter dims it. The
+   pointer never reaches it, so the dim's own hover rule cannot lift it. */
+#global_hover [data-tks-appid] {
+  filter: none !important;
 }
 
 /* List filter: data-tks-filter-<kind> on the root element, data-tks-kinds on each host. A kind

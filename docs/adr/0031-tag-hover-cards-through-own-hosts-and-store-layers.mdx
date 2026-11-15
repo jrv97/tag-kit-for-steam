@@ -1,0 +1,72 @@
+---
+status: accepted
+date: 2026-11-15
+decision-makers: Jorge Rodriguez de la Vega
+---
+
+# Tag Steam's hover cards through own-host candidates and store layers
+
+## Context and problem statement
+
+Steam shows a game's hover card when the pointer rests on its capsule. Two shapes exist, captured on 2026-11-15 with the dev bundle injected:
+
+- Classic pages (search, bundle, curator, home) fill `#global_hover_content` with one `div#hover_app_<appid>` per hovered game. A later hover of the same game only switches the blocks' `display`. The block holds no app link and no `data-ds-appid`, and some blocks hold no image. No candidate in `src/core/scan/candidates.ts` names its app, and the scanner never sees the card.
+- React pages (tag hubs, category and sale hubs) mount a full-viewport `div[popover="manual"]` inside the hovered capsule's `[data-key="hover div"]` on each hover, and unmount it when the pointer leaves. Its links name the same app as the capsule around it. `knownHostAround` climbs from the card into the capsule's host and folds the card into it, which leaves the card without chips.
+
+Rule 11 keeps the scanner closed to new surfaces, and both cases need the scan to read something new. How should the scan reach both cards?
+
+## Decision drivers
+
+- Rule 11: a new surface is an entry in a list, and the next one needs no scanner edit.
+- Rule 13: no polling, only added subtrees, no request for a cached verdict, no listener per node. A React card mounts again on every hover.
+- Rule 4 and the native look: the card keeps Steam's own words and layout around our chips, and nothing Steam drew moves.
+
+## Considered options
+
+1. Two seams in the scan: candidate sources and own hosts in `candidates.ts`, and store layers in `placements.ts` that every ancestor walk stops at (chosen).
+2. Hard-code both cases: add `[id^='hover_app_']` to the scanner's selector loop and `[popover]` to `knownHostAround`.
+3. A pointer listener or a second observer that tags the hovered game's card on its own.
+
+## Decision outcome
+
+Chosen option 1.
+
+- `CANDIDATE_SOURCES` in `candidates.ts` is what a scan lists in each added subtree: `OWN_HOST`, then app links. `OWN_HOST` joins `[data-ds-appid]` and `HOVER_CANDIDATE` (`[id^='hover_app_']`). `namingOf` reads a block's app from its id through `appIdFromHoverId`, and `hostOf` takes an `OWN_HOST` element as its own host, as it did for `data-ds-appid`.
+- `LAYER_PLACEMENTS` in `placements.ts` lists store layers by the attribute on their root; the first is `popover`. `knownHostAround`, `enclosedByFresh` and `holdsKnownHost` in `scanner.ts` and `parentOf` in `hosts.ts` stop at a layer root through `opensLayer`. A host inside a card and the capsule's host around it never join, in either direction.
+- Two placements. `hover-card` puts a full badge at the end of the classic block, under the user tags. `hover-layer` puts one at the end of the React card's info block, under the tags, the reviews and the release line. Both show every chip (`CARD_CHIPS`): no pointer reaches the classic card to open a "+N" chip. Neither hides.
+- The classic card is a light ground. Its chips take the compact badge's solid surface and light text: 12.65:1 on that surface, and 11:1 or more between the surface and the card. One rule keeps the list filter's dim off that card. It shows the one game the pointer rests on, and the dim's own `:hover` rule cannot lift it there because the pointer never reaches it.
+
+### Library check (rule 12)
+
+Nothing adopted. The change reads ids and attributes through DOM calls the scan makes today.
+
+### Consequences
+
+- Good: a later store layer or an element that names its app without a link is one entry. The scanner, the host finder and the detector chain stay as they are.
+- Good: hovering a classic card's game again changes only the blocks' style, which no scan reads. A React card's new mount costs one scan of its subtree and a draw from the cache, with no GetItems request.
+- Good: the capsule's host no longer counts as changed when its React card mounts, and skips a redraw on each hover.
+- Bad: each placement costs one `matches` call per new host. The page scan budget in `scanner.test.ts` now allows 16 calls per capsule; the scan makes 14.
+- Bad: the chips arrive one debounce (200 ms) after the card, at its bottom edge, and the card grows by one line under Steam's content. Nothing above them moves.
+- Neutral: the content bundle grows to 255,890 of its 256,000 bytes.
+
+### Confirmation
+
+`scanner.test.ts` pins both captured shapes in `tests/fixtures/surfaces/hover-card/`. Each classic block is a host with its chips at the end, a new block gets a host of its own, and a style switch starts no scan. The React card is a host apart from its capsule's on a page scan and on three mounts in a row, each scan with one root and no changed host; with the layer check turned off, both React tests fail. `app.test.ts` draws the chips in both cards from one GetItems request and keeps the classic card undimmed under Dim. On 2026-11-15 the dev bundle drew the chips in the classic card on the search page, in the isolated world and in the page world beside Prototype.js 1.7, and in the React card on the Roguelike tag hub and the Action category hub.
+
+## Pros and cons of the options
+
+### 1. Candidate sources and store layers (chosen)
+
+- Good: both seams are data, as `NESTED_PLACEMENTS` is (ADR 0025).
+- Good: `opensLayer` adds one attribute read to ancestor walks the scan makes today, and no selector query.
+- Bad: one scanner edit now, recorded here.
+
+### 2. Hard-code both cases in the scanner
+
+- Good: the smallest diff.
+- Bad: the next layer or id-named element edits the scanner again, which rule 11 rules out.
+
+### 3. A pointer listener or a second observer
+
+- Good: it could draw before the scan's debounce ends.
+- Bad: a second detection path beside the scanner and the capsule UI, with its own listener or observer and its own draw code.

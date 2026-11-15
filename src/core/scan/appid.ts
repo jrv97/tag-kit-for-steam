@@ -14,6 +14,16 @@ export function appIdFromDataAttribute(value: string): AppId | undefined {
   return DIGITS.test(trimmed) ? toAppId(Number(trimmed)) : undefined;
 }
 
+/** The id prefix of the app block in Steam's classic hover card, `hover_app_<id>`. */
+export const HOVER_APP_PREFIX = "hover_app_";
+
+/** The app ID in the id of a classic hover card's app block, `hover_app_<id>`. */
+export function appIdFromHoverId(id: string): AppId | undefined {
+  return id.startsWith(HOVER_APP_PREFIX)
+    ? appIdFromDataAttribute(id.slice(HOVER_APP_PREFIX.length))
+    : undefined;
+}
+
 /**
  * The app ID an `href` links to, when it resolves to a store app page. Relative links resolve
  * against `base` (the document's base URL). Other hosts, steamcommunity.com included, and store

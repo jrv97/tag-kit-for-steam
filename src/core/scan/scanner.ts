@@ -1,17 +1,10 @@
 import { detach } from "../dom";
 import type { AppId } from "../types";
 import { appIdFromHref } from "./appid";
-import {
-  ANY_CANDIDATE,
-  DATA_CANDIDATE,
-  LINK_CANDIDATE,
-  namesApp,
-  namingOf,
-  SKIPPED,
-} from "./candidates";
+import { ANY_CANDIDATE, CANDIDATE_SOURCES, namesApp, namingOf, SKIPPED } from "./candidates";
 import { createHostFinder } from "./hosts";
 import { HOST_APPID, HOST_HIDEABLE, HOST_KINDS, isInTksNode, isTksNode, TKS_NODE } from "./marks";
-import { placeHost, type Placement, PLACEMENTS } from "./placements";
+import { opensLayer, placeHost, type Placement, PLACEMENTS } from "./placements";
 import type { CapsuleHost, CapsuleRenderer } from "./renderer";
 
 /** Quiet time after the last mutation before a scan. */
@@ -125,7 +118,9 @@ export function createScanner(options: ScannerOptions): Scanner {
     onReport?.(plan.report);
   }
 
-  /** The known host that is `element` or encloses it, for `appId` or for any app. */
+  /**
+   * The known host that is `element` or encloses it inside its layer, for `appId` or for any app.
+   */
   function knownHostAround(
     element: Element,
     appId?: AppId,
@@ -139,14 +134,22 @@ export function createScanner(options: ScannerOptions): Scanner {
       ) {
         return node;
       }
+      if (opensLayer(node)) {
+        break;
+      }
     }
     return undefined;
   }
 
-  /** Whether `host` holds a known host of the same app, which then stays the host. */
+  /**
+   * Whether `host` holds a known host of the same app in its own layer, which then stays the host.
+   */
   function holdsKnownHost(host: Element, appId: AppId, replaced: ReadonlySet<Element>): boolean {
     for (const marked of host.querySelectorAll(`[${HOST_APPID}='${String(appId)}']`)) {
-      if (hosts.get(marked)?.appId === appId && !replaced.has(marked)) {
+      if (
+        hosts.get(marked)?.appId === appId && !replaced.has(marked)
+        && !layerBetween(marked, host)
+      ) {
         return true;
       }
     }
@@ -167,7 +170,7 @@ export function createScanner(options: ScannerOptions): Scanner {
         candidates.add(around);
       }
     }
-    for (const selector of [DATA_CANDIDATE, LINK_CANDIDATE]) {
+    for (const selector of CANDIDATE_SOURCES) {
       for (const root of roots) {
         for (const element of root.querySelectorAll(selector)) {
           candidates.add(element);
@@ -339,14 +342,36 @@ function liveRoots(pending: ReadonlySet<Element>): Element[] {
   return roots;
 }
 
-/** Whether a fresh host of the same app encloses `element`: the outer one is the host. */
+/**
+ * Whether a fresh host of the same app encloses `element` inside its layer: the outer one is the
+ * host.
+ */
 function enclosedByFresh(
   element: Element,
   appId: AppId,
   fresh: ReadonlyMap<Element, AppId>,
 ): boolean {
-  for (let node = element.parentElement; node !== null; node = node.parentElement) {
-    if (fresh.get(node) === appId) {
+  for (let node = element; !opensLayer(node);) {
+    const parent = node.parentElement;
+    if (parent === null) {
+      return false;
+    }
+    if (fresh.get(parent) === appId) {
+      return true;
+    }
+    node = parent;
+  }
+  return false;
+}
+
+/** Whether a layer root sits between `inner` (included) and `outer` (left out). */
+function layerBetween(inner: Element, outer: Element): boolean {
+  for (
+    let node: Element | null = inner;
+    node !== null && node !== outer;
+    node = node.parentElement
+  ) {
+    if (opensLayer(node)) {
       return true;
     }
   }

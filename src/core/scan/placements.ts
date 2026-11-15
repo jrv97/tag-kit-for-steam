@@ -1,5 +1,5 @@
-import { OVERLAY_CHIPS, ROW_CHIPS, SUGGESTION_CHIPS } from "../kinds/order";
-import { LINK_CANDIDATE, type NestedPlacement } from "./candidates";
+import { CARD_CHIPS, OVERLAY_CHIPS, ROW_CHIPS, SUGGESTION_CHIPS } from "../kinds/order";
+import { HOVER_CANDIDATE, LINK_CANDIDATE, type NestedPlacement } from "./candidates";
 import { firstImage, imageBox } from "./image";
 
 // Where a host's badge goes, per store surface (rq6, S5; docs/design/components.mdx, sections 1,
@@ -102,6 +102,36 @@ const queueTitle: AnchorRule = (host) => {
   return label !== null && host.contains(label) ? label : undefined;
 };
 
+/** A React hover card's info block: its title link's parent, over the tags and reviews. */
+const hoverInfo: AnchorRule = (host) => imagelessLink(host)?.parentElement ?? undefined;
+
+/**
+ * A store element that opens a layer of its own over the page, marked by an attribute. A host
+ * inside it never joins a host around it, and the reverse: the scan treats it as a boundary.
+ */
+interface LayerPlacement {
+  /** A stable name for tests and debug logs. */
+  readonly id: string;
+  /** The attribute that marks the layer's root element. */
+  readonly attribute: string;
+}
+
+/** Every store layer. A new one is a new entry here, never a scanner edit (rule 11). */
+const LAYER_PLACEMENTS: readonly LayerPlacement[] = [
+  // React hover cards: a `div[popover]` mounted inside the hovered capsule's host on each hover.
+  { id: "popover", attribute: "popover" },
+];
+
+/** Whether `element` is a store layer's root: one attribute read per layer. */
+export function opensLayer(element: Element): boolean {
+  for (const { attribute } of LAYER_PLACEMENTS) {
+    if (element.hasAttribute(attribute)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** The default: a compact badge over the capsule image of any host. */
 export const GENERIC: OverlayPlacement = {
   id: "generic",
@@ -115,6 +145,28 @@ export const GENERIC: OverlayPlacement = {
 
 /** Every placement, most specific first; the first whose host and anchor match wins. */
 export const PLACEMENTS: readonly Placement[] = [
+  {
+    // The classic hover card (`#global_hover`): one app block per hovered game, kept hidden
+    // when another shows. The chips end the block, under the user tags.
+    id: "hover-card",
+    host: HOVER_CANDIDATE,
+    hideable: false,
+    maxChips: CARD_CHIPS,
+    badge: "full",
+    slot: "end",
+    anchor: (host) => host,
+  },
+  {
+    // The React hover card on tag hubs and sale pages, a layer of its own. The chips end its
+    // info block.
+    id: "hover-layer",
+    host: "[popover] *",
+    hideable: false,
+    maxChips: CARD_CHIPS,
+    badge: "full",
+    slot: "end",
+    anchor: hoverInfo,
+  },
   {
     // Classic search rows: right after the title. The title line clips its overflow, so CSS
     // turns it into a flex row where the title shrinks and the badge stays whole.
