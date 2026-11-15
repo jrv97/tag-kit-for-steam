@@ -7,12 +7,13 @@ import { createFetchHttp, type Fetch } from "./http";
 httpContract("createFetchHttp", (routes) => createFetchHttp(fake.fetch(routes).fetch));
 
 describe("createFetchHttp", () => {
-  it("sends every request without credentials", async () => {
+  it("sends every request without credentials or a referrer", async () => {
     const backend = fake.fetch([]);
     const http = createFetchHttp(backend.fetch);
     await http.get(make.text.url());
     await http.get(make.text.url());
-    expect(backend.calls.map(({ init }) => init.credentials)).toStrictEqual(["omit", "omit"]);
+    const sent = { credentials: "omit", referrerPolicy: "no-referrer" };
+    expect(backend.calls.map(({ init }) => init)).toMatchObject([sent, sent]);
   });
 
   it("falls back to the requested URL when the response has none", async () => {
