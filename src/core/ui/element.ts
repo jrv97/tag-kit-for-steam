@@ -43,8 +43,8 @@ export function plainButton(doc: Document, className: string, text?: string): HT
   return button;
 }
 
-/** A link to another site that opens in a new tab with no opener or referrer. */
-export function externalLink(
+/** A link that opens in a new tab with no opener or referrer, with its text when given. */
+export function newTabLink(
   doc: Document,
   className: string,
   url: string,

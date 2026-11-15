@@ -1,6 +1,6 @@
 import { FEEDBACK_LINKS } from "../feedback-links";
 import type { MessageCatalog } from "../ports";
-import { createElement, externalLink } from "./element";
+import { createElement, newTabLink } from "./element";
 import { withIcon } from "./icon";
 
 /**
@@ -13,7 +13,7 @@ export function createFeedbackFooter(doc: Document, i18n: MessageCatalog): HTMLE
   const footer = createElement(doc, "nav", "tks-feedback");
   footer.setAttribute("aria-label", i18n.t("options_feedback_label"));
   for (const { url, icon, label } of FEEDBACK_LINKS) {
-    const link = externalLink(doc, "tks-feedback-link", url);
+    const link = newTabLink(doc, "tks-feedback-link", url);
     footer.append(withIcon(link, icon, i18n.t(label)));
   }
   return footer;

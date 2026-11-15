@@ -6,7 +6,7 @@ import { createLogger } from "../../core/log";
 import type { KeyValueStore } from "../../core/ports";
 import { parseSettings } from "../../core/settings/settings";
 import { ALLOW_KEY, CREATOR_ALLOW_KEYS, UI_STATE_KEY } from "../../core/storage-keys";
-import { takeReleaseNotice } from "../../core/ui/release-notice";
+import { checkRelease } from "../../core/ui/release-notice";
 import { mountSettingsForm, type SettingsContext } from "../../core/ui/settings-form";
 import { parseTabHash, tabHash, type TabId } from "../../core/ui/tab-id";
 import { createUiState, decodeTabRequest, type UiState } from "../../core/ui/ui-state";
@@ -98,10 +98,11 @@ async function main(): Promise<void> {
 
   // On a failed read the page renders in the browser language and the form shows the error.
   // The popup reads its one-time notice beside the settings, so the first frame holds it.
-  const [{ setting, i18n, failure }, notice] = await Promise.all([
+  const [{ setting, i18n, failure }, release] = await Promise.all([
     readSettingsI18n(settings, catalogs, { browserLang: navigator.language }),
-    page ? undefined : takeReleaseNotice(store, version),
+    page ? undefined : checkRelease(store, version),
   ]);
+  const notice = release?.notice;
   if (failure !== undefined) {
     createLogger(i18n, console, false).error(failure.problem);
   }
@@ -145,6 +146,8 @@ async function main(): Promise<void> {
         progress: tabProgress(connectActiveTab),
       }),
   });
+
+  void release?.record();
 
   // The page's own copy follows a new language on the next load; reload now.
   settings.subscribe((value) => {

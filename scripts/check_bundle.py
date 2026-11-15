@@ -133,14 +133,14 @@ ENGLISH = ROOT / "src" / "locales" / DEFAULT_LOCALE / "messages.json"
 STORE_MATCH = ["https://store.steampowered.com/*"]
 RELEASE_BASE = f"{REPO_URL}/releases/latest/download"
 ALLOWED_HOSTS = {"api.steampowered.com", "store.steampowered.com"}
-# The feedback links of the settings and the prefix of the popup's release notes link
-# (src/core/feedback-links.ts): plain links a person opens in a tab, never requested. Only these
-# exact strings, and only in the bundles that show the settings.
-FEEDBACK_URLS = (
+# The links of the settings (src/core/feedback-links.ts): plain links a person opens in a tab,
+# never requested. Only these exact strings, and only in the bundles that show the settings. The
+# release notes prefix counts only as a whole string literal, closing quote included.
+SETTINGS_LINKS = (
     f"{ISSUES_URL}/new?template=bug_report.yml",
     f"{ISSUES_URL}/new?template=feature_request.yml",
     "https://forms.gle/Fo652zzyFWUQn2qK9",
-    f"{REPO_URL}/releases/tag/",
+    f'"{REPO_URL}/releases/tag/"',
 )
 HEADER_START = "// ==UserScript=="
 HEADER_END = "// ==/UserScript=="
@@ -371,7 +371,7 @@ def script_problems(path: Path) -> list[str]:
     if REMOTE_CODE.search(body):
         problems.append(f"{where}: eval( or new Function found")
     if path.name != "content.js":
-        for link in FEEDBACK_URLS:
+        for link in SETTINGS_LINKS:
             body = body.replace(link, "")
     for host in sorted(set(URL.findall(body)) - ALLOWED_HOSTS):
         problems.append(f"{where}: URL to a host outside the allowlist: {host}")

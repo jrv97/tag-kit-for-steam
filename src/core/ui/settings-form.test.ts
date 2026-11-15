@@ -880,39 +880,38 @@ describe("the page around the tabs", () => {
     expect(header?.querySelector("button")).toBeNull();
   });
 
+  const noticeVersion = make.text.version();
   it.each(
     [
       [
-        "no notice",
-        {},
-        (version: string) => i18n.t("options_version", { version }),
-        undefined,
-        undefined,
+        "intro",
+        {
+          intro: i18n.t("options_intro"),
+          updated: undefined,
+          whatsNew: undefined,
+          href: undefined,
+        },
       ],
       [
-        "the intro",
-        { notice: "intro" },
-        (version: string) => i18n.t("options_version", { version }),
-        undefined,
-        i18n.t("options_intro"),
-      ],
-      [
-        "the update line",
-        { notice: "updated" },
-        (version: string) =>
-          `${i18n.t("options_version_updated", { version })} ${i18n.t("options_whats_new")}`,
-        releaseNotesUrl,
-        undefined,
+        "updated",
+        {
+          intro: undefined,
+          updated: i18n.t("options_version_updated", { version: noticeVersion }),
+          whatsNew: i18n.t("options_whats_new"),
+          href: releaseNotesUrl(noticeVersion),
+        },
       ],
     ] as const,
-  )("draws %s with the header", async (_name, notice, line, notes, intro) => {
-    const version = make.text.version();
-    const { root } = await mountForm({ ...POPUP, header: { version, ...notice } });
-    expect(root.querySelector(".tks-options-version")?.textContent).toBe(line(version));
-    expect(root.querySelector(".tks-options-version a")?.getAttribute("href")).toBe(
-      notes?.(version),
-    );
-    expect(root.querySelector(".tks-options-header + .tks-intro")?.textContent).toBe(intro);
+  )("draws the %s notice with the popup's header", async (notice, shown) => {
+    const { root } = await mountForm({ ...POPUP, header: { version: noticeVersion, notice } });
+    const link = root.querySelector(".tks-options-version a");
+    const describedBy = link?.getAttribute("aria-describedby");
+    expect({
+      intro: root.querySelector(".tks-options-header + .tks-intro")?.textContent,
+      updated: root.querySelector(`[id="${String(describedBy)}"]`)?.textContent,
+      whatsNew: link?.textContent,
+      href: link?.getAttribute("href"),
+    }).toEqual(shown);
   });
 
   it("keeps the gear small: one path of fewer than 400 bytes", async () => {

@@ -113,7 +113,7 @@
 }
 
 /* Once after an update, the release it updated to reads brighter than the plain version */
-.tks-options-version > span {
+.tks-options-updated {
   color: var(--tks-color-text);
 }
 

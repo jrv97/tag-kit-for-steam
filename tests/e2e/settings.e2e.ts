@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { releaseNotesUrl } from "../../src/core/feedback-links";
-import { VERSION_KEY } from "../../src/core/storage-keys";
+import { RELEASE_KEY } from "../../src/core/storage-keys";
 import { make } from "../helpers/factory";
 import { englishI18n } from "../helpers/i18n";
 import { ENGINES, type ExtensionBrowser, launch } from "./browser";
@@ -71,13 +71,15 @@ it("chromium: a popup row clicked at once opens the settings at its tab", async 
   }
 });
 
-/** What one open of the popup shows: whether the intro draws, the version line and its link. */
+/**
+ * What one open of the popup shows: whether the intro draws and where the release link points. A
+ * query of its own keeps Gecko from handing back the control page, which has the popup's address.
+ */
 async function popupNotice(browser: ExtensionBrowser) {
-  const popup = await browser.open("options.html?context=popup");
+  const popup = await browser.open(`options.html?context=popup&open=${make.text.token()}`);
   await popup.waitForSelector(".tks-options-version");
   const seen = await popup.evaluate(() => ({
     intro: document.querySelector(".tks-intro") !== null,
-    line: document.querySelector(".tks-options-version")?.textContent,
     notes: document.querySelector(".tks-options-version a")?.getAttribute("href"),
   }));
   await popup.close();
@@ -89,28 +91,28 @@ it.each(ENGINES)("%s: the popup says once that it installed and once that it upd
 ) => {
   const browser = await launch(engine);
   try {
+    // The settings page comes first and leaves the popup's notice alone
+    const page = await browser.open("options.html");
+    await page.waitForSelector("[role=tablist]");
+    await page.close();
     const first = await popupNotice(browser);
     const again = await popupNotice(browser);
-    const { page, api } = await browser.control();
-    const version = await page.evaluate(
+    const { page: control, api } = await browser.control();
+    const version = await control.evaluate(
       async (ext, key, older) => {
         await ext.storage.local.set({ [key]: older });
         return ext.runtime.getManifest().version;
       },
       api,
-      VERSION_KEY,
+      RELEASE_KEY,
       make.text.token(),
     );
     const updated = await popupNotice(browser);
-    const plain = { intro: false, line: i18n.t("options_version", { version }) };
+    const plain = { intro: false };
     expect([first, again, updated, await popupNotice(browser)]).toEqual([
-      { ...plain, intro: true },
+      { intro: true },
       plain,
-      {
-        intro: false,
-        line: `${i18n.t("options_version_updated", { version })} ${i18n.t("options_whats_new")}`,
-        notes: releaseNotesUrl(version),
-      },
+      { intro: false, notes: releaseNotesUrl(version) },
       plain,
     ]);
   } finally {

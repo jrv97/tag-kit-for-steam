@@ -734,8 +734,8 @@
     "description": "Link after options_version_updated in the toolbar popup that opens the new release's notes on GitHub in a new tab. Keep it short."
   },
   "options_intro": {
-    "message": "Tag Kit etiqueta los juegos de toda la tienda de Steam con lo que informa Steam. Activa o desactiva cada etiqueta abajo y elige si las listas muestran, atenúan u ocultan los juegos que marca. El nombre de una etiqueta abre todos sus ajustes.",
-    "description": "Shown once, under the header of the toolbar popup, the first time it opens after install. Below it each row holds a tag's name (a link to its settings), a Show, Dim and Hide control (options_filter_off, options_filter_dim, options_filter_hide) and an on or off switch. Keep \"Tag Kit\" as in ext_short_name. Say nothing about any game beyond what Steam reports."
+    "message": "Tag Kit marca los juegos de toda la tienda de Steam con lo que indica Steam. Abajo puedes activar o desactivar cada etiqueta y elegir si las listas muestran, atenúan u ocultan los juegos que marca.",
+    "description": "Shown once, under the header of the toolbar popup, on its first open after install. Below it each row holds a tag's name, a Show, Dim and Hide control (options_filter_off, options_filter_dim, options_filter_hide) and an on or off switch. Keep \"Tag Kit\" as in ext_short_name. Say nothing about any game beyond what Steam reports. Keep it to two short sentences."
   },
   "options_badges": {
     "message": "Marcador en los juegos",

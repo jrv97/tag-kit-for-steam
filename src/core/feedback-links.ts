@@ -4,7 +4,8 @@ import type { LucideName } from "./ui/lucide";
 // Where a person can send a bug report or feedback. The settings footer links to these, and the
 // README's Feedback section lists the same three (a test compares them). Each is a plain link
 // the person opens in a tab; the extension never requests one, so no app ID goes anywhere
-// (rule 1). The popup's update line links to a release's notes the same way.
+// (rule 1). The popup's update line links to a release's notes the same way. Each URL stays one
+// literal: scripts/check_bundle.py allows these strings, never a URL built from parts.
 
 /** The release notes of a version follow this prefix: the release pipeline tags it by version. */
 const RELEASE_NOTES_URL = "https://github.com/jrv97/tag-kit-for-steam/releases/tag/";
