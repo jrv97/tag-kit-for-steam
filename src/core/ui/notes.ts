@@ -1,4 +1,4 @@
-import { type BBNode, type BBTag, parseBBCode } from "../bbcode";
+import { type BBNode, type BBTag, isList, parseBBCode } from "../bbcode";
 import { createElement } from "./element";
 
 const WINDOWS_BREAK = /\r\n?/g;
@@ -18,52 +18,56 @@ interface Formatted {
   readonly block: boolean;
 }
 
-const inline = (tag: keyof HTMLElementTagNameMap, className: string): Formatted => ({
-  tag,
-  className,
-  block: false,
-});
+const format = (
+  tag: keyof HTMLElementTagNameMap,
+  className: string,
+  block = false,
+): Formatted => ({ tag, className, block });
 
-const block = (tag: keyof HTMLElementTagNameMap, className: string): Formatted => ({
-  tag,
-  className,
-  block: true,
-});
+const HEADING = format("strong", "tks-bb-heading", true);
+const STRIKE = format("s", "tks-bb-strike");
+const LINE = format("span", "tks-bb-line", true);
 
-const HEADING = block("strong", "tks-bb-heading");
-const STRIKE = inline("s", "tks-bb-strike");
-
-/**
- * What each tag renders as. A link keeps only its words, so no link leads off Steam; a picture
- * draws nothing, so no request reaches another host (rule 1). A developer's heading is bold text,
- * since a heading element would enter the page's outline.
- */
+// A link keeps its words, so no link leads off Steam. A picture or video draws nothing (rule 1).
+// A heading element would enter the page's outline, so a heading is bold text.
+// A spoiler shows its words: a tooltip cannot reveal it, and a keyboard cannot hover.
 const FORMATS: Readonly<Record<BBTag, Formatted | "words" | "nothing">> = {
-  "b": inline("strong", "tks-bb-bold"),
-  "i": inline("em", "tks-bb-italic"),
-  "u": inline("u", "tks-bb-underline"),
+  "b": format("strong", "tks-bb-bold"),
+  "i": format("em", "tks-bb-italic"),
+  "u": format("u", "tks-bb-underline"),
   "s": STRIKE,
   "strike": STRIKE,
-  "spoiler": inline("span", "tks-bb-spoiler"),
+  "spoiler": "words",
   "url": "words",
   "img": "nothing",
-  "code": block("code", "tks-bb-code"),
-  "quote": block("blockquote", "tks-bb-quote"),
+  "previewyoutube": "nothing",
+  "code": format("code", "tks-bb-code", true),
+  "quote": format("blockquote", "tks-bb-quote", true),
   "h1": HEADING,
   "h2": HEADING,
   "h3": HEADING,
-  "list": block("ul", "tks-bb-list"),
-  "olist": block("ol", "tks-bb-list"),
-  "*": block("li", "tks-bb-item"),
-  "hr": block("hr", "tks-bb-rule"),
+  "p": LINE,
+  "list": format("ul", "tks-bb-list", true),
+  "olist": format("ol", "tks-bb-list tks-bb-olist", true),
+  "*": format("li", "tks-bb-item", true),
+  "hr": format("hr", "tks-bb-rule", true),
+  "table": "words",
+  "tr": LINE,
+  "th": "words",
+  "td": "words",
 };
 
 /**
- * Appends the nodes as text and formatting. A line break right after a block's start or end is
- * dropped, since the block breaks the line itself; blanks between list items are dropped too.
+ * Appends the nodes as text and formatting. A block breaks the line itself, so one line break
+ * right after its start or end goes. A list drops the blanks between its items.
  */
-function appendFormatted(parent: HTMLElement, nodes: readonly BBNode[], list: boolean): void {
-  let lineStart = true;
+function appendFormatted(
+  parent: HTMLElement,
+  nodes: readonly BBNode[],
+  atBlockEdge: boolean,
+  list: boolean,
+): void {
+  let lineStart = atBlockEdge;
   for (const node of nodes) {
     if (typeof node === "string") {
       const text = lineStart && node.startsWith("\n") ? node.slice(1) : node;
@@ -72,23 +76,23 @@ function appendFormatted(parent: HTMLElement, nodes: readonly BBNode[], list: bo
       }
       lineStart = false;
     } else {
-      const format = FORMATS[node.tag];
-      if (format === "words") {
-        appendFormatted(parent, node.children, false);
+      const shown = FORMATS[node.tag];
+      if (shown === "words") {
+        appendFormatted(parent, node.children, lineStart, false);
         lineStart = false;
-      } else if (format !== "nothing") {
-        const element = createElement(parent.ownerDocument, format.tag, format.className);
-        appendFormatted(element, node.children, node.tag === "list" || node.tag === "olist");
+      } else if (shown !== "nothing") {
+        const element = createElement(parent.ownerDocument, shown.tag, shown.className);
+        appendFormatted(element, node.children, shown.block, isList(node.tag));
         parent.append(element);
-        lineStart = format.block;
+        lineStart = shown.block;
       }
     }
   }
 }
 
 /**
- * Sets the developer's text in `target`, replacing what it held: plain text as it is, BBCode as
- * the formatting Steam shows. Every word becomes a text node, never parsed as HTML.
+ * Sets the developer's text in `target`, replacing what it held. Plain text stays as it is, and
+ * BBCode shows the formatting Steam shows. The words go in as text nodes, never parsed as HTML.
  */
 export function fillNotes(target: HTMLElement, text: string, markup: NotesMarkup): void {
   const notes = normalizeBreaks(text);
@@ -97,5 +101,5 @@ export function fillNotes(target: HTMLElement, text: string, markup: NotesMarkup
     return;
   }
   target.replaceChildren();
-  appendFormatted(target, parseBBCode(notes), false);
+  appendFormatted(target, parseBBCode(notes), true, false);
 }

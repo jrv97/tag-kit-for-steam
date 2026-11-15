@@ -151,12 +151,28 @@ afterEach(() => {
 });
 
 describe("createBanner", () => {
-  it("renders the developer's notes verbatim, markup included, as plain text", () => {
+  const BOLD_NOTE = make.text.note();
+  it.each(
+    [
+      [
+        "the AI notes verbatim, markup included, as plain text",
+        make.verdict.disclosed("ai", { notes: NOTES }),
+        SHOWN_NOTES,
+        0,
+      ],
+      [
+        "a BBCode note as formatting",
+        make.verdict.disclosed("earlyaccess", { note: `[b]${BOLD_NOTE}[/b]` }),
+        BOLD_NOTE,
+        1,
+      ],
+    ] as const,
+  )("renders %s", (_name, verdict, shown, elements) => {
     const { banner, root } = setup();
-    banner.show(view([make.verdict.disclosed("ai", { notes: NOTES })]));
+    banner.show(view([verdict]));
     const quote = query(root, "blockquote.tks-banner-quote");
-    expect(quote.textContent).toBe(SHOWN_NOTES);
-    expect(quote.children).toHaveLength(0);
+    expect(quote.textContent).toBe(shown);
+    expect(quote.children).toHaveLength(elements);
   });
 
   it("uses catalog copy and the developer as the source", () => {

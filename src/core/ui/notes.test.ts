@@ -1,13 +1,7 @@
 import { describe, expect, it, onTestFinished } from "vitest";
 import { make } from "../../../tests/helpers/factory";
 import { fake } from "../../../tests/helpers/fakes";
-import { fillNotes, normalizeBreaks, type NotesMarkup } from "./notes";
-
-describe("normalizeBreaks", () => {
-  it("turns CRLF and lone CR into LF", () => {
-    expect(normalizeBreaks("a\r\nb\rc\nd")).toBe("a\nb\nc\nd");
-  });
-});
+import { fillNotes, type NotesMarkup } from "./notes";
 
 describe("fillNotes", () => {
   const one = make.text.note();
@@ -15,9 +9,18 @@ describe("fillNotes", () => {
   const url = make.text.url();
 
   const ITEM = `<li class="tks-bb-item">`;
+  const LINE = `<span class="tks-bb-line">`;
+  const BOLD = `<strong class="tks-bb-bold">`;
+  /** A letter whose lower case takes two UTF-16 units. */
+  const LONGER = String.fromCodePoint(0x130);
   const CASES: readonly (readonly [string, NotesMarkup, string, string])[] = [
-    ["plain text with its brackets", "plain", `[b]${one}[/b]\r\n`, `[b]${one}[/b]\n`],
-    ["bold", "bbcode", `[b]${one}[/b]`, `<strong class="tks-bb-bold">${one}</strong>`],
+    [
+      "plain text with its brackets and breaks",
+      "plain",
+      `[b]${one}[/b]\r\n${two}\r`,
+      `[b]${one}[/b]\n${two}\n`,
+    ],
+    ["bold", "bbcode", `[b]${one}[/b]`, `${BOLD}${one}</strong>`],
     [
       "nested italic and underline, in any case",
       "bbcode",
@@ -31,18 +34,35 @@ describe("fillNotes", () => {
       `<s class="tks-bb-strike">${one}</s><s class="tks-bb-strike">${two}</s>`,
     ],
     [
-      "a spoiler",
+      "the words of a link and a spoiler",
       "bbcode",
-      `[spoiler]${one}[/spoiler]`,
-      `<span class="tks-bb-spoiler">${one}</span>`,
+      `[url=${url}]${one}[/url][spoiler]${two}[/spoiler]`,
+      `${one}${two}`,
     ],
-    ["a link as its words alone", "bbcode", `[url=${url}]${one}[/url]`, one],
-    ["no picture", "bbcode", `${one}[img]${url}[/img]`, one],
+    [
+      "no picture or video",
+      "bbcode",
+      `${one}[img]${url}[/img][previewyoutube=${two};full][/previewyoutube]`,
+      one,
+    ],
     ["noparse as its raw text", "bbcode", `[noparse][b]${one}[/b][/noparse]`, `[b]${one}[/b]`],
-    ["an unknown tag as text", "bbcode", `[update]${one}[/update]`, `[update]${one}[/update]`],
-    ["a tag that never closes as text", "bbcode", `[i]${one}`, `[i]${one}`],
-    ["a stray closing tag as text", "bbcode", `${one}[/b]`, `${one}[/b]`],
-    ["an item outside a list as text", "bbcode", `[*]${one}`, `[*]${one}`],
+    [
+      "noparse after text whose lower case is longer",
+      "bbcode",
+      `${LONGER}[NOPARSE][b]${one}[/noparse]${two}`,
+      `${LONGER}[b]${one}${two}`,
+    ],
+    ["an unclosed noparse as typed", "bbcode", `[noparse][b]${one}`, `[noparse][b]${one}`],
+    ["an unknown tag as typed", "bbcode", `[update]${one}[/update]`, `[update]${one}[/update]`],
+    [
+      "an unknown tag's argument up to the next tag",
+      "bbcode",
+      `[x=[b]${one}[/b]`,
+      `[x=${BOLD}${one}</strong>`,
+    ],
+    ["an unclosed tag as typed", "bbcode", `[i]${one}`, `[i]${one}`],
+    ["a stray closing tag as typed", "bbcode", `${one}[/b]`, `${one}[/b]`],
+    ["an item outside a list as typed", "bbcode", `[*]${one}`, `[*]${one}`],
     [
       "a list as Steam writes it, with the breaks around it",
       "bbcode",
@@ -53,13 +73,32 @@ describe("fillNotes", () => {
       "an ordered list left open",
       "bbcode",
       `[olist][*]${one}[*]${two}`,
-      `<ol class="tks-bb-list">${ITEM}${one}</li>${ITEM}${two}</li></ol>`,
+      `<ol class="tks-bb-list tks-bb-olist">${ITEM}${one}</li>${ITEM}${two}</li></ol>`,
+    ],
+    [
+      "text before a list's first item as an item, and an item closing its tags",
+      "bbcode",
+      `[list]${one}[*][b]${two}[*]${one}[/list]`,
+      `<ul class="tks-bb-list">${ITEM}${one}</li>${ITEM}${BOLD}${two}</strong></li>`
+      + `${ITEM}${one}</li></ul>`,
     ],
     [
       "a heading as bold text on its own line",
       "bbcode",
       `[h2]${one}[/h2]\n${two}`,
       `<strong class="tks-bb-heading">${one}</strong>${two}`,
+    ],
+    [
+      "the break at the start of an inline tag",
+      "bbcode",
+      `${one}\n[b]\n${two}[/b]`,
+      `${one}\n${BOLD}\n${two}</strong>`,
+    ],
+    [
+      "paragraphs and table rows as lines",
+      "bbcode",
+      `[p]${one}[/p][table][tr][td]${two}[/td][/tr][/table]`,
+      `${LINE}${one}</span>${LINE}${two}</span>`,
     ],
     [
       "a quote without its author",
@@ -81,14 +120,6 @@ describe("fillNotes", () => {
 
   it.each(CASES)("sets %s", (_name, markup, text, html) => {
     expect(filled(markup, text)).toBe(html);
-  });
-
-  it("sets HTML inside the developer's BBCode as text", () => {
-    const markup = make.text.markup();
-    const target = document.createElement("div");
-    fillNotes(target, `[b]${markup}[/b]`, "bbcode");
-    expect(target.querySelector("b")).toBeNull();
-    expect(target.textContent).toBe(markup);
   });
 
   it("sets the same beside Prototype.js's patched built-ins", () => {

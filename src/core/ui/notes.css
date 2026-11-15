@@ -7,8 +7,9 @@
   font-weight: var(--tks-weight-bold);
 }
 
+/* The notes are set in italics, so emphasis inside them reads upright */
 .tks-bb-italic {
-  font-style: italic;
+  font-style: normal;
 }
 
 .tks-bb-underline {
@@ -19,21 +20,12 @@
   text-decoration: line-through;
 }
 
-/* Hidden as on the store, and shown under the pointer */
-.tks-bb-spoiler {
-  background: var(--tks-color-text);
-  color: transparent;
-}
-
-.tks-bb-spoiler:hover {
-  background: none;
-  color: inherit;
-}
-
 .tks-bb-heading,
+.tks-bb-line,
 .tks-bb-quote,
 .tks-bb-code,
-.tks-bb-list {
+.tks-bb-list,
+.tks-bb-rule {
   display: block;
   margin: 0;
 }
@@ -54,7 +46,7 @@
   list-style: disc outside;
 }
 
-ol.tks-bb-list {
+.tks-bb-olist {
   list-style-type: decimal;
 }
 
@@ -63,8 +55,7 @@ ol.tks-bb-list {
 }
 
 .tks-bb-rule {
-  display: block;
-  margin: var(--tks-space-1) 0;
+  margin-block: var(--tks-space-1);
   border: 0;
   border-block-start: 1px solid var(--tks-color-divider);
 }
