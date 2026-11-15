@@ -32,6 +32,7 @@ import type { AllowScope } from "./settings/allow-data";
 import { DEFAULT_SETTINGS, encodeSettings } from "./settings/settings";
 import { createSettingsSource } from "./settings/settings-source";
 import { ALLOW_KEY, CREATOR_ALLOW_KEYS, SETTINGS_KEY } from "./storage-keys";
+import { VARIANT_ATTRIBUTE } from "./ui/element";
 import { createHoverCard } from "./ui/hover-card";
 import { normalizeBreaks } from "./ui/notes";
 import { adoptPageStyles } from "./ui/styles";
@@ -206,7 +207,7 @@ describe("start on an English app page", () => {
     await expect.poll(() => option()?.getAttribute("aria-checked")).toBe("true");
     expect(Object.keys((await stored()).ai)).toEqual([String(OPEN)]);
     expect(Object.keys((await stored()).all)).toEqual([]);
-    expect(banner()?.querySelector("aside")?.getAttribute("data-tks-variant")).toBe("ignored");
+    expect(banner()?.querySelector("aside")?.getAttribute(VARIANT_ATTRIBUTE)).toBe("ignored");
 
     option()?.click();
     await expect.poll(() => banner()?.querySelector("blockquote")).toBeInstanceOf(HTMLElement);

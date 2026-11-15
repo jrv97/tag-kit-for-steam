@@ -13,6 +13,7 @@ import { type AllowScope, perScope } from "../settings/allow-data";
 import { DEFAULT_SETTINGS } from "../settings/settings";
 import { type AppPageView, createAppPageUi } from "./app-page";
 import { BANNER_ID } from "./banner";
+import { VARIANT_ATTRIBUTE } from "./element";
 
 // The summary box with Steam's user-defined tags block, and the description column of an app page
 // (components.mdx, section 3).
@@ -233,7 +234,7 @@ describe("createAppPageUi", () => {
     expect(section()).toBeNull();
     expect(headings()).toEqual([]);
     expect(notes()).toEqual([i18n.t("banner_ignored")]);
-    expect(bannerRoot()?.querySelector("aside")?.getAttribute("data-tks-variant")).toBe("ignored");
+    expect(bannerRoot()?.querySelector("aside")?.getAttribute(VARIANT_ATTRIBUTE)).toBe("ignored");
   });
 
   describe("with kinds silenced or none", () => {

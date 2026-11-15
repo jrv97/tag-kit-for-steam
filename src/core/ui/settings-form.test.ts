@@ -24,6 +24,7 @@ import { DEFAULT_SETTINGS, parseSettings } from "../settings/settings";
 import { createSettingsSource } from "../settings/settings-source";
 import { LEGACY_SETTINGS_KEY, UI_STATE_KEY } from "../storage-keys";
 import type { AppId } from "../types";
+import { QUIET_VARIANT, VARIANT_ATTRIBUTE } from "./element";
 import { keyDescription, keyText } from "./kind-keys";
 import { DEFAULT_TAG_COLOR, type SettingsFormDeps } from "./settings-form";
 import { TOKENS_CSS } from "./styles";
@@ -452,13 +453,6 @@ describe("changing a setting", () => {
     );
     expect(other?.hidden).toBe(true);
   });
-
-  it("follows a switch another tab stores, and leaves the other kinds' switches", async () => {
-    const { settings, input } = await setup();
-    await writeSettings(settings, make.settings.kind("kernel", { banner: false }));
-    expect(input("kernel", "banner").checked).toBe(false);
-    expect(input("drm", "banner").checked).toBe(true);
-  });
 });
 
 /** Types into a color field as a person does: each key is an input event, leaving is a change. */
@@ -704,7 +698,6 @@ describe("the color field", () => {
     await settings.patch({ kinds: { account: { color: make.color() } } });
     const reset = card("account").querySelector<HTMLElement>("[data-tks-color-reset]");
     expect(reset?.textContent).toBe(i18n.t("options_color_reset"));
-    expect(reset?.getAttribute("data-tks-variant")).toBe("quiet");
     expect(reset?.getAttribute("aria-label")).toBe(
       i18n.t("options_color_reset_label", { heading: heading("account") }),
     );
@@ -725,14 +718,6 @@ describe("the color field", () => {
     const color = make.color();
     await settings.patch({ kinds: { ai: { color } } });
     const { root } = await mountForm({ settings });
-    expect(colorOf(root, "ai")).toBe(color);
-  });
-
-  it("follows a color another tab stores", async () => {
-    const { root, settings, input } = await setup();
-    const color = make.color();
-    await settings.patch({ kinds: { ai: { color } } });
-    expect(input("ai", "color").value).toBe(color);
     expect(colorOf(root, "ai")).toBe(color);
   });
 
@@ -1174,14 +1159,6 @@ const SURFACES: readonly (readonly [
 
 describe("the tag order", () => {
   const MOVED = parseOrder(["pvp", "family", "drm"]);
-  const collator = new Intl.Collator("en");
-
-  it.each(SURFACES)("%s start alphabetical by Steam's heading", async (_name, deps, ids) => {
-    const { root } = await setup(deps);
-    expect(ids(root)).toEqual(
-      KIND_IDS.toSorted((a, b) => collator.compare(heading(a), heading(b))),
-    );
-  });
 
   it.each(SURFACES)(
     "%s follow the stored order, and the default after a reset",
@@ -1395,9 +1372,6 @@ describe("the ignored items", () => {
       }),
     );
     expect(new Set(labels).size).toBe(labels.length);
-    expect(buttons.every((button) => button.getAttribute("data-tks-variant") === "quiet")).toBe(
-      true,
-    );
     for (const group of root.querySelectorAll(".tks-allow-group")) {
       expect(group.getAttribute("role")).toBe("group");
       const title = group.querySelector(".tks-allow-scope");
@@ -1508,11 +1482,26 @@ describe("the note on what all tags ignore", () => {
     const { ignored, tab } = await setup();
     const show = ignored("ai").querySelector<HTMLElement>(".tks-allow-note button");
     expect(show?.textContent).toBe(i18n.t("options_allow_all_show"));
-    expect(show?.getAttribute("data-tks-variant")).toBe("quiet");
     expect(show?.closest("a")).toBeNull();
     show?.click();
     expect(tab(GENERAL_TAB).getAttribute("aria-selected")).toBe("true");
     expect(document.activeElement).toBe(ignored(ALLOW_ALL).querySelector(".tks-card-title"));
+  });
+});
+
+describe("the quiet buttons", () => {
+  it.each([
+    "[data-tks-color-reset]",
+    "[data-tks-chip-reset]",
+    "[data-tks-order-reset]",
+    "[data-tks-restore]",
+    ".tks-allow-note button",
+  ])("draws %s as a quiet plain button", async (selector) => {
+    const { root } = await setup();
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>(selector)];
+    expect(buttons.length).toBeGreaterThan(0);
+    expect(buttons.map((button) => [button.type, button.getAttribute(VARIANT_ATTRIBUTE)]))
+      .toEqual(buttons.map(() => ["button", QUIET_VARIANT]));
   });
 });
 

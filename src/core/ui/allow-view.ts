@@ -87,7 +87,7 @@ export function createAllowSource<Key extends string | number>(
 
   function item(of: AllowScope, key: Key, entry: AllowEntry): HTMLElement {
     const node = element("li", "tks-allow-item");
-    const text = element("div", "");
+    const text = element("div");
     const since = dates.format(new Date(entry.added));
     text.append(
       spec.nameOf(key, entry),

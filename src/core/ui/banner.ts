@@ -14,7 +14,7 @@ import type { MessageCatalog } from "../ports";
 import { ALLOW_ALL, type AllowScope, toAllowScope } from "../settings/allow-data";
 import { announce, POLITE } from "./announce";
 import { ROLE_LABELS } from "./creator-roles";
-import { elementFactory } from "./element";
+import { elementFactory, plainButton, VARIANT_ATTRIBUTE } from "./element";
 import {
   buildIgnoreMenu,
   CREATOR_ATTRIBUTE,
@@ -203,7 +203,7 @@ export function createBanner(
   const shadow = host.attachShadow({ mode: "open" });
   adoptStyles(shadow, BANNER_CSS);
 
-  let box = element("aside", "");
+  let box = element("aside");
   const live = element("div", "tks-vh");
   live.setAttribute("aria-live", POLITE);
   shadow.append(box, live);
@@ -218,8 +218,7 @@ export function createBanner(
   let leaving: ReturnType<typeof setTimeout> | undefined;
 
   function button(className: string, action: Action, label: string): HTMLButtonElement {
-    const node = element("button", className, label);
-    node.type = "button";
+    const node = plainButton(doc, className, label);
     node.setAttribute("data-tks-action", action);
     return node;
   }
@@ -332,7 +331,7 @@ export function createBanner(
       aside.setAttribute("aria-label", i18n.t(label));
     }
     if (only === undefined) {
-      aside.setAttribute("data-tks-variant", "ignored");
+      aside.setAttribute(VARIANT_ATTRIBUTE, "ignored");
     } else if (view.shown.length > 1) {
       // A banner with one tag takes its color; several tags keep the default violet.
       aside.setAttribute("data-tks-entries", "many");

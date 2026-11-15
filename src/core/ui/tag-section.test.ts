@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { setBody } from "../../../tests/helpers/dom";
 import { make } from "../../../tests/helpers/factory";
+import { fake } from "../../../tests/helpers/fakes";
 import { disclosedList } from "../../../tests/helpers/fixture-verdicts";
 import { englishI18n } from "../../../tests/helpers/i18n";
 import { KIND_IDS } from "../kinds/id";
@@ -24,14 +25,6 @@ const kinds = () => chips().map((chip) => chip.getAttribute("data-tks-kind"));
 function mounted(html = WITH_TAGS, card?: Parameters<typeof createTagSection>[2]) {
   setBody(html);
   return createTagSection(document, i18n, card);
-}
-
-function bindings() {
-  const bound = new Map<Element, readonly AnyDisclosed[]>();
-  const card = {
-    bind: (trigger: Element, entries: readonly AnyDisclosed[]) => bound.set(trigger, entries),
-  };
-  return { bound, card };
 }
 
 describe("createTagSection", () => {
@@ -67,15 +60,12 @@ describe("createTagSection", () => {
     );
   });
 
-  it("follows the store's user tags block", () => {
-    mounted().render([ai]);
-    expect(document.getElementById("tags")?.nextElementSibling).toBe(sections()[0]);
-    expect(document.getElementById("publisher")?.nextElementSibling?.id).toBe("tags");
-  });
-
-  it("falls back to the row after Publisher when the page has no user tags block", () => {
-    mounted(WITHOUT_TAGS).render([ai]);
-    expect(document.getElementById("publisher")?.nextElementSibling).toBe(sections()[0]);
+  it.each([
+    ["the store's user tags block", WITH_TAGS, "tags"],
+    ["the row after Publisher when the page has no user tags block", WITHOUT_TAGS, "publisher"],
+  ])("follows %s", (_name, html, anchor) => {
+    mounted(html).render([ai]);
+    expect(document.getElementById(anchor)?.nextElementSibling).toBe(sections()[0]);
   });
 
   it("draws nothing on a page with neither anchor", () => {
@@ -130,9 +120,12 @@ describe("createTagSection", () => {
   });
 
   it("binds the hover card to each chip with its own verdict, as on the game's own page", () => {
-    const { bound, card } = bindings();
+    const { bound, card } = fake.cardTriggers();
     mounted(WITH_TAGS, card).render([ai, kernel]);
-    expect(chips().map((chip) => bound.get(chip))).toEqual([[ai], [kernel]]);
+    expect(chips().map((chip) => bound.get(chip))).toEqual([
+      { entries: [ai], ownPage: true },
+      { entries: [kernel], ownPage: true },
+    ]);
     expect(chips().every((chip) => chip instanceof HTMLElement && chip.tabIndex === 0)).toBe(true);
   });
 

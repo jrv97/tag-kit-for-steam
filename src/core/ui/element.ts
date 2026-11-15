@@ -1,22 +1,22 @@
-/** The attribute that picks a button's look from the variants settings.css defines. */
+/** The attribute that picks a button's or banner's look from the variants its sheet defines. */
 export const VARIANT_ATTRIBUTE = "data-tks-variant";
-/** The quiet, link-like look of Reset, Stop ignoring and Show in General. */
-const QUIET_VARIANT = "quiet";
+/** The quiet, link-like look of a button that undoes or points elsewhere. */
+export const QUIET_VARIANT = "quiet";
 /** The filled look of the button a card or dialog leads with. */
 export const PRIMARY_VARIANT = "primary";
 
-/** A new element with a class and, when given, its text (always `textContent`). */
-export type ElementFactory = <K extends keyof HTMLElementTagNameMap>(
+/** A new element with its class and its text, each when given (always `textContent`). */
+type ElementFactory = <K extends keyof HTMLElementTagNameMap>(
   tag: K,
-  className: string,
+  className?: string,
   text?: string,
 ) => HTMLElementTagNameMap[K];
 
-/** A new element of `doc` with a class and, when given, its text (always `textContent`). */
+/** A new element of `doc` with its class and its text, each when given (always `textContent`). */
 export function createElement<K extends keyof HTMLElementTagNameMap>(
   doc: Document,
   tag: K,
-  className: string,
+  className = "",
   text?: string,
 ): HTMLElementTagNameMap[K] {
   const node = doc.createElement(tag);
@@ -34,10 +34,16 @@ export function elementFactory(doc: Document): ElementFactory {
   return (tag, className, text) => createElement(doc, tag, className, text);
 }
 
+/** A button that never submits a form, with its class and, when given, its text. */
+export function plainButton(doc: Document, className: string, text?: string): HTMLButtonElement {
+  const button = createElement(doc, "button", className, text);
+  button.type = "button";
+  return button;
+}
+
 /** A plain button in the quiet variant, with its text. */
 export function quietButton(doc: Document, text: string): HTMLButtonElement {
-  const button = createElement(doc, "button", "tks-button", text);
-  button.type = "button";
+  const button = plainButton(doc, "tks-button", text);
   button.setAttribute(VARIANT_ATTRIBUTE, QUIET_VARIANT);
   return button;
 }

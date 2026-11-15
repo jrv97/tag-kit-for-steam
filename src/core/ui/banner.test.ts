@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setBody } from "../../../tests/helpers/dom";
 import { make } from "../../../tests/helpers/factory";
+import { fake } from "../../../tests/helpers/fakes";
 import { bannerList } from "../../../tests/helpers/fixture-verdicts";
 import { englishI18n } from "../../../tests/helpers/i18n";
 import type { CreatorRole } from "../creator";
@@ -11,7 +12,6 @@ import type { AnyDisclosed } from "../kinds/verdicts";
 import type { MessageCatalog } from "../ports";
 import { ALLOW_ALL, type AllowScope } from "../settings/allow-data";
 import {
-  type Banner,
   type BannerActions,
   type BannerOptions,
   type BannerView,
@@ -19,6 +19,7 @@ import {
   HOVER_CLOSE_MS,
   placeBanner,
 } from "./banner";
+import { VARIANT_ATTRIBUTE } from "./element";
 
 function isEventTarget(value: object): value is EventTarget {
   return "addEventListener" in value;
@@ -78,79 +79,31 @@ const creatorOption = (which: CreatorRole, scope: AllowScope) =>
 const groupHead = (group: string) => `#tks-banner-group-${group}`;
 const GAME_ROW = gameOption(ALLOW_ALL);
 
-interface Pending {
-  resolve(): void;
-  reject(): void;
-}
-
-/** Actions whose promises the test settles by hand. A resolved action shows the owner's view. */
-function manualActions() {
-  const calls: Pending[] = [];
-  let banner: Banner | undefined;
-  let owner: BannerView | undefined;
-  const settle = () =>
-    new Promise<void>((resolve, reject) => {
-      calls.push({
-        resolve: () => {
-          if (banner !== undefined && owner !== undefined) {
-            banner.show(owner);
-          }
-          resolve();
-        },
-        reject: () => {
-          reject(new Error());
-        },
-      });
-    });
-  const ignore = vi.fn(settle);
-  const restore = vi.fn(settle);
-  const ignoreCreator = vi.fn(settle);
-  const restoreCreator = vi.fn(settle);
-  const actions: BannerActions = { ignore, restore, ignoreCreator, restoreCreator };
-  return {
-    actions,
-    ignore,
-    restore,
-    ignoreCreator,
-    restoreCreator,
-    calls,
-    /** What the owner shows once the next action settles. */
-    thenShow: (next: BannerView): void => {
-      owner = next;
-    },
-    attach: (created: Banner): void => {
-      banner = created;
-    },
-  };
-}
-
 function setup(
   options: BannerOptions = {},
-  actions: BannerActions = manualActions().actions,
+  actions: BannerActions = fake.bannerActions().actions,
   catalog: MessageCatalog = i18n,
 ) {
   setBody('<div class="game_description_column"><div id="game_area_purchase"></div></div>');
-  const frames: (() => void)[] = [];
-  const banner = createBanner(document, catalog, actions, {
-    frame: (callback) => frames.push(callback),
-    ...options,
-  });
+  const frames = fake.queue();
+  const banner = createBanner(document, catalog, actions, { frame: frames.frame, ...options });
   placeBanner(document, banner.host);
   const root = banner.host.shadowRoot;
   if (root === null) {
     throw new TypeError();
   }
-  const runFrames = () => {
-    for (const callback of frames.splice(0)) {
-      callback();
-    }
+  return {
+    banner,
+    root,
+    runFrames: () => {
+      frames.run();
+    },
   };
-  return { banner, root, runFrames };
 }
 
 /** A banner on actions the test settles by hand, showing `initial`. */
 function wired(initial: BannerView) {
-  const wiring = manualActions();
+  const wiring = fake.bannerActions();
   const { banner, root } = setup({}, wiring.actions);
   wiring.attach(banner);
   banner.show(initial);
@@ -218,7 +171,7 @@ describe("createBanner", () => {
   it.each([["en", i18n], ["es", spanish]] as const)(
     "says in %s that a full game's disclosure is the full game's, before the developer's words",
     (_locale, catalog) => {
-      const { banner, root } = setup({}, manualActions().actions, catalog);
+      const { banner, root } = setup({}, fake.bannerActions().actions, catalog);
       const service = make.text.service();
       const lent = make.verdict.lent(make.verdict.disclosed("ai", { notes: NOTES, service }));
       banner.show(view([lent, make.verdict.disclosed("anticheat")]));
@@ -707,7 +660,7 @@ describe("the ignore menu on hover", () => {
 
 describe("the banner in Spanish", () => {
   it("reads the entries, the notes and the menu from the Spanish catalog", () => {
-    const { banner, root } = setup({}, manualActions().actions, spanish);
+    const { banner, root } = setup({}, fake.bannerActions().actions, spanish);
     banner.show(
       view(withoutDrm(SEVERAL), {
         listed: SEVERAL_KINDS,
@@ -743,7 +696,7 @@ describe("the notes for ignored scopes", () => {
   it("shows a game ignored for all tags as one line over the menu", () => {
     const { banner, root } = setup();
     banner.show(silenced({ ignored: [ALLOW_ALL, "drm"] }));
-    expect(query(root, "aside").getAttribute("data-tks-variant")).toBe("ignored");
+    expect(query(root, "aside").getAttribute(VARIANT_ATTRIBUTE)).toBe("ignored");
     expect(texts(root, ".tks-banner-ignored-text")).toEqual([i18n.t("banner_ignored")]);
     expect(root.querySelector("blockquote, h2, .tks-banner-link")).toBeNull();
     expect(root.querySelector(MENU)).not.toBeNull();
@@ -753,7 +706,7 @@ describe("the notes for ignored scopes", () => {
     const { banner, root } = setup();
     const rest = withoutDrm(SEVERAL);
     banner.show(view(rest, { listed: SEVERAL_KINDS, ignored: ["drm"] }));
-    expect(query(root, "aside").hasAttribute("data-tks-variant")).toBe(false);
+    expect(query(root, "aside").hasAttribute(VARIANT_ATTRIBUTE)).toBe(false);
     expect(texts(root, "h2")).toEqual(rest.map(heading));
     expect(texts(root, ".tks-banner-ignored-text")).toEqual([ignoredKind("drm")]);
   });
@@ -948,7 +901,7 @@ describe("ignoring from the menu", () => {
 describe("placeBanner", () => {
   it("puts the banner first in the description column, above the purchase box", () => {
     setBody(make.page.app("5072580-ai-first.html"));
-    const banner = createBanner(document, i18n, manualActions().actions);
+    const banner = createBanner(document, i18n, fake.bannerActions().actions);
     expect(placeBanner(document, banner.host)).toBe(true);
     const column = document.querySelector(".game_description_column");
     expect(column?.firstElementChild).toBe(banner.host);
@@ -957,7 +910,7 @@ describe("placeBanner", () => {
 
   it("reports a page without the column", () => {
     setBody("<div></div>");
-    const banner = createBanner(document, i18n, manualActions().actions);
+    const banner = createBanner(document, i18n, fake.bannerActions().actions);
     expect(placeBanner(document, banner.host)).toBe(false);
     expect(banner.host.isConnected).toBe(false);
   });

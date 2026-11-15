@@ -40,12 +40,12 @@ import {
 import { announce, POLITE } from "./announce";
 import { createBackupCard } from "./backup-card";
 import { ownText } from "./badge";
-import type { ActionCard } from "./card-parts";
+import { type ActionCard, cardButton } from "./card-parts";
 import { createChipFields } from "./chip-fields";
 import { elementFactory, quietButton } from "./element";
 import { facetChoiceKey } from "./facet-choices";
 import { createFeedbackFooter } from "./feedback-footer";
-import { parseIcon, withIcon } from "./icon";
+import { parseIcon } from "./icon";
 import { KIND_ATTRIBUTE, setColorOnce } from "./kind-attributes";
 import { chipText } from "./kind-details";
 import { keyDescription, keyText } from "./kind-keys";
@@ -325,14 +325,14 @@ export async function mountSettingsForm(
   function header(info: SettingsHeader): HTMLElement {
     const node = element("header", "tks-options-header");
     if (info.iconUrl !== undefined) {
-      const icon = element("img", "");
+      const icon = element("img");
       icon.src = info.iconUrl;
       icon.alt = "";
       icon.width = ICON_SIZE;
       icon.height = ICON_SIZE;
       node.append(icon);
     }
-    const text = element("div", "");
+    const text = element("div");
     text.append(
       element("h1", "tks-options-title", i18n.t("ext_name")),
       element("div", "tks-options-version", i18n.t("options_version", { version: info.version })),
@@ -342,8 +342,7 @@ export async function mountSettingsForm(
       node.append(gear(deps.allSettingsUrl));
     }
     if (deps.goBack !== undefined) {
-      goBackButton = withIcon(element("button", "tks-button"), "undo-2", i18n.t("options_go_back"));
-      goBackButton.type = "button";
+      goBackButton = cardButton(doc, i18n.t("options_go_back"), "undo-2");
       node.append(goBackButton);
     }
     return node;
@@ -401,7 +400,7 @@ export async function mountSettingsForm(
     const name = `${prefix}${kind.id}-filter-value`;
     const radios = new Map<ListFilter, HTMLInputElement>();
     for (const value of LIST_FILTERS) {
-      const input = element("input", "");
+      const input = element("input");
       input.type = "radio";
       input.name = name;
       input.id = `${name}-${value}`;
@@ -452,7 +451,7 @@ export async function mountSettingsForm(
     const boxes = new Map<FacetId, HTMLInputElement>();
     const heading = i18n.t(kind.messages.heading);
     for (const facet of facets) {
-      const input = element("input", "");
+      const input = element("input");
       input.type = control.type;
       input.name = label.id;
       input.value = facet.id;
@@ -462,7 +461,7 @@ export async function mountSettingsForm(
       const choice = i18n.t(facetChoiceKey(kind.id, facet));
       // The name adds the tag, which the group's label leaves out
       input.setAttribute("aria-label", i18n.t("options_facet_choice_label", { choice, heading }));
-      const text = element("label", "");
+      const text = element("label");
       text.append(input, choice);
       group.append(text);
     }
@@ -647,7 +646,7 @@ export async function mountSettingsForm(
   function scopeCard(of: AllowScope, title: BareMessageKey): ScopeCard {
     const section = element("section", "tks-card");
     const heading = cardTitle(i18n.t(title), `allow-${of}`, "h3");
-    const body = element("div", "");
+    const body = element("div");
     section.setAttribute("aria-labelledby", heading.id);
     section.append(heading, body);
     return { of, section, title: heading, body };

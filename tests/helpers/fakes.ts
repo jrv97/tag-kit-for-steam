@@ -1,3 +1,5 @@
+import { manualBannerActions } from "./banner-actions";
+import { recordingTriggers } from "./card-triggers";
 import { countingStore } from "./counting-store";
 import { fakeArea, fakeChanges, faultyArea } from "./fake-area";
 import { closedBreaker } from "./fake-breaker";
@@ -93,6 +95,10 @@ export const fake = {
   renderer: recordingRenderer,
   /** `frame` and `delay` callbacks that a test runs by hand. */
   queue: manualQueue,
+  /** Hover card triggers that record each element's binding and open nothing. */
+  cardTriggers: recordingTriggers,
+  /** Banner actions whose promises a test settles by hand; a resolve shows the next view. */
+  bannerActions: manualBannerActions,
   /** A `Clock` that stands still at `t` until a test moves it. */
   clock: fixedClock,
   /** Fake timers and `Date` from `T0`, and a `Clock` on them; call `vi.useRealTimers()` after. */
