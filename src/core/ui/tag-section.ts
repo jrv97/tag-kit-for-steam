@@ -2,6 +2,7 @@ import type { ChipWords } from "../kinds/kind-settings";
 import { type AnyDisclosed, sameVerdicts } from "../kinds/verdicts";
 import type { MessageCatalog } from "../ports";
 import { createChip, createChipGroup } from "./badge";
+import { createElement } from "./element";
 import type { CardTriggers } from "./hover-card";
 
 /**
@@ -50,14 +51,11 @@ export function createTagBlock(
   className: string,
   labelId: string,
 ): HTMLElement {
-  const element = doc.createElement("div");
-  element.className = className;
+  const element = createElement(doc, "div", className);
   element.setAttribute("role", "group");
   element.setAttribute("aria-labelledby", labelId);
-  const label = doc.createElement("div");
-  label.className = "tks-tag-section-label";
+  const label = createElement(doc, "div", "tks-tag-section-label", i18n.t("badge_tags_title"));
   label.id = labelId;
-  label.textContent = i18n.t("badge_tags_title");
   element.append(label);
   return element;
 }

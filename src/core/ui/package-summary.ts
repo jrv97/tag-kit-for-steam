@@ -5,6 +5,7 @@ import { KINDS, perKind } from "../kinds/registry";
 import type { MessageCatalog } from "../ports";
 import { HOST_APPID } from "../scan/marks";
 import { findList, placeAbove, SUMMARY_PLACEMENTS } from "../scan/placements";
+import { createElement } from "./element";
 import type { HostRenderer, HostView } from "./host";
 import { entryName, facetName } from "./kind-details";
 import { createTagBlock } from "./tag-section";
@@ -92,10 +93,7 @@ export function createPackageSummary(
     if (box === undefined) {
       box = createTagBlock(doc, i18n, "tks-tag-section tks-summary", LABEL_ID);
       for (const line of lines) {
-        const element = doc.createElement("div");
-        element.className = "tks-summary-line";
-        element.textContent = line;
-        box.append(element);
+        box.append(createElement(doc, "div", "tks-summary-line", line));
       }
     }
     placeAbove(found, box);

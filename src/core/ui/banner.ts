@@ -14,6 +14,7 @@ import type { MessageCatalog } from "../ports";
 import { ALLOW_ALL, type AllowScope, toAllowScope } from "../settings/allow-data";
 import { announce, POLITE } from "./announce";
 import { ROLE_LABELS } from "./creator-roles";
+import { elementFactory } from "./element";
 import {
   buildIgnoreMenu,
   CREATOR_ATTRIBUTE,
@@ -195,14 +196,14 @@ export function createBanner(
 ): Banner {
   const frame = options.frame ?? defaultFrame(doc);
   const overflows = options.overflows ?? defaultOverflows;
+  const element = elementFactory(doc);
 
-  const host = doc.createElement("div");
-  host.className = "tks-banner-host";
+  const host = element("div", "tks-banner-host");
   host.id = BANNER_ID;
   const shadow = host.attachShadow({ mode: "open" });
   adoptStyles(shadow, BANNER_CSS);
 
-  let box = doc.createElement("aside");
+  let box = element("aside", "");
   const live = element("div", "tks-vh");
   live.setAttribute("aria-live", POLITE);
   shadow.append(box, live);
@@ -215,19 +216,6 @@ export function createBanner(
   /** Whether hover opened the menu, which then closes when the pointer leaves it. */
   let hovered = false;
   let leaving: ReturnType<typeof setTimeout> | undefined;
-
-  function element<K extends keyof HTMLElementTagNameMap>(
-    tag: K,
-    className: string,
-    text?: string,
-  ): HTMLElementTagNameMap[K] {
-    const node = doc.createElement(tag);
-    node.className = className;
-    if (text !== undefined) {
-      node.textContent = text;
-    }
-    return node;
-  }
 
   function button(className: string, action: Action, label: string): HTMLButtonElement {
     const node = element("button", className, label);

@@ -1,4 +1,4 @@
-import { createElement } from "./element";
+import { createElement, PRIMARY_VARIANT, VARIANT_ATTRIBUTE } from "./element";
 import { withIcon } from "./icon";
 import type { LucideName } from "./lucide";
 
@@ -81,7 +81,7 @@ export function createConfirmBox(doc: Document, spec: ConfirmSpec): ConfirmBox {
   title.id = spec.id;
   title.tabIndex = -1;
   const list = createElement(doc, "ul", "tks-confirm-list");
-  spec.confirm.setAttribute("data-tks-variant", "primary");
+  spec.confirm.setAttribute(VARIANT_ATTRIBUTE, PRIMARY_VARIANT);
   const node = createElement(doc, "div", "tks-confirm");
   node.setAttribute("role", "group");
   node.setAttribute("aria-labelledby", title.id);

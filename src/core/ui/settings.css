@@ -26,11 +26,6 @@
   box-sizing: border-box;
 }
 
-/* Author display rules would otherwise beat the user agent's [hidden] */
-.tks-options [hidden] {
-  display: none !important;
-}
-
 .tks-options[data-tks-context="popup"] {
   inline-size: var(--tks-popup-width);
   max-inline-size: none;

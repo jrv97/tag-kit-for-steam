@@ -13,6 +13,17 @@
   border: 0 !important;
 }
 
+/* Author display rules and the hover card's reset would otherwise beat the user agent's [hidden].
+   A shadow root of ours hides any node in it; a document sheet hides only nodes in our own roots,
+   never the store's. */
+:host [hidden],
+.tks-options [hidden],
+.tks-hovercard[hidden],
+.tks-hovercard [hidden],
+.tks-list-notice[hidden] {
+  display: none !important;
+}
+
 /* A tag's custom color (experimental). Whatever carries data-tks-kind reads that kind's color
    from the root custom property the app writes, and derives every shade from it. With no color
    set, the property is empty and so is every shade, so each rule falls back to the violet tokens.

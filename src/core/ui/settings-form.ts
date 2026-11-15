@@ -42,7 +42,7 @@ import { createBackupCard } from "./backup-card";
 import { ownText } from "./badge";
 import type { ActionCard } from "./card-parts";
 import { createChipFields } from "./chip-fields";
-import { createElement } from "./element";
+import { elementFactory, quietButton } from "./element";
 import { facetChoiceKey } from "./facet-choices";
 import { createFeedbackFooter } from "./feedback-footer";
 import { parseIcon, withIcon } from "./icon";
@@ -196,9 +196,6 @@ const COLOR_RESET_ATTRIBUTE = "data-tks-color-reset";
 const PICKER_ATTRIBUTE = "data-tks-picker";
 /** The default violet, accent 400 of tokens.css, which the square shows while no color is set. */
 export const DEFAULT_TAG_COLOR = "#8f73f3";
-/** The quiet, link-like look of Reset, Stop ignoring and Show in General. */
-const QUIET = "quiet";
-const VARIANT_ATTRIBUTE = "data-tks-variant";
 
 /** The controls of one kind's color field. */
 interface ColorControls {
@@ -300,20 +297,7 @@ export async function mountSettingsForm(
     ? Promise.resolve(deps.initialTab)
     : readTab();
 
-  function element<K extends keyof HTMLElementTagNameMap>(
-    tag: K,
-    className: string,
-    text?: string,
-  ): HTMLElementTagNameMap[K] {
-    return createElement(doc, tag, className, text);
-  }
-
-  function quietButton(text: string): HTMLButtonElement {
-    const button = element("button", "tks-button", text);
-    button.type = "button";
-    button.setAttribute(VARIANT_ATTRIBUTE, QUIET);
-    return button;
-  }
+  const element = elementFactory(doc);
 
   function fieldError(): HTMLElement {
     const error = element("p", "tks-field-error", i18n.t("error_settings_save"));
@@ -525,7 +509,7 @@ export async function mountSettingsForm(
     picker.value = DEFAULT_TAG_COLOR;
     picker.setAttribute(PICKER_ATTRIBUTE, kind.id);
     picker.setAttribute("aria-label", i18n.t("options_color_pick_label", { heading }));
-    const reset = quietButton(i18n.t("options_color_reset"));
+    const reset = quietButton(doc, i18n.t("options_color_reset"));
     reset.setAttribute(COLOR_RESET_ATTRIBUTE, kind.id);
     reset.setAttribute("aria-label", i18n.t("options_color_reset_label", { heading }));
     const entry = element("div", "tks-color-entry");
@@ -550,7 +534,6 @@ export async function mountSettingsForm(
     doc,
     i18n,
     idPrefix: prefix,
-    quietButton,
     error: (field, id) => {
       const error = fieldError();
       errors.set(errorKey(field, id), error);
@@ -1163,7 +1146,7 @@ export async function mountSettingsForm(
     }
     const note = element("p", "tks-allow-note", i18n.plural("options_allow_all_note", count));
     // A button, not a hash link: in the userscript dialog a hash would change the store's URL
-    const show = quietButton(i18n.t("options_allow_all_show"));
+    const show = quietButton(doc, i18n.t("options_allow_all_show"));
     show.setAttribute("data-tks-tab", GENERAL_TAB);
     note.append(" ", show);
     return note;
