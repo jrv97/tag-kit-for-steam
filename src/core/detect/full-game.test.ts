@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { detectorContract } from "../../../tests/contracts/detector.contract";
 import { make } from "../../../tests/helpers/factory";
 import { fake } from "../../../tests/helpers/fakes";
@@ -169,7 +169,7 @@ describe("createFullGameDetector over the verdict cache", () => {
     const store = fake.countingStore(fake.store());
     const clock = fake.clock(make.time());
     const inner = fake.detector(answer);
-    const cached = cachedDetector(inner, createVerdictCache(store, clock), { error: vi.fn() });
+    const cached = cachedDetector(inner, createVerdictCache(store, clock), logger);
     return { store, clock, inner, detector: createFullGameDetector(cached, logger) };
   }
 

@@ -1,5 +1,5 @@
 // @vitest-environment-options {"url":"https://store.steampowered.com/search/?term=roguelike"}
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import searchItems from "../../tests/fixtures/getitems/search-roguelike-50.json";
 import { make } from "../../tests/helpers/factory";
 import { fake } from "../../tests/helpers/fakes";
@@ -22,7 +22,7 @@ afterEach(() => {
 
 describe("start and the page stylesheet", () => {
   it("leaves the page stylesheet to the platform hook and still badges", async () => {
-    const addPageStyles = vi.fn();
+    const addPageStyles = fake.spy();
     loadPage(make.page.surface("search"));
     document.documentElement.lang = "en";
     const store = fake.store();

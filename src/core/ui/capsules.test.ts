@@ -51,7 +51,7 @@ function setup(
     isAllowed = (id) => allowed.has(id),
   }: SetupOptions = {},
 ) {
-  const detect = vi.fn((ids: readonly AppId[]) =>
+  const detect = fake.spy((ids: readonly AppId[]) =>
     Promise.resolve(
       new Map(ids.flatMap((id) => {
         const verdict = verdicts.get(id);
@@ -339,7 +339,7 @@ describe("createCapsuleUi", () => {
     }
 
     it("asks whether the game is ignored with the base game Steam named", async () => {
-      const asked = vi.fn((_id: AppId, _kind: KindId, _related: Relations) => false);
+      const asked = fake.spy((_id: AppId, _kind: KindId, _related: Relations) => false);
       const { ui, flush } = setup(new Map([[DLC, AI]]), {
         others: { parent: BASE },
         isAllowed: asked,

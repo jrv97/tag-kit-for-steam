@@ -1,7 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { make } from "../../tests/helpers/factory";
 import { fake } from "../../tests/helpers/fakes";
-import { parseAppPage } from "./detect/app-page";
 import type { AiVerdict } from "./kinds/ai";
 import { KINDS } from "./kinds/registry";
 import { type KindVerdicts, UNKNOWN_KINDS, withRelations } from "./kinds/verdicts";
@@ -9,16 +8,12 @@ import { mergeVerdicts, translatedVerdicts } from "./page-verdicts";
 
 const ID = make.appId();
 const ARC_RAIDERS = make.fixture.app.arcRaiders;
-const PAGE_URL = "https://store.steampowered.com/app/5072580/?l=english";
-
-/** What the open English page says about itself: only the AI kind can be read from it. */
-function pageOf(name: "5072580-ai-first.html" | "413150-no-block.html") {
-  const doc = new DOMParser().parseFromString(make.page.app(name), "text/html");
-  return parseAppPage(doc, PAGE_URL);
-}
-
-const disclosingPage = () => pageOf("5072580-ai-first.html");
-const quietPage = () => pageOf("413150-no-block.html");
+// What an open English page says about itself: only the AI kind can be read from it.
+const DISCLOSING = make.fixture.pageVerdicts(
+  "5072580-ai-first.html",
+  make.fixture.app.aiWithService,
+);
+const QUIET = make.fixture.pageVerdicts("413150-no-block.html", make.fixture.app.noBlock);
 const aiOnly = (ai: AiVerdict) => make.verdicts({ ai });
 const pageAi = (page: KindVerdicts) => page.ai;
 const dataAi = (_page: KindVerdicts, data: KindVerdicts) => data.ai;
@@ -28,8 +23,8 @@ const none = () => undefined;
 describe("mergeVerdicts", () => {
   it("takes every kind from Steam's data when both disclose", () => {
     const data = make.fixture.verdicts(ARC_RAIDERS);
-    const disagree = vi.fn();
-    const merged = mergeVerdicts(disclosingPage(), data, disagree);
+    const disagree = fake.spy();
+    const merged = mergeVerdicts(DISCLOSING, data, disagree);
     for (const kind of KINDS) {
       expect(merged[kind.id]).toBe(data[kind.id]);
     }
@@ -39,62 +34,63 @@ describe("mergeVerdicts", () => {
   it("prefers a disclosure from Steam's data, which also names the AI service", () => {
     const service = make.text.service();
     const named = aiOnly(make.verdict.disclosed("ai", { service }));
-    const merged = mergeVerdicts(disclosingPage(), named, none);
+    const merged = mergeVerdicts(DISCLOSING, named, none);
     expect(merged.ai).toMatchObject({ source: "api", service });
   });
 
   it.each([
     [
       "the page's disclosure when Steam's data has none",
-      disclosingPage,
+      DISCLOSING,
       () => aiOnly(make.verdict.notDisclosed()),
       pageAi,
     ],
     [
       "Steam's disclosure when the page shows none",
-      quietPage,
+      QUIET,
       () => aiOnly(make.verdict.disclosed("ai")),
       dataAi,
     ],
     [
       "Steam's disclosure when the page hid the store",
-      () => UNKNOWN_KINDS.gated,
+      UNKNOWN_KINDS.gated,
       () => aiOnly(make.verdict.disclosed("ai")),
       dataAi,
     ],
-  ])("keeps %s, and reports the disagreement", (_name, pageFor, dataFor, kept) => {
-    const disagree = vi.fn();
-    const page = pageFor();
+  ])("keeps %s, and reports the disagreement", (_name, page, dataFor, kept) => {
+    const disagree = fake.spy();
     const data = dataFor();
     expect(mergeVerdicts(page, data, disagree).ai).toBe(kept(page, data));
     expect(disagree).toHaveBeenCalledExactlyOnceWith("ai", page.ai, data.ai);
   });
 
   it("uses Steam's answer when the page's is unknown, without a report", () => {
-    const disagree = vi.fn();
+    const disagree = fake.spy();
     const data = aiOnly(make.verdict.disclosed("ai"));
     expect(mergeVerdicts(UNKNOWN_KINDS.missing, data, disagree).ai).toBe(data.ai);
     expect(disagree).not.toHaveBeenCalled();
   });
 
-  it("keeps the page's disclosure when Steam's data could not answer", () => {
-    const page = disclosingPage();
-    expect(mergeVerdicts(page, UNKNOWN_KINDS.error, none).ai).toBe(page.ai);
-  });
-
-  it.each(["missing", "malformed", "error", "rate-limited"] as const)(
-    "keeps the page's not disclosed when Steam's data is unknown %s, without a report",
-    (reason) => {
-      const disagree = vi.fn();
-      const merged = mergeVerdicts(quietPage(), UNKNOWN_KINDS[reason], disagree);
-      expect(merged.ai).toBe(make.verdict.notDisclosed("html"));
+  it.each(
+    [
+      ["disclosure", DISCLOSING, "error"],
+      ["not disclosed", QUIET, "missing"],
+      ["not disclosed", QUIET, "malformed"],
+      ["not disclosed", QUIET, "error"],
+      ["not disclosed", QUIET, "rate-limited"],
+    ] as const,
+  )(
+    "keeps the page's %s when Steam's data is unknown %s, without a report",
+    (_name, page, reason) => {
+      const disagree = fake.spy();
+      expect(mergeVerdicts(page, UNKNOWN_KINDS[reason], disagree).ai).toBe(page.ai);
       expect(disagree).not.toHaveBeenCalled();
     },
   );
 
   it("settles a page that shows none and data that has none as not disclosed", () => {
     const data = aiOnly(make.verdict.notDisclosed());
-    expect(mergeVerdicts(quietPage(), data, none).ai).toBe(make.verdict.notDisclosed());
+    expect(mergeVerdicts(QUIET, data, none).ai).toBe(make.verdict.notDisclosed());
   });
 
   it("never lets the page speak for a kind that cannot be read from it", () => {
@@ -109,23 +105,22 @@ describe("mergeVerdicts", () => {
       creators: make.creator.forItem({ developers: [make.text.creator()] }),
     };
     const data = withRelations(make.fixture.verdicts(ARC_RAIDERS), related);
-    expect(mergeVerdicts(disclosingPage(), data, none)).toMatchObject(related);
-    expect(mergeVerdicts(quietPage(), data, none)).toMatchObject(related);
-    const alone = mergeVerdicts(quietPage(), make.fixture.verdicts(make.fixture.app.noKind), none);
+    expect(mergeVerdicts(DISCLOSING, data, none)).toMatchObject(related);
+    expect(mergeVerdicts(QUIET, data, none)).toMatchObject(related);
+    const alone = mergeVerdicts(QUIET, make.fixture.verdicts(make.fixture.app.noKind), none);
     expect(alone).not.toHaveProperty("parent");
     expect(alone).not.toHaveProperty("creators");
   });
 
   it.each([
-    ["shows none", quietPage, dataAi],
-    ["shows its own", disclosingPage, pageAi],
+    ["shows none", QUIET, dataAi],
+    ["shows its own", DISCLOSING, pageAi],
   ])("takes a full game's AI on a demo page that %s, unless it is the page's", (
     _name,
-    pageFor,
+    page,
     kept,
   ) => {
-    const disagree = vi.fn();
-    const page = pageFor();
+    const disagree = fake.spy();
     const data = aiOnly(make.verdict.lent(make.verdict.disclosed("ai")));
     expect(mergeVerdicts(page, data, disagree).ai).toBe(kept(page, data));
     expect(disagree).not.toHaveBeenCalled();

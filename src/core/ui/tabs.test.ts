@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { make } from "../../../tests/helpers/factory";
+import { fake } from "../../../tests/helpers/fakes";
 import { createTabs, TAB_ATTRIBUTE } from "./tabs";
 
 const IDS = ["one", "two", "three", "four"] as const;
@@ -120,7 +121,7 @@ describe("the keys on a tab", () => {
       ["End", "two", "four"],
     ] as const,
   )("%s from %s moves focus and the tab stop to %s, and selects nothing", (name, from, to) => {
-    const onActivate = vi.fn();
+    const onActivate = fake.listener();
     const tabs = mounted(from, onActivate);
     tabs.tab(from).focus();
     expect(key(tabs.tab(from), name).defaultPrevented).toBe(true);
@@ -130,7 +131,7 @@ describe("the keys on a tab", () => {
   });
 
   it.each([["Enter"], [" "]])("%j activates the focused tab, not the selected one", (name) => {
-    const onActivate = vi.fn();
+    const onActivate = fake.listener();
     const tabs = mounted("one", onActivate);
     tabs.tab("three").focus();
     expect(key(tabs.tab("three"), name).defaultPrevented).toBe(true);
@@ -156,7 +157,7 @@ describe("the keys on a tab", () => {
     ["an arrow with the meta key", "ArrowLeft", { metaKey: true }],
     ["Enter with control", "Enter", { ctrlKey: true }],
   ])("ignores %s", (_case, name, init) => {
-    const onActivate = vi.fn();
+    const onActivate = fake.listener();
     const tabs = mounted("one", onActivate);
     tabs.tab("one").focus();
     expect(key(tabs.tab("one"), name, init).defaultPrevented).toBe(false);
@@ -164,18 +165,19 @@ describe("the keys on a tab", () => {
     expect(onActivate).not.toHaveBeenCalled();
   });
 
-  it("ignores keys outside its tabs, even on a button that points at one", () => {
-    const onActivate = vi.fn();
-    const tabs = mounted("one", onActivate);
-    const jump = document.createElement("button");
-    jump.setAttribute(TAB_ATTRIBUTE, "two");
-    tabs.panel("one").append(jump);
-    for (const name of ["ArrowRight", "Home", "Enter"]) {
-      expect(key(jump, name).defaultPrevented).toBe(false);
-      expect(key(tabs.panel("one"), name).defaultPrevented).toBe(false);
-    }
-    expect(onActivate).not.toHaveBeenCalled();
-  });
+  it.each(["ArrowRight", "Home", "Enter"])(
+    "ignores %s outside its tabs, even on a button that points at one",
+    (name) => {
+      const onActivate = fake.listener();
+      const tabs = mounted("one", onActivate);
+      const jump = document.createElement("button");
+      jump.setAttribute(TAB_ATTRIBUTE, "two");
+      tabs.panel("one").append(jump);
+      expect([jump, tabs.panel("one")].map((target) => key(target, name).defaultPrevented))
+        .toEqual([false, false]);
+      expect(onActivate).not.toHaveBeenCalled();
+    },
+  );
 
   it.each<readonly [string, (tabs: ReturnType<typeof mounted>) => void]>([
     ["a click", (tabs) => tabs.select("one")],
@@ -189,14 +191,12 @@ describe("the keys on a tab", () => {
     expect(stops(tabs)).toEqual({ focused: "one", stop: ["one"], selected: "one" });
   });
 
-  it("hears no key after stop", () => {
-    const onActivate = vi.fn();
+  it.each(["Enter", "ArrowRight", "End"])("hears no %s after stop", (name) => {
+    const onActivate = fake.listener();
     const tabs = mounted("one", onActivate);
     tabs.stop();
     tabs.tab("two").focus();
-    for (const name of ["Enter", "ArrowRight", "End"]) {
-      expect(key(tabs.tab("two"), name).defaultPrevented).toBe(false);
-    }
+    expect(key(tabs.tab("two"), name).defaultPrevented).toBe(false);
     expect(stops(tabs)).toEqual({ focused: "two", stop: ["one"], selected: "one" });
     expect(onActivate).not.toHaveBeenCalled();
   });

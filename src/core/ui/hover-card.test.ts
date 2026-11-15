@@ -160,7 +160,7 @@ describe("createHoverCard", () => {
 
   it("shows the card in the top layer on every open, above store popovers opened before it", () => {
     const saved = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "showPopover");
-    const showPopover = vi.fn();
+    const showPopover = fake.spy();
     Object.defineProperty(HTMLElement.prototype, "showPopover", {
       value: showPopover,
       configurable: true,
