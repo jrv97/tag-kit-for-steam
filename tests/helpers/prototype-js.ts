@@ -49,7 +49,12 @@ const PATCHES: readonly (readonly [object, PropertyKey, unknown])[] = [
 export function prototypeJs(): () => void {
   const saved = PATCHES.map(([target, key, value]) => {
     const original = Reflect.getOwnPropertyDescriptor(target, key);
-    Reflect.defineProperty(target, key, { configurable: true, writable: true, value });
+    Reflect.defineProperty(target, key, {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value,
+    });
     return { target, key, original };
   });
   return () => {
