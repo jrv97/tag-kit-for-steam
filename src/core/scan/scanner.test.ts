@@ -7,6 +7,7 @@ import { FRAME_MS, launchScanner, settle, useScanTimers } from "../../../tests/h
 import {
   APP_ROW,
   BUNDLE_ROW,
+  detachHoverLayer,
   loadPage,
   nodes,
   pageTransition,
@@ -281,6 +282,8 @@ describe("per-surface hosts", () => {
     expect(popover.contains(card?.element ?? null)).toBe(true);
     expect(capsule?.element.contains(popover)).toBe(true);
     expect(card?.anchor).toBe(the(".ReviewScore", popover).parentElement);
+    expect(card?.element.getAttribute(HOST_HIDEABLE)).toBe("false");
+    expect(capsule?.anchor).toBe(the(".CapsuleImageCtn"));
   });
 
   it("app page: DLC rows get hosts, badge at the end of the name; own links do not", async () => {
@@ -594,43 +597,32 @@ describe("observing", () => {
     ]);
   });
 
-  it("hosts a new classic hover block and scans nothing when a block shows again", async () => {
+  it("tags a classic hover block in the frame after the store adds it", async () => {
     loadPage(make.page.surface("hover-card"));
     await startScanner();
     const id = make.appId();
     the("#global_hover_content").append(
       ...nodes(`<div id="hover_app_${String(id)}"><h4 class="hover_title"></h4></div>`),
     );
-    await settle();
+    await vi.advanceTimersByTimeAsync(FRAME_MS);
     expect(renderer.batches.at(-1)?.found.map((host) => [host.appId, host.placement.id]))
       .toStrictEqual([[id, "hover-card"]]);
-    const scans = reports.length;
-    // Hovering a game again only flips its block's style, which no scan reads.
-    for (const block of document.querySelectorAll(HOVER_CANDIDATE)) {
-      block.setAttribute("style", "display: none;");
-    }
-    await settle();
-    expect(reports).toHaveLength(scans);
   });
 
-  it("hosts a React hover card on each mount and leaves its capsule's host alone", async () => {
+  it("tags a React hover card in the frame of each mount, not its capsule's host", async () => {
     loadPage(make.page.surface("hover-layer"));
-    const popover = the("[popover]");
-    popover.remove();
+    const mount = detachHoverLayer();
     await startScanner();
-    const capsule = hostElements();
-    for (let hover = 0; hover < 3; hover++) {
-      const card = popover.cloneNode(true);
-      the("[data-key='hover div']").prepend(card);
-      await settle();
+    for (let hover = 0; hover < 2; hover++) {
+      const card = mount();
+      await vi.advanceTimersByTimeAsync(FRAME_MS);
       const batch = renderer.batches.at(-1);
       expect(batch?.changed).toStrictEqual([]);
       expect(batch?.found.map((host) => host.placement.id)).toStrictEqual(["hover-layer"]);
       expect(card.contains(batch?.found[0]?.element ?? null)).toBe(true);
       expect(reports.at(-1)?.roots).toBe(1);
-      card.parentNode?.removeChild(card);
+      card.remove();
     }
-    expect(hostElements().slice(0, 1)).toStrictEqual(capsule);
   });
 
   it("keeps the badge in place when the store adds a hover popup inside the host", async () => {

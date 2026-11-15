@@ -14,9 +14,9 @@ import { adoptStyles, PAGE_CSS, TOKENS_CSS } from "./styles";
 const DIM = "opacity(0.4)";
 const ALL_KINDS = KIND_IDS.join(" ");
 
-function host(): HTMLElement {
+function host(parent: Element = document.body): HTMLElement {
   const element = document.createElement("div");
-  document.body.append(element);
+  parent.append(element);
   return element;
 }
 
@@ -115,8 +115,9 @@ describe("the list filter styles", () => {
   function carrying(
     carried: readonly KindId[],
     options: HostViewOptions = {},
+    parent?: Element,
   ): CSSStyleDeclaration {
-    const element = host();
+    const element = host(parent);
     const verdicts = make.verdicts.only(carried);
     createHostKindsRenderer().render(hostView(element, { verdicts, ...options }));
     return getComputedStyle(element);
@@ -139,6 +140,23 @@ describe("the list filter styles", () => {
     expect([hidden(shown), dimmed(shown)]).toEqual([true, false]);
     expect([hidden(fixed), dimmed(fixed)]).toEqual([false, true]);
     expect(hidden(carrying(others(id)))).toBe(false);
+  });
+
+  // A store hover card shows the game the pointer rests on, outside the pointer's reach.
+  it.each(
+    [
+      { name: "id", value: "global_hover", filter: "dim" },
+      { name: "id", value: "global_hover", filter: "hide" },
+      { name: "popover", value: "manual", filter: "dim" },
+      { name: "popover", value: "manual", filter: "hide" },
+    ] as const,
+  )("leaves a host in a hover card marked by $name undimmed under $filter", (row) => {
+    filters({ ai: row.filter });
+    const card = host();
+    card.setAttribute(row.name, row.value);
+    const inCard = carrying(["ai"], { hideable: false }, card);
+    expect([hidden(inCard), dimmed(inCard)]).toEqual([false, false]);
+    expect(dimmed(carrying(["ai"], { hideable: false }))).toBe(true);
   });
 
   // happy-dom matches no complex selector inside :is(); styles.test.ts checks the dim rule.

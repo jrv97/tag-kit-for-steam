@@ -1,7 +1,8 @@
 import type { AppId } from "../types";
 import { DATA_APPID, type Naming, OWN_HOST, uniformNaming } from "./candidates";
 import { firstImage } from "./image";
-import { NESTED_PLACEMENTS, opensLayer } from "./placements";
+import { layerParent } from "./layers";
+import { NESTED_PLACEMENTS } from "./placements";
 
 // The host rule rq6 (S5) chose on the tag hub: the lowest image-bearing ancestor that names one
 // app, then a short climb that joins image and title blocks that are siblings. The climb never
@@ -55,10 +56,7 @@ export function createHostFinder(document: Document): HostFinder {
 
   /** The parent, unless it is `body` or the root, which are never hosts, or past a layer. */
   function parentOf(element: Element): Element | undefined {
-    if (opensLayer(element)) {
-      return undefined;
-    }
-    const parent = element.parentElement;
+    const parent = layerParent(element);
     return parent === null || parent === document.body || parent === document.documentElement
       ? undefined
       : parent;

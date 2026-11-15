@@ -155,7 +155,7 @@ Preview: `previews/Badge.html`.
 ### When to use
 
 - One chip for each kind that is disclosed, enabled, has its badge switch on and is not ignored for the game. Not disclosed, unknown and ignored kinds get nothing: no neutral chip, no check mark.
-- The chips of a host sit in one group, in the person's tag order (`order`, set in the Tag order card of section 6; the registry's until moved). A placement shows the first `maxChips` of them (3 on rows with room, `OVERLAY_CHIPS` 2 on capsule overlays, 2 on search suggestions), and one "+N" chip stands for the rest. A new order draws every host again.
+- The chips of a host sit in one group, in the person's tag order (`order`, set in the Tag order card of section 6; the registry's until moved). A placement shows the first `maxChips` of them (3 on rows with room, `OVERLAY_CHIPS` 2 on capsule overlays, 2 on search suggestions), and one "+N" chip stands for the rest. A store hover card shows every chip (`CARD_CHIPS`) and no "+N" chip: no pointer reaches the classic card to open one. A new order draws every host again.
 - A host with full chips gets no compact badge.
 
 ### What the consumer provides
@@ -189,6 +189,7 @@ Built like the store's own tag chips, in our hue.
 - Search rows: directly after the title, with `margin-inline-start: tks-space-2`, keeping their full size. The title line clips with `overflow: hidden`, so on a row with chips it becomes a flex row: the title shrinks and ends in an ellipsis, and the chips stay visible. The platform icons below keep their place.
 - Wishlist rows: directly after the title element, `margin-inline-start: tks-space-2`. The exact anchor is unverified until the surface spike.
 - DLC rows on an app page: the last child of the name (`.game_area_dlc_name`), so the chips follow the name text. The row is a flex row that spreads name and price apart, so chips between them would float mid-row at a different spot on each row. On a row with chips the name becomes a flex row: its trailing space drops, and `margin-inline-start: tks-space-2` is the whole gap, as on search rows. A long name wraps beside the badge.
+- Store hover cards (ADR 0031): the classic card (`#global_hover`) takes the group as the last child of the game's app block, `margin-block-start: tks-space-2` under the user tags. Its ground is light, so its chips take the compact badge's surface and text (`tks-compact-bg`, `tks-compact-fg`, 12.66:1; the surface stands 11.1:1 against the card). The React card on tag hubs and sale pages takes the group as the last child of its info block, under the reviews and the release line, `margin-inline-start: tks-space-1` and its chips `tks-space-1` apart, as the store's tags in that card are. Both draw in the frame the card opens.
 - A row placement picks the slot: `after` makes the group the anchor's next sibling, `end` its last child.
 - Any other row: after the title, never before it, so titles stay aligned.
 
@@ -201,7 +202,7 @@ Built like the store's own tag chips, in our hue.
 ### Accessibility
 
 - The accessible name starts with the visible chip text, whoever wrote it, and goes on with Steam's words (WCAG 2.5.3), read as part of the row link. The short text itself is `aria-hidden`.
-- No `role`, no `tabindex`: the chips ride inside the store's own link.
+- No `role`, no `tabindex`: the chips ride inside the store's own link. In a store hover card they sit in no link, and no focus reaches them; the capsule's own chips carry the same names.
 
 ### Don't
 
@@ -494,6 +495,7 @@ No classes, no inline styles, no per-node writes when the mode changes.
 - `hide`: hosts that carry the kind get `display: none`. Hosts marked `data-tks-hideable="false"` dim instead, as does every host while the root carries `data-tks-reveal`, which the hidden results notice sets for one page (section 16).
 - Several kinds on one host: the strongest mode wins (hide over dim over off). No rule is needed for it: a hidden host ignores a dim, and a host that cannot hide dims for either mode.
 - A kind that is not disclosed, unknown or ignored for the game is absent from `data-tks-kinds`, so it never matches. A kind that is switched off writes `off` for its filter.
+- A store hover card is never dimmed: it shows the one game the pointer rests on, and the pointer stays on the capsule, so `:hover` cannot lift a dim there.
 - A game whose lookup failed is neither dimmed nor hidden, in any mode. The filter cannot tell whether it carries the kind, and a failed game drawn like a filtered one would read as a verdict (rule 4). The notice reports it instead (ADR 0028).
 
 ```css

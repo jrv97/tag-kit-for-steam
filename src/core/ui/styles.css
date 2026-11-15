@@ -78,12 +78,16 @@
   margin-inline-start: var(--tks-space-2);
 }
 
-/* Store hover cards: the chips end the card's app block as one more line of it. The classic card
-   is a light ground, so its chips take the compact badge's solid surface and light text, 12.65:1
-   on that surface and 11:1 or more between the surface and the card. */
-#global_hover .tks-chips {
+/* Store hover cards: the chips end the card's app block as a line of their own, apart from the
+   user tags. The classic card is a light ground, so its chips take the compact badge's solid
+   surface and light text, 12.65:1 on that surface and 11:1 or more against the card. */
+#global_hover .tks-chips,
+[popover] .tks-chips[data-tks-chips="full"] {
   display: flex;
-  margin-block-start: var(--tks-space-1);
+}
+
+#global_hover .tks-chips {
+  margin-block-start: var(--tks-space-2);
 }
 
 #global_hover .tks-badge {
@@ -91,9 +95,9 @@
   color: var(--tks-tag-light, var(--tks-compact-fg));
 }
 
-/* The React card's info block: the store's tags sit 4px in from its padding */
-[popover] .tks-chips {
-  display: flex;
+/* The React card's info block: the store's tags sit 4px in from its padding and 4px apart */
+[popover] .tks-chips[data-tks-chips="full"] {
+  gap: var(--tks-space-1);
   margin-inline-start: var(--tks-space-1);
 }
 
@@ -250,12 +254,6 @@
   visibility: hidden !important;
 }
 
-/* The classic hover card shows the one game the pointer rests on, so no list filter dims it. The
-   pointer never reaches it, so the dim's own hover rule cannot lift it. */
-#global_hover [data-tks-appid] {
-  filter: none !important;
-}
-
 /* List filter: data-tks-filter-<kind> on the root element, data-tks-kinds on each host. A kind
    dims or hides the hosts that carry it. Several kinds on one host need no extra rule: a hidden
    host ignores a dim, and where hiding would break the list the hide dims, as the dim does. The dim
@@ -355,6 +353,15 @@
   transition: filter var(--tks-duration-fast) var(--tks-ease);
 }
 
+/* A store hover card shows the one game the pointer rests on, so no list filter dims it. The
+   pointer stays on the capsule, so the dim's own hover rule cannot lift it. This rule comes after
+   the filter rules and weighs as much as the heaviest, so it wins. */
+#global_hover [data-tks-kinds],
+:root [popover] [data-tks-kinds],
+:root [popover][data-tks-kinds] {
+  filter: none !important;
+}
+
 [data-tks-filter-ai="hide"]:not([data-tks-reveal])
   [data-tks-kinds~="ai"]:not([data-tks-hideable="false"]),
 [data-tks-filter-kernel="hide"]:not([data-tks-reveal])
@@ -418,7 +425,8 @@
 
 @media (forced-colors: active) {
   .tks-badge,
-  .tks-compact {
+  .tks-compact,
+  #global_hover .tks-badge {
     border: 1px solid CanvasText;
     forced-color-adjust: none;
     background: Canvas;

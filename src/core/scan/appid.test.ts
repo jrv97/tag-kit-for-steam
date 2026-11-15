@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { make } from "../../../tests/helpers/factory";
-import { appIdFromDataAttribute, appIdFromHref } from "./appid";
+import { appIdFromDataAttribute, appIdFromHoverId, appIdFromHref, HOVER_APP_PREFIX } from "./appid";
 
 const STORE = "https://store.steampowered.com/search/?term=roguelike";
 const COMMUNITY = "https://steamcommunity.com/id/someone/wishlist/";
@@ -23,6 +23,17 @@ describe("appIdFromDataAttribute", () => {
     "4294967296",
   ])("skips %j, which is not one app ID", (value) => {
     expect(appIdFromDataAttribute(value)).toBeUndefined();
+  });
+});
+
+describe("appIdFromHoverId", () => {
+  it.each([
+    [`${HOVER_APP_PREFIX}${String(ID)}`, ID],
+    [`${HOVER_APP_PREFIX}${String(ID)}_rec`, undefined],
+    [HOVER_APP_PREFIX, undefined],
+    [String(ID), undefined],
+  ])("reads %j as %s", (id, expected) => {
+    expect(appIdFromHoverId(id)).toBe(expected);
   });
 });
 

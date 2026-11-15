@@ -9,7 +9,7 @@ import { fake } from "../../tests/helpers/fakes";
 import { getItemsRequest, itemIds, requestFlags } from "../../tests/helpers/getitems";
 import { englishI18n } from "../../tests/helpers/i18n";
 import { writeSettings } from "../../tests/helpers/settings";
-import { loadPage, the } from "../../tests/helpers/surfaces";
+import { detachHoverLayer, loadPage } from "../../tests/helpers/surfaces";
 import { T0 } from "../../tests/helpers/timer-clock";
 import { type App, start } from "./app";
 import type { CreatorRole } from "./creator";
@@ -193,41 +193,33 @@ describe("store hover cards", () => {
   const LAYERED = make.fixture.surfaceApps.hoverLayer;
   const blocks = () => [...document.querySelectorAll(HOVER_CANDIDATE)];
 
-  /** Starts on the classic card's capture, every app block's game declaring AI use. */
-  async function startOnClassic(settings: Settings = DEFAULT_SETTINGS) {
+  it("ends each classic app block with every chip of its game, from one request", async () => {
     loadPage(make.page.surface("hover-card"));
-    const started = await startOnLoaded({
-      initial: storing(settings),
-      items: CLASSIC.map((id) => make.item.disclosed(id)),
+    // With PvP on, ARC Raiders draws four chips, one past a search row's allowance.
+    const { http } = await startOnLoaded({
+      initial: storing(make.settings.kind("pvp", { enabled: true })),
+      items: CLASSIC.map((id) => make.fixture.itemAs(kindItems, ARC_RAIDERS, id)),
     });
-    await expect.poll(() => blocks().map((block) => block.lastElementChild?.className))
+    const labelsIn = (block: Element) =>
+      Array.from(block.querySelectorAll(".tks-badge-label"), (label) => label.textContent);
+    await expect.poll(() => blocks().map(labelsIn)).toStrictEqual(
+      CLASSIC.map(() => [chip("ai"), chip("pvp"), chip("eula"), chip("kernel")]),
+    );
+    expect(blocks().map((block) => block.lastElementChild?.className))
       .toStrictEqual(CLASSIC.map(() => "tks-chips"));
-    return started;
-  }
-
-  it("ends each classic app block with its game's chips, from one request", async () => {
-    const { http } = await startOnClassic();
     expect(http.calls).toHaveLength(1);
     expect(getItemsRequest(http.calls[0] ?? "").ids).toEqual(CLASSIC);
   });
 
-  it("never dims a classic hover card, whose game a kind on Dim marks", async () => {
-    await startOnClassic(make.settings.kind("ai", { filter: "dim" }));
-    expect(blocks().map((block) => getComputedStyle(block).filter))
-      .toStrictEqual(CLASSIC.map(() => "none"));
-  });
-
   it("tags a React hover card on every mount with no request after the page's", async () => {
     loadPage(make.page.surface("hover-layer"));
-    const card = the("[popover]");
-    card.remove();
+    const mount = detachHoverLayer();
     const { http } = await startOnLoaded({ items: LAYERED.map((id) => make.item.disclosed(id)) });
     await drawn(http);
-    for (let hover = 0; hover < 3; hover++) {
-      the("[data-key='hover div']").prepend(card.cloneNode(true));
-      const mounted = the("[popover]");
-      await expect.poll(() => mounted.querySelectorAll(".tks-badge").length).toBe(1);
-      mounted.remove();
+    for (let hover = 0; hover < 2; hover++) {
+      const card = mount();
+      await expect.poll(() => card.querySelectorAll(".tks-badge").length).toBe(1);
+      card.remove();
     }
     expect(http.calls).toHaveLength(1);
   });

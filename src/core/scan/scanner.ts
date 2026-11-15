@@ -1,10 +1,18 @@
 import { detach } from "../dom";
 import type { AppId } from "../types";
 import { appIdFromHref } from "./appid";
-import { ANY_CANDIDATE, CANDIDATE_SOURCES, namesApp, namingOf, SKIPPED } from "./candidates";
+import {
+  ANY_CANDIDATE,
+  CANDIDATE_SOURCES,
+  namesApp,
+  namingOf,
+  opensCard,
+  SKIPPED,
+} from "./candidates";
 import { createHostFinder } from "./hosts";
+import { layerParent, sameLayer } from "./layers";
 import { HOST_APPID, HOST_HIDEABLE, HOST_KINDS, isInTksNode, isTksNode, TKS_NODE } from "./marks";
-import { opensLayer, placeHost, type Placement, PLACEMENTS } from "./placements";
+import { placeHost, type Placement, PLACEMENTS } from "./placements";
 import type { CapsuleHost, CapsuleRenderer } from "./renderer";
 
 /** Quiet time after the last mutation before a scan. */
@@ -57,7 +65,8 @@ interface ScanPlan {
 
 /**
  * Finds capsule hosts (rq6, S5) and hands them to the renderer. One `MutationObserver` on `body`
- * collects added subtrees, debounced by `DEBOUNCE_MS` up to `MAX_WAIT_MS`; each scan reads the DOM
+ * collects added subtrees, debounced by `DEBOUNCE_MS` up to `MAX_WAIT_MS`, or for the next frame
+ * when a hover card opens, which then shows its chips as it paints; each scan reads the DOM
  * first and writes after, in one animation frame. Hosts are remembered in a `WeakMap`, so a
  * rescan finds nothing new. The observer disconnects on `pagehide` and resumes on a bfcache
  * `pageshow`.
@@ -76,15 +85,19 @@ export function createScanner(options: ScannerOptions): Scanner {
 
   function onMutations(records: readonly MutationRecord[]): void {
     let added = false;
+    let card = false;
     for (const record of records) {
       for (const node of record.addedNodes) {
         if (node instanceof Element && !isTksNode(node)) {
           pending.add(node);
           added = true;
+          card ||= opensCard(node);
         }
       }
     }
-    if (added) {
+    if (card) {
+      requestFrame();
+    } else if (added) {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(requestFrame, DEBOUNCE_MS);
       maxWaitTimer ??= setTimeout(requestFrame, MAX_WAIT_MS);
@@ -126,16 +139,13 @@ export function createScanner(options: ScannerOptions): Scanner {
     appId?: AppId,
     replaced: ReadonlySet<Element> = new Set(),
   ): Element | undefined {
-    for (let node: Element | null = element; node !== null; node = node.parentElement) {
+    for (let node: Element | null = element; node !== null; node = layerParent(node)) {
       const record = hosts.get(node);
       if (
         record !== undefined && !replaced.has(node)
         && (appId === undefined || record.appId === appId)
       ) {
         return node;
-      }
-      if (opensLayer(node)) {
-        break;
       }
     }
     return undefined;
@@ -148,7 +158,7 @@ export function createScanner(options: ScannerOptions): Scanner {
     for (const marked of host.querySelectorAll(`[${HOST_APPID}='${String(appId)}']`)) {
       if (
         hosts.get(marked)?.appId === appId && !replaced.has(marked)
-        && !layerBetween(marked, host)
+        && sameLayer(marked, host)
       ) {
         return true;
       }
@@ -166,7 +176,7 @@ export function createScanner(options: ScannerOptions): Scanner {
     for (const root of roots) {
       // A root added inside an app link (an image that arrives late) makes that link a candidate.
       const around = root.closest(ANY_CANDIDATE);
-      if (around !== null) {
+      if (around !== null && sameLayer(root, around)) {
         candidates.add(around);
       }
     }
@@ -351,27 +361,8 @@ function enclosedByFresh(
   appId: AppId,
   fresh: ReadonlyMap<Element, AppId>,
 ): boolean {
-  for (let node = element; !opensLayer(node);) {
-    const parent = node.parentElement;
-    if (parent === null) {
-      return false;
-    }
-    if (fresh.get(parent) === appId) {
-      return true;
-    }
-    node = parent;
-  }
-  return false;
-}
-
-/** Whether a layer root sits between `inner` (included) and `outer` (left out). */
-function layerBetween(inner: Element, outer: Element): boolean {
-  for (
-    let node: Element | null = inner;
-    node !== null && node !== outer;
-    node = node.parentElement
-  ) {
-    if (opensLayer(node)) {
+  for (let node = layerParent(element); node !== null; node = layerParent(node)) {
+    if (fresh.get(node) === appId) {
       return true;
     }
   }

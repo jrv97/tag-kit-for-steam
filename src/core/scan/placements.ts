@@ -105,32 +105,8 @@ const queueTitle: AnchorRule = (host) => {
 /** A React hover card's info block: its title link's parent, over the tags and reviews. */
 const hoverInfo: AnchorRule = (host) => imagelessLink(host)?.parentElement ?? undefined;
 
-/**
- * A store element that opens a layer of its own over the page, marked by an attribute. A host
- * inside it never joins a host around it, and the reverse: the scan treats it as a boundary.
- */
-interface LayerPlacement {
-  /** A stable name for tests and debug logs. */
-  readonly id: string;
-  /** The attribute that marks the layer's root element. */
-  readonly attribute: string;
-}
-
-/** Every store layer. A new one is a new entry here, never a scanner edit (rule 11). */
-const LAYER_PLACEMENTS: readonly LayerPlacement[] = [
-  // React hover cards: a `div[popover]` mounted inside the hovered capsule's host on each hover.
-  { id: "popover", attribute: "popover" },
-];
-
-/** Whether `element` is a store layer's root: one attribute read per layer. */
-export function opensLayer(element: Element): boolean {
-  for (const { attribute } of LAYER_PLACEMENTS) {
-    if (element.hasAttribute(attribute)) {
-      return true;
-    }
-  }
-  return false;
-}
+/** A store hover card: every chip, as no pointer reaches its "+N" chip, ending its app block. */
+const CARD = { hideable: false, maxChips: CARD_CHIPS, badge: "full", slot: "end" } as const;
 
 /** The default: a compact badge over the capsule image of any host. */
 export const GENERIC: OverlayPlacement = {
@@ -150,21 +126,15 @@ export const PLACEMENTS: readonly Placement[] = [
     // when another shows. The chips end the block, under the user tags.
     id: "hover-card",
     host: HOVER_CANDIDATE,
-    hideable: false,
-    maxChips: CARD_CHIPS,
-    badge: "full",
-    slot: "end",
+    ...CARD,
     anchor: (host) => host,
   },
   {
     // The React hover card on tag hubs and sale pages, a layer of its own. The chips end its
     // info block.
     id: "hover-layer",
-    host: "[popover] *",
-    hideable: false,
-    maxChips: CARD_CHIPS,
-    badge: "full",
-    slot: "end",
+    host: "[popover], [popover] *",
+    ...CARD,
     anchor: hoverInfo,
   },
   {

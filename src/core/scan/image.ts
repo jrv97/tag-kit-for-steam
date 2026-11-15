@@ -1,3 +1,4 @@
+import { sameLayer } from "./layers";
 import { isInTksNode } from "./marks";
 
 /**
@@ -17,13 +18,16 @@ const IMAGE = [
   ".HeroCapsuleImageContainer",
 ].join(", ");
 
-/** The first capsule image in `root` (`root` included), skipping anything inside our own nodes. */
+/**
+ * The first capsule image in `root` (`root` included), skipping our own nodes and images in a
+ * layer inside `root`, such as a hover card's screenshots.
+ */
 export function firstImage(root: Element): Element | undefined {
   if (root.matches(IMAGE)) {
     return root;
   }
   for (const image of root.querySelectorAll(IMAGE)) {
-    if (!isInTksNode(image)) {
+    if (!isInTksNode(image) && sameLayer(image, root)) {
       return image;
     }
   }

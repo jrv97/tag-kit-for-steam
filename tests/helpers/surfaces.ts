@@ -115,6 +115,19 @@ export function pageTransition(type: "pagehide" | "pageshow", persisted = true):
   return Object.assign(new Event(type), { persisted });
 }
 
+/**
+ * Takes the React hover card out of the loaded "hover-layer" page. The function it returns mounts
+ * a fresh copy where the store mounts one on each hover, and returns that copy.
+ */
+export function detachHoverLayer(): () => Element {
+  const card = the("[popover]");
+  card.remove();
+  return () => {
+    the("[data-key='hover div']").prepend(card.cloneNode(true));
+    return the("[popover]");
+  };
+}
+
 /** The element `selector` matches, failing the test when there is none. */
 export function the(selector: string, root: ParentNode = document): Element {
   const element = root.querySelector(selector);

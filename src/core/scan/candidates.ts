@@ -1,5 +1,6 @@
 import type { AppId } from "../types";
 import { appIdFromDataAttribute, appIdFromHoverId, appIdFromHref, HOVER_APP_PREFIX } from "./appid";
+import { opensLayer } from "./layers";
 import { TKS_NODE } from "./marks";
 
 // Elements that name an app (rq6, S5): classic surfaces put a `data-ds-appid` on the capsule
@@ -14,6 +15,10 @@ export const DATA_CANDIDATE = `[${DATA_APPID}]`;
 export const LINK_CANDIDATE = "a[href*='/app/']";
 /** The app block of Steam's classic hover card, `#hover_app_<id>`. It holds no app link. */
 export const HOVER_CANDIDATE = `[id^='${HOVER_APP_PREFIX}']`;
+/** Whether `element` is a hover card the pointer just opened, which a scan tags at once. */
+export function opensCard(element: Element): boolean {
+  return opensLayer(element) || appIdFromHoverId(element.id) !== undefined;
+}
 /** Elements that are their own host: the store marks each one as a single item. */
 export const OWN_HOST = `${DATA_CANDIDATE}, ${HOVER_CANDIDATE}`;
 /** What a scan lists in each added subtree, own hosts first. A new source is an entry here. */
@@ -31,7 +36,7 @@ const PAGE_PARTS: readonly string[] = [
   "game_area_purchase",
   "game_area_description",
 ];
-export const ANY_CANDIDATE = [OWN_HOST, LINK_CANDIDATE, OTHER_ITEM_LINK]
+export const ANY_CANDIDATE = [...CANDIDATE_SOURCES, OTHER_ITEM_LINK]
   .concat(PAGE_PARTS.map((id) => `#${id}`))
   .join(", ");
 
