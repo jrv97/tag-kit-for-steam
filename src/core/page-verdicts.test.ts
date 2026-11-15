@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { make } from "../../tests/helpers/factory";
 import { fake } from "../../tests/helpers/fakes";
-import { mergeVerdicts, translatedVerdicts } from "./app-page";
 import { parseAppPage } from "./detect/app-page";
 import type { AiVerdict } from "./kinds/ai";
 import { KINDS } from "./kinds/registry";
 import { type KindVerdicts, UNKNOWN_KINDS, withRelations } from "./kinds/verdicts";
+import { mergeVerdicts, translatedVerdicts } from "./page-verdicts";
 
 const ID = make.appId();
 const ARC_RAIDERS = make.fixture.app.arcRaiders;
