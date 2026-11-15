@@ -3,7 +3,6 @@ import { make } from "../../../tests/helpers/factory";
 import { hostView, type HostViewOptions } from "../../../tests/helpers/host-view";
 import { englishI18n } from "../../../tests/helpers/i18n";
 import { markedBundlePage, markedPackagePage } from "../../../tests/helpers/package-page";
-import { the } from "../../../tests/helpers/surfaces";
 import { KIND_IDS, type KindId } from "../kinds/id";
 import { kindsInOrder, parseOrder } from "../kinds/order";
 import { KIND_BY_ID } from "../kinds/registry";
@@ -123,10 +122,10 @@ describe("createPackageSummary", () => {
       ".package_landing_page_item_list",
     ],
     [
-      "a bundle's purchase box, above its included items",
+      "a bundle's item heading, above its first row",
       markedBundlePage,
-      "#game_area_purchase_top",
       "h2",
+      ".bundle_package_item",
     ],
   ])("sits right after %s, inside no host", async (_, load, before, after) => {
     const rows = load();
@@ -145,22 +144,12 @@ describe("createPackageSummary", () => {
     expect(summary()).toBe(first);
   });
 
-  it.each<[string, () => readonly Element[]]>([
-    ["a page without the included games list", () => {
-      const host = document.createElement("div");
-      host.setAttribute(HOST_APPID, String(make.appId()));
-      host.append(document.createElement("img"));
-      document.body.replaceChildren(host);
-      return [host];
-    }],
-    ["a bundle page without its item heading", () => {
-      const rows = markedBundlePage();
-      the(".leftcol > h2").remove();
-      return rows;
-    }],
-  ])("draws nothing on %s", async (_, load) => {
-    const rows = load();
-    await draw(createPackageSummary(document, i18n), rows, rows.map(() => AI));
+  it("draws nothing on a page without the included games list", async () => {
+    const host = document.createElement("div");
+    host.setAttribute(HOST_APPID, String(make.appId()));
+    host.append(document.createElement("img"));
+    document.body.replaceChildren(host);
+    await draw(createPackageSummary(document, i18n), [host], [AI]);
     expect(summary()).toBeNull();
   });
 });

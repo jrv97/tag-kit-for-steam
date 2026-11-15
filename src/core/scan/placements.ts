@@ -250,12 +250,12 @@ export const SUMMARY_PLACEMENTS: readonly ListPlacement[] = [
     list: ".package_landing_page_item_list",
     after: "#package_header_container",
   },
-  // A bundle page (`/bundle/<id>/`): above "Items included in this bundle", under the purchase
-  // box. The rows have no wrapper, so the list is their column, a class package pages share.
+  // A bundle page (`/bundle/<id>/`): under "Items included in this bundle", above the first row.
+  // The rows have no wrapper, so the list is their column, a class package pages share.
   {
     id: "bundle-items",
     list: ".leftcol:has(> .bundle_package_item)",
-    before: "h2",
+    before: ".bundle_package_item",
   },
 ];
 
