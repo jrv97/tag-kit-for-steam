@@ -31,6 +31,23 @@ function replyFor(routes: readonly Route[], url: string): Reply {
   return NOT_FOUND;
 }
 
+export interface SwappingRoute {
+  readonly route: Route;
+  /** From now on the route answers as `then`. */
+  swap(): void;
+}
+
+/** A route that answers as `first` until the test swaps it to `then`, as a server that recovers. */
+export function swappingRoute(first: Route, then: Route): SwappingRoute {
+  let current = first;
+  return {
+    route: [first[0], (url) => replyFor([current], url.href)],
+    swap() {
+      current = then;
+    },
+  };
+}
+
 function lowerCaseHeaders(headers: Readonly<Record<string, string>>): ReadonlyMap<string, string> {
   return new Map(
     Object.entries(headers).map(([name, value]): [string, string] => [name.toLowerCase(), value]),

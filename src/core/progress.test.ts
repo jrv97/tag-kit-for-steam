@@ -6,33 +6,44 @@ import { createLoadProgress, followProgress, type LoadProgress } from "./progres
 const KNOWN = make.verdicts.full();
 const LIMITED = make.verdicts.uniform("rate-limited");
 const MISSING = make.verdicts.uniform("missing");
+const MALFORMED_PVP = { ...KNOWN, pvp: make.verdict.unknown("malformed") };
 
 /** One answer: the index of the game among the three asked for, its verdicts, and a retry. */
 type Answer = readonly [game: number, verdicts: KindVerdicts, retrying: boolean];
 
 describe("createLoadProgress", () => {
   it.each<readonly [string, readonly Answer[], LoadProgress]>([
-    ["nothing answered", [], { total: 3, answered: 0, unknown: 0 }],
-    ["a known answer", [[0, KNOWN, false]], { total: 3, answered: 1, unknown: 0 }],
+    ["nothing answered", [], { total: 3, answered: 0, unknown: 0, failed: 0 }],
+    ["a known answer", [[0, KNOWN, false]], { total: 3, answered: 1, unknown: 0, failed: 0 }],
     ["an answer of only stored unknowns", [[0, MISSING, false]], {
       total: 3,
       answered: 1,
       unknown: 1,
+      failed: 0,
     }],
     ["a transient answer with a retry ahead", [[0, LIMITED, true]], {
       total: 3,
       answered: 0,
       unknown: 0,
+      failed: 0,
     }],
     ["a transient answer with no retry left", [[0, LIMITED, true], [0, LIMITED, false]], {
       total: 3,
       answered: 1,
       unknown: 1,
+      failed: 1,
     }],
     ["a retry that answered", [[0, LIMITED, false], [0, KNOWN, false]], {
       total: 3,
       answered: 1,
       unknown: 0,
+      failed: 0,
+    }],
+    ["one malformed kind among answers", [[0, MALFORMED_PVP, false]], {
+      total: 3,
+      answered: 1,
+      unknown: 0,
+      failed: 1,
     }],
   ])("counts %s", (_name, answers, expected) => {
     const ids = make.appIds(3);
@@ -41,7 +52,18 @@ describe("createLoadProgress", () => {
     for (const [game, verdicts, retrying] of answers) {
       progress.answered(ids[game] ?? make.appId(), verdicts, retrying);
     }
-    progress.asked(ids);
+    expect(progress.snapshot()).toStrictEqual(expected);
+  });
+
+  it.each<readonly [string, KindVerdicts, LoadProgress]>([
+    ["keeps a known answer", KNOWN, { total: 1, answered: 1, unknown: 0, failed: 0 }],
+    ["waits again for a failed one", LIMITED, { total: 1, answered: 0, unknown: 0, failed: 0 }],
+  ])("asked for a game again, %s", (_name, verdicts, expected) => {
+    const id = make.appId();
+    const progress = createLoadProgress(() => undefined);
+    progress.asked([id]);
+    progress.answered(id, verdicts, false);
+    progress.asked([id]);
     expect(progress.snapshot()).toStrictEqual(expected);
   });
 
@@ -51,6 +73,7 @@ describe("createLoadProgress", () => {
       total: 0,
       answered: 0,
       unknown: 0,
+      failed: 0,
       pausedUntil: until,
     });
   });
@@ -70,7 +93,12 @@ describe("createLoadProgress", () => {
     unsubscribe();
     progress.asked(make.appIds(1));
     await Promise.resolve();
-    expect(listener).toHaveBeenCalledExactlyOnceWith({ total: 2, answered: 2, unknown: 0 });
+    expect(listener).toHaveBeenCalledExactlyOnceWith({
+      total: 2,
+      answered: 2,
+      unknown: 0,
+      failed: 0,
+    });
   });
 });
 
@@ -78,14 +106,22 @@ describe("followProgress", () => {
   it("hears a running app's progress now and as it changes", async () => {
     const progress = createLoadProgress(() => undefined);
     const heard: (LoadProgress | undefined)[] = [];
-    followProgress(Promise.resolve(progress)).subscribe((each) => heard.push(each));
+    const page = { progress, recheck: vi.fn() };
+    followProgress(Promise.resolve(page)).subscribe((each) => heard.push(each));
     await Promise.resolve();
     progress.asked(make.appIds(1));
     await Promise.resolve();
     expect(heard).toStrictEqual([
-      { total: 0, answered: 0, unknown: 0 },
-      { total: 1, answered: 0, unknown: 0 },
+      { total: 0, answered: 0, unknown: 0, failed: 0 },
+      { total: 1, answered: 0, unknown: 0, failed: 0 },
     ]);
+  });
+
+  it("passes a recheck on to the running app", async () => {
+    const page = { progress: createLoadProgress(() => undefined), recheck: vi.fn() };
+    followProgress(Promise.resolve(page)).recheck();
+    await Promise.resolve();
+    expect(page.recheck).toHaveBeenCalledOnce();
   });
 
   it.each<

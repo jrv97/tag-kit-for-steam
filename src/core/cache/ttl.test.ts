@@ -10,6 +10,8 @@ import { KIND_BY_ID, KINDS } from "../kinds/registry";
 import { type KindVerdicts, UNKNOWN_KINDS } from "../kinds/verdicts";
 import type { UnknownReason, Verdict } from "../types";
 import {
+  hasFailed,
+  isFailed,
   isFresh,
   isStoredReason,
   isTransient,
@@ -88,6 +90,31 @@ describe("isStoredReason", () => {
     ["rate-limited", false],
   ])("%s: %s", (reason, stored) => {
     expect(isStoredReason(reason)).toBe(stored);
+  });
+});
+
+describe("isFailed", () => {
+  it.each<readonly [string, Verdict, boolean]>([
+    ["unknown error", make.verdict.unknown("error"), true],
+    ["unknown rate-limited", make.verdict.unknown("rate-limited"), true],
+    ["unknown malformed", make.verdict.unknown("malformed"), true],
+    ["unknown gated", make.verdict.unknown("gated"), false],
+    ["unknown missing", make.verdict.unknown("missing"), false],
+    ["unknown unrequested", make.verdict.unknown("unrequested"), false],
+    ["not disclosed", NOT_DISCLOSED, false],
+    ["disclosed", make.verdict.disclosed("ai"), false],
+  ])("%s: %s", (_name, verdict, failed) => {
+    expect(isFailed(verdict)).toBe(failed);
+  });
+});
+
+describe("hasFailed", () => {
+  it.each<readonly [string, KindVerdicts, boolean]>([
+    ["one malformed kind among answers", { ...FULL, pvp: make.verdict.unknown("malformed") }, true],
+    ["every kind answered", FULL, false],
+    ["only answers Steam gave", make.verdicts.uniform("missing"), false],
+  ])("%s: %s", (_name, verdicts, failed) => {
+    expect(hasFailed(verdicts)).toBe(failed);
   });
 });
 

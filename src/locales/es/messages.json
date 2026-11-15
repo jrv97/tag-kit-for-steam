@@ -641,6 +641,26 @@
     "message": "Ocultarlos",
     "description": "Button after notice_list_revealed. Hides those results again. Plural form."
   },
+  "notice_list_failed_one": {
+    "message": "No se pudo consultar $count$ título.",
+    "description": "A sentence in the bar above search results, after notice_list_hidden or on its own, when a tag's list filter is set to Dim or Hide and Steam could not be asked about some results of this list: the request failed, its answer was broken, or Steam limited requests. Those results are neither dimmed nor hidden. $count$ is how many. It says nothing about any game and never names a tag. Singular form.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "1"
+      }
+    }
+  },
+  "notice_list_failed_other": {
+    "message": "No se pudieron consultar $count$ títulos.",
+    "description": "A sentence in the bar above search results, after notice_list_hidden or on its own, when a tag's list filter is set to Dim or Hide and Steam could not be asked about some results of this list: the request failed, its answer was broken, or Steam limited requests. Those results are neither dimmed nor hidden. $count$ is how many. It says nothing about any game and never names a tag. Plural form.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
   "notice_marking_stopped": {
     "message": "Este juego será ignorado",
     "description": "Screen reader announcement after \"Ignore this game\"."
@@ -982,6 +1002,10 @@
   "options_progress_no_games": {
     "message": "Todavía no hay juegos en esta página",
     "description": "The load strip at the top of the toolbar popup and of the userscript settings dialog, which shows how far the tags of the store page in the current tab have loaded. Its message when the store page has asked for no game yet, as on a page that lists none or before its first games are found. Shown muted, with an empty bar and no count."
+  },
+  "options_progress_recheck": {
+    "message": "Volver a consultar",
+    "description": "Quiet link-style button in the load strip of the toolbar popup and of the userscript settings dialog, in place of the count once every game on the page has an answer and the lookup of some games failed. Asks Steam again about those games. Short."
   },
   "options_chip_reset_label": {
     "message": "Restablecer el texto del marcador de $heading$",

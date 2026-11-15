@@ -66,6 +66,26 @@ describe("createHostKindsRenderer", () => {
     expect(element.hasAttribute("data-tks-kinds")).toBe(false);
   });
 
+  const ERROR = make.verdict.unknown("error");
+  it.each<readonly [string, HostViewOptions, string | null]>([
+    ["the kinds whose lookup failed", {
+      verdicts: make.verdicts({ ai: ERROR, drm: make.verdict.unknown("malformed") }),
+    }, "ai drm"],
+    ["no kind while a retry round is ahead", {
+      verdicts: make.verdicts.uniform("rate-limited"),
+      retrying: true,
+    }, null],
+    ["no kind the game is ignored for", {
+      verdicts: make.verdicts({ ai: ERROR, drm: ERROR }),
+      ignored: ["ai"],
+    }, "drm"],
+    ["no kind Steam answered without data", { verdicts: make.verdicts.uniform("gated") }, null],
+  ])("marks as failed %s", (_case, options, expected) => {
+    const element = host();
+    renderer.render(hostView(element, options));
+    expect(element.getAttribute("data-tks-failed")).toBe(expected);
+  });
+
   it("marks hosts that must not be hidden, and clears the mark", () => {
     const element = host();
     renderer.render(hostView(element, { hideable: false }));

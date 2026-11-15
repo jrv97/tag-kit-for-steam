@@ -24,6 +24,8 @@ export interface VerdictCache {
   ): Promise<ReadonlyMap<AppId, KindVerdicts>>;
   /** Remembers the verdicts now: one storage write for the ones that are stored. */
   save(verdicts: ReadonlyMap<AppId, KindVerdicts>): Promise<void>;
+  /** Drops what memory and storage hold for `ids`, so the next lookup misses them. */
+  forget(ids: readonly AppId[]): Promise<void>;
 }
 
 export function createVerdictCache(
@@ -75,6 +77,15 @@ export function createVerdictCache(
       }
       if (entries.size > 0) {
         await store.set(entries);
+      }
+    },
+
+    async forget(ids) {
+      for (const id of ids) {
+        memory.delete(id);
+      }
+      if (ids.length > 0) {
+        await store.remove(ids.map(verdictKey));
       }
     },
   };

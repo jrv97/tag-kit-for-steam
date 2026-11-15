@@ -11,7 +11,7 @@ import {
   rejectingDetector,
 } from "./fake-detector";
 import { fakeFileTransfer, fakeFileTransferHarness } from "./fake-file-transfer";
-import { fakeFetch, fakeHttp, heldHttp, timedHttp, withheldHttp } from "./fake-http";
+import { fakeFetch, fakeHttp, heldHttp, swappingRoute, timedHttp, withheldHttp } from "./fake-http";
 import { fakeProgressSource, fakeTabPort } from "./fake-progress";
 import { fakeSender, fakeStorePage, fakeTabIcon, fakeTabMessages } from "./fake-store-tab";
 import { fakeTabs } from "./fake-tabs";
@@ -37,6 +37,8 @@ export const fake = {
   timedHttp,
   /** An `Http` that withholds every request. */
   withheldHttp,
+  /** A route that answers as its first route until `swap()`, then as its second. */
+  swappingRoute,
   /** A `storage.local` area that clones values in and out and records calls. */
   area: fakeArea,
   /** A `storage.local` area that injects `faults`. */

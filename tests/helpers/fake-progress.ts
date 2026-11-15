@@ -1,16 +1,19 @@
 import type { LoadProgress, ProgressSource } from "../../src/core/progress";
-import type { TabPort } from "../../src/platform/extension/progress-port";
+import type { PortMessage, TabPort } from "../../src/platform/extension/progress-port";
 
 export interface FakeProgressSource extends ProgressSource {
   /** Tells every listener a new progress, or that no store page answers. */
   send(progress: LoadProgress | undefined): void;
   /** How many listeners are subscribed now. */
   readonly listening: number;
+  /** How many times the page was asked to look up its failed games again. */
+  readonly rechecks: number;
 }
 
 /** A `ProgressSource` a test drives by hand. */
 export function fakeProgressSource(): FakeProgressSource {
   const listeners = new Set<(progress: LoadProgress | undefined) => void>();
+  let rechecks = 0;
   return {
     send(progress) {
       for (const listener of listeners) {
@@ -19,6 +22,12 @@ export function fakeProgressSource(): FakeProgressSource {
     },
     get listening() {
       return listeners.size;
+    },
+    get rechecks() {
+      return rechecks;
+    },
+    recheck() {
+      rechecks += 1;
     },
     subscribe(listener) {
       const own = (progress: LoadProgress | undefined): void => {
@@ -34,7 +43,7 @@ export function fakeProgressSource(): FakeProgressSource {
 
 export interface FakeTabPort extends TabPort {
   /** What this end posted, in order. */
-  readonly posted: readonly LoadProgress[];
+  readonly posted: readonly PortMessage[];
   /** Whether this end closed the port. */
   readonly closed: boolean;
   /** Delivers a message from the other end. */
@@ -45,7 +54,7 @@ export interface FakeTabPort extends TabPort {
 
 /** One end of a runtime port that a test drives as the other end. */
 export function fakeTabPort(): FakeTabPort {
-  const posted: LoadProgress[] = [];
+  const posted: PortMessage[] = [];
   const onMessage: ((message: unknown) => void)[] = [];
   const onDisconnect: (() => void)[] = [];
   let closed = false;
@@ -64,8 +73,8 @@ export function fakeTabPort(): FakeTabPort {
         listener();
       }
     },
-    post(progress) {
-      posted.push(progress);
+    post(message) {
+      posted.push(message);
     },
     onMessage(listener) {
       onMessage.push(listener);

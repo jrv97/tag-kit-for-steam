@@ -229,6 +229,30 @@ describe("start on the search page", () => {
     expect(await store.get([SETTINGS_KEY])).toStrictEqual(stored);
   });
 
+  it("reports a row whose lookup failed and tags it after one request to check again", async () => {
+    const id = searchId(0);
+    const broken = make.item.details({ vetted: true, content_survey_ai_notes: 5 }, {}, id);
+    const server = fake.swappingRoute(
+      make.item.route([...SEARCH_ITEMS, broken]),
+      make.item.route([...SEARCH_ITEMS, make.item.disclosed(id)]),
+    );
+    const { http } = await startOnSearch({
+      initial: storing(make.settings.kind("ai", { filter: "dim" })),
+      route: server.route,
+      clock: fake.timerClock(),
+    });
+    const failed = () => document.querySelector(".tks-list-notice-failed");
+    await expect.poll(() => failed()?.textContent).toBe(i18n.plural("notice_list_failed", 1));
+
+    server.swap();
+    app?.recheck();
+    await vi.advanceTimersByTimeAsync(DEFAULT_SPACING_MS);
+    await expect.poll(() => marks(id)).toBe("ai");
+    expect(http.calls.map((url) => getItemsRequest(url).ids)).toStrictEqual([SEARCH_IDS, [id]]);
+    const notice = () => document.querySelector(".tks-list-notice");
+    await expect.poll(() => notice()?.hasAttribute("hidden")).toBe(true);
+  });
+
   it("asks again once a breaker left open by a past page closes, and tags every row", async () => {
     const until = T0 + DEFAULT_BACKOFF.baseMs + DEFAULT_BACKOFF.jitterMs;
     const { http } = await startOnSearch({

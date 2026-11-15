@@ -120,6 +120,14 @@ describe("openSettingsDialog", () => {
     expect(progress.listening).toBe(0);
   });
 
+  it("asks the page's failed games again from the load strip's Check again", async () => {
+    const progress = fake.progressSource();
+    await openSettingsDialog({ ...deps(true), progress });
+    progress.send(make.progress({ total: 1, answered: 1, failed: 1 }));
+    dialog()?.querySelector<HTMLButtonElement>(".tks-load-recheck")?.click();
+    expect(progress.rechecks).toBe(1);
+  });
+
   it("closes on a click on the backdrop", async () => {
     await openSettingsDialog(deps(true));
     dialog()?.click();

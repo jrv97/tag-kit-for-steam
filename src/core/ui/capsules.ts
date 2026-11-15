@@ -1,3 +1,5 @@
+import { hasFailed } from "../cache/ttl";
+import { fullGameOf } from "../detect/full-game";
 import { createTransientRetry, type Delay } from "../detect/retry";
 import type { KindId } from "../kinds/id";
 import { KINDS, perKind } from "../kinds/registry";
@@ -68,6 +70,8 @@ export interface CapsuleUiOptions {
   readonly delay?: Delay;
   /** Hears which games the hosts ask for and how each answer lands. */
   readonly progress?: LoadTracker;
+  /** Drops the cached answers of games asked for again; nothing is cached by default. */
+  readonly forget?: (ids: readonly AppId[]) => Promise<void>;
   /** Logs a lookup that failed. */
   readonly logger: Pick<Logger, "error">;
 }
@@ -84,6 +88,11 @@ export interface CapsuleUi extends CapsuleRenderer {
    * reads a section their answers lack turns on. They keep drawing what they hold meanwhile.
    */
   redetect(stale: (verdicts: KindVerdicts) => boolean): void;
+  /**
+   * Asks again, in one call, about the known hosts whose lookup failed with no retry ahead, past
+   * the cache, with fresh retry rounds. A demo's full game is asked again with it.
+   */
+  recheck(): void;
   /** Stops watching image boxes, cancels a pending retry and stops listening for `pagehide`. */
   stop(): void;
 }
@@ -95,6 +104,8 @@ interface HostRecord {
   readonly allowed: Record<KindId, boolean>;
   /** Per kind: the badge shows. Refreshed by each draw like `allowed`. */
   readonly badged: Record<KindId, boolean>;
+  /** A retry round will ask for the game again. */
+  retrying: boolean;
 }
 
 const NOT_ALLOWED: Readonly<Record<KindId, boolean>> = perKind(() => false);
@@ -153,11 +164,16 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
     }
   }, options.delay);
 
-  /** Counts the games of hosts that will not be asked again as answered, with what they hold. */
+  /**
+   * Counts the games of hosts that will not be asked again as answered, with what they hold, and
+   * draws them so that a failure shows as final.
+   */
   function giveUp(records: readonly HostRecord[]): void {
-    for (const { host, verdicts } of records) {
-      if (verdicts !== undefined) {
-        progress?.answered(host.appId, verdicts, false);
+    for (const record of records) {
+      record.retrying = false;
+      if (record.verdicts !== undefined) {
+        queue(record);
+        progress?.answered(record.host.appId, record.verdicts, false);
       }
     }
   }
@@ -265,6 +281,7 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
         maxChips: record.host.placement.maxChips,
         slot,
         hideable: record.host.placement.hideable,
+        retrying: record.retrying,
       };
       for (const renderer of renderers) {
         renderer.render(view);
@@ -287,7 +304,7 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
 
   /**
    * Asks for the hosts' games in one call and draws each host as its game's answer lands, which
-   * may be before the call resolves. A host whose game got no answer draws nothing.
+   * may be before the call resolves. A host whose game got no answer draws as failed.
    */
   async function detect(found: readonly HostRecord[]): Promise<void> {
     const waiting = new Map<AppId, HostRecord[]>();
@@ -306,8 +323,9 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
         let retrying = false;
         for (const record of waiting.get(id) ?? []) {
           record.verdicts = answer;
+          record.retrying = retry.offer(record, answer);
           queue(record);
-          retrying = retry.offer(record, answer) || retrying;
+          retrying ||= record.retrying;
         }
         if (waiting.delete(id)) {
           progress?.answered(id, answer, retrying);
@@ -319,13 +337,23 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
     } catch (problem: unknown) {
       logger.error(problem);
     }
-    // An ID the answer left out, or a failed lookup, ends its wait as unknown
+    // An ID the answer left out, or a failed lookup, ends its wait as a failure Check again finds
     for (const [id, left] of waiting) {
       for (const record of left) {
-        record.verdicts = undefined;
+        record.verdicts = UNKNOWN_KINDS.error;
+        record.retrying = false;
         queue(record);
       }
       progress?.answered(id, UNKNOWN_KINDS.error, false);
+    }
+  }
+
+  /** Drops the cached answers; a failed drop is logged, and the lookup still runs. */
+  async function forgetQuietly(ids: readonly AppId[]): Promise<void> {
+    try {
+      await options.forget?.(ids);
+    } catch (problem: unknown) {
+      logger.error(problem);
     }
   }
 
@@ -349,6 +377,7 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
           verdicts: undefined,
           allowed: { ...NOT_ALLOWED },
           badged: { ...ALL_BADGED },
+          retrying: false,
         };
         records.set(host.element, record);
         found.push(record);
@@ -377,6 +406,27 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
       }
       if (due.length > 0) {
         void detect(due);
+      }
+    },
+
+    recheck() {
+      const due: HostRecord[] = [];
+      const ids = new Set<AppId>();
+      for (const element of doc.querySelectorAll(`[${HOST_APPID}]`)) {
+        const record = records.get(element);
+        if (record?.verdicts === undefined || record.retrying || !hasFailed(record.verdicts)) {
+          continue;
+        }
+        due.push(record);
+        retry.reset(record);
+        ids.add(record.host.appId);
+        const game = fullGameOf(record.verdicts);
+        if (game !== undefined) {
+          ids.add(game);
+        }
+      }
+      if (due.length > 0) {
+        void forgetQuietly([...ids]).then(() => detect(due));
       }
     },
 

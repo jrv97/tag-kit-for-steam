@@ -1,6 +1,6 @@
 import { KINDS } from "../kinds/registry";
 import type { MessageCatalog } from "../ports";
-import { HOST_HIDEABLE, HOST_KINDS } from "../scan/marks";
+import { HOST_FAILED, HOST_HIDEABLE, HOST_KINDS } from "../scan/marks";
 import { findList, LIST_PLACEMENTS, placeAbove } from "../scan/placements";
 import { announce, liveRegion } from "./announce";
 import { createElement, plainButton } from "./element";
@@ -17,7 +17,7 @@ const ANNOUNCE_DELAY_MS = 1000;
 const NOTICE_CLASS = "tks-list-notice";
 const TEXT_ID = "tks-list-notice-text";
 const FILTERS = KINDS.map((kind) => filterAttribute(kind.id));
-const MARKED = `[${HOST_KINDS}]`;
+const MARKED = `[${HOST_KINDS}], [${HOST_FAILED}]`;
 
 export interface HiddenNoticeOptions {
   readonly document: Document;
@@ -46,7 +46,34 @@ function hiddenSelector(root: Element): string | undefined {
   return parts.length === 0 ? undefined : parts.join(", ");
 }
 
-/** Whether a record can change the count: a mark or a filter, or a marked host leaving. */
+/**
+ * The hosts whose lookup failed for a kind on Dim or Hide, as one selector list, or undefined
+ * when no kind filters. The filter cannot judge them, so the notice counts them.
+ */
+function failedSelector(root: Element): string | undefined {
+  const parts: string[] = [];
+  for (const kind of KINDS) {
+    const filter = root.getAttribute(filterAttribute(kind.id));
+    if (filter === "dim" || filter === "hide") {
+      parts.push(`[${HOST_FAILED}~="${kind.id}"]`);
+    }
+  }
+  return parts.length === 0 ? undefined : parts.join(", ");
+}
+
+/** How many elements in `list` match `selector`; none without either. */
+function countIn(list: Element | undefined, selector: string | undefined): number {
+  return list === undefined || selector === undefined ? 0 : list.querySelectorAll(selector).length;
+}
+
+/** Sets `hidden` only when it changes. */
+function setHidden(element: HTMLElement, hidden: boolean): void {
+  if (element.hidden !== hidden) {
+    element.hidden = hidden;
+  }
+}
+
+/** Whether a record can change a count: a mark or a filter, or a marked host leaving. */
 function concernsCount(record: MutationRecord): boolean {
   if (record.type === "attributes") {
     return true;
@@ -68,10 +95,11 @@ function setText(element: Element, text: string): void {
 /**
  * One bar above a list surface, right after the store's own notice bar when the page has one, that
  * counts the results the list filter hides there, with a link-styled button that shows them on
- * this page and hides them again. It counts the hosts the renderers marked, with one selector
- * query per change, and never scans. One observer follows the marks, the root's filters and hosts
- * leaving; it disconnects on `pagehide`. The live region speaks the line once it stays the same
- * for `ANNOUNCE_DELAY_MS`.
+ * this page and hides them again. A second sentence counts the results whose lookup failed for a
+ * kind on Dim or Hide, which the filter leaves alone; the bar shows while either count is above
+ * zero. It counts the hosts the renderers marked, with two selector queries per change, and never
+ * scans. One observer follows the marks, the root's filters and hosts leaving; it disconnects on
+ * `pagehide`. The live region speaks the line once it stays the same for `ANNOUNCE_DELAY_MS`.
  */
 export function createHiddenNotice(options: HiddenNoticeOptions): HiddenNotice {
   const { document: doc, i18n } = options;
@@ -102,8 +130,9 @@ export function createHiddenNotice(options: HiddenNoticeOptions): HiddenNotice {
   text.id = TEXT_ID;
   const button = plainButton(doc, "tks-list-notice-button");
   button.setAttribute("aria-describedby", TEXT_ID);
+  const failedText = createElement(doc, "span", "tks-list-notice-failed");
   const live = liveRegion(doc, "span");
-  box.append(text, button, live);
+  box.append(text, button, failedText, live);
 
   /** The list the count was last drawn for; another one ends the reveal. */
   let shownList: Element | undefined;
@@ -136,32 +165,40 @@ export function createHiddenNotice(options: HiddenNoticeOptions): HiddenNotice {
   }
 
   function draw(): void {
-    // Read phase: the list, the filters and the count.
+    // Read phase: the list, the filters and the counts.
     const found = findList(doc, LIST_PLACEMENTS);
     const list = found?.list;
-    const selector = hiddenSelector(root);
-    const count = list === undefined || selector === undefined
-      ? 0
-      : list.querySelectorAll(selector).length;
+    const count = countIn(list, hiddenSelector(root));
+    const failed = countIn(list, failedSelector(root));
     const moved = list !== shownList;
-    const revealed = !moved && root.hasAttribute(REVEAL_ATTRIBUTE);
+    const revealed = !moved && count > 0 && root.hasAttribute(REVEAL_ATTRIBUTE);
     shownList = list;
     // Write phase.
-    if (moved) {
+    if (moved || count === 0) {
       root.removeAttribute(REVEAL_ATTRIBUTE);
     }
-    if (found === undefined || count === 0) {
+    if (found === undefined || count + failed === 0) {
       hide();
       return;
     }
-    const line = i18n.plural(revealed ? "notice_list_revealed" : "notice_list_hidden", count);
-    setText(text, line);
-    setText(button, i18n.plural(revealed ? "notice_list_hide" : "notice_list_show", count));
-    if (box.hidden !== false) {
-      box.hidden = false;
+    const lines: string[] = [];
+    if (count > 0) {
+      const line = i18n.plural(revealed ? "notice_list_revealed" : "notice_list_hidden", count);
+      setText(text, line);
+      setText(button, i18n.plural(revealed ? "notice_list_hide" : "notice_list_show", count));
+      lines.push(line);
     }
+    if (failed > 0) {
+      const line = i18n.plural("notice_list_failed", failed);
+      setText(failedText, line);
+      lines.push(line);
+    }
+    setHidden(text, count === 0);
+    setHidden(button, count === 0);
+    setHidden(failedText, failed === 0);
+    setHidden(box, false);
     placeAbove(found, box);
-    speak(line);
+    speak(lines.join(" "));
   }
 
   function schedule(): void {
@@ -193,7 +230,7 @@ export function createHiddenNotice(options: HiddenNoticeOptions): HiddenNotice {
     observer.observe(root, { attributes: true, attributeFilter: FILTERS });
     observer.observe(doc.body, {
       attributes: true,
-      attributeFilter: [HOST_KINDS],
+      attributeFilter: [HOST_KINDS, HOST_FAILED],
       childList: true,
       subtree: true,
     });

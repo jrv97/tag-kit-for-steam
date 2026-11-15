@@ -1,5 +1,7 @@
+import { hasFailed } from "./cache/ttl";
 import { type Creator, CREATOR_ROLES, type CreatorKey, type CreatorRole } from "./creator";
 import { withLastUpdate } from "./detect/early-access-update";
+import { fullGameOf } from "./detect/full-game";
 import { createTransientRetry, type Delay } from "./detect/retry";
 import type { SteamLanguage } from "./i18n/locale";
 import { type Ignored, type IgnoreLists, isIgnored } from "./ignored";
@@ -61,6 +63,8 @@ export interface AppPageDeps {
   readonly delay?: Delay;
   /** Hears that the page asks for its game and how the answer lands. */
   readonly progress?: LoadTracker;
+  /** Drops the cached answers of games asked for again; nothing is cached by default. */
+  readonly forget?: (ids: readonly AppId[]) => Promise<void>;
 }
 
 /** A running app page. */
@@ -69,6 +73,11 @@ export interface AppPage {
   render(): void;
   /** Looks the game up again, as when a kind that reads a section the answer lacks turns on. */
   redetect(): void;
+  /**
+   * Looks the game up again past the cache, with fresh retry rounds, when its lookup failed with
+   * no retry ahead. A demo's full game is asked again with it.
+   */
+  recheck(): void;
   /** Stops a lookup that has not finished from drawing, and cancels a pending retry. */
   stop(): void;
 }
@@ -92,6 +101,8 @@ export function startAppPage(
   const retry = createTransientRetry<typeof page>(() => {
     lookUp();
   }, deps.delay);
+  /** The apps to ask again past the cache; empty unless the last lookup failed for good. */
+  let failed: readonly AppId[] = [];
 
   /** The game's developers and publishers, with the scopes each is ignored in for its role. */
   function creatorRows(): readonly BannerCreator[] {
@@ -176,12 +187,17 @@ export function startAppPage(
         known = next;
         render();
         const retrying = retry.offer(page, detected);
+        const game = fullGameOf(detected);
+        failed = retrying || !hasFailed(detected)
+          ? []
+          : [id, ...(game === undefined ? [] : [game])];
         answered = true;
         deps.progress?.answered(id, detected, retrying);
       }
     } finally {
       // A failed lookup still ends the wait, as unknown.
       if (!answered && !stopped) {
+        failed = [id];
         deps.progress?.answered(id, UNKNOWN_KINDS.error, false);
       }
     }
@@ -193,11 +209,28 @@ export function startAppPage(
     });
   }
 
+  async function forgetAndLookUp(ids: readonly AppId[]): Promise<void> {
+    try {
+      await deps.forget?.(ids);
+    } catch (problem: unknown) {
+      logger.error(problem);
+    }
+    lookUp();
+  }
+
   render();
   lookUp();
   return {
     render,
     redetect: lookUp,
+    recheck() {
+      if (failed.length > 0 && !stopped) {
+        const ids = failed;
+        failed = [];
+        retry.reset(page);
+        void forgetAndLookUp(ids);
+      }
+    },
     stop() {
       stopped = true;
       retry.cancel();

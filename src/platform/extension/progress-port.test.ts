@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { make } from "../../../tests/helpers/factory";
 import { fake } from "../../../tests/helpers/fakes";
-import { serveProgress } from "./progress-port";
+import { RECHECK_MESSAGE, serveProgress } from "./progress-port";
 
 describe("serveProgress", () => {
   it("posts each progress until the popup leaves", () => {
@@ -16,6 +16,15 @@ describe("serveProgress", () => {
     source.send(make.progress());
     expect(port.posted).toStrictEqual(sent);
     expect(source.listening).toBe(0);
+  });
+
+  it("asks the page again on the popup's recheck and on no other message", () => {
+    const source = fake.progressSource();
+    const port = fake.tabPort();
+    serveProgress(source, port);
+    port.receive(RECHECK_MESSAGE);
+    port.receive(make.text.token());
+    expect(source.rechecks).toBe(1);
   });
 
   it("closes the port when the page has no running app", () => {

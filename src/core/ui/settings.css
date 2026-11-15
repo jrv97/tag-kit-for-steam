@@ -330,7 +330,7 @@
 
 /* The load strip under the popup's header and atop the dialog's tabs: a status line over a 4px
    bar, one height in every state (rule 18). The message ends in an ellipsis; the count keeps its
-   width. */
+   width, and Check again takes its place at the same line height. */
 .tks-load {
   /* The bar's filled share, 0 to 1, which the strip sets as it draws */
   --tks-load-share: 0;
@@ -347,14 +347,29 @@
 
 .tks-load-line {
   display: flex;
-  justify-content: space-between;
   gap: var(--tks-space-2);
   min-inline-size: 0;
   block-size: var(--tks-leading-sm);
-  margin: 0;
   color: var(--tks-color-text);
   font-size: var(--tks-size-sm);
   line-height: var(--tks-leading-sm);
+}
+
+.tks-load-status {
+  display: flex;
+  flex: 1;
+  justify-content: space-between;
+  gap: var(--tks-space-2);
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.tks-load .tks-load-recheck {
+  flex: none;
+  block-size: var(--tks-leading-sm);
+  min-block-size: 0;
+  padding-block: 0;
+  line-height: inherit;
 }
 
 .tks-load[data-tks-load="none"] .tks-load-line,
@@ -411,6 +426,10 @@
 @media (forced-colors: active) {
   .tks-load-bar {
     border: 1px solid CanvasText;
+  }
+
+  .tks-load .tks-load-recheck {
+    color: LinkText;
   }
 
   .tks-load-fill {
@@ -671,6 +690,7 @@
 .tks-input:focus-visible,
 .tks-color-pick:focus-visible,
 .tks-button:focus-visible,
+.tks-load-status:focus-visible,
 .tks-tab:focus-visible,
 .tks-order-handle:focus-visible,
 .tks-options a:focus-visible {

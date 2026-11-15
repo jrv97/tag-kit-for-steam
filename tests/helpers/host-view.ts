@@ -20,6 +20,8 @@ export interface HostViewOptions {
   readonly maxChips?: number;
   readonly slot?: BadgeSlot | undefined;
   readonly hideable?: boolean;
+  /** Whether a retry round will ask for the game again. */
+  readonly retrying?: boolean;
 }
 
 /** Chips a view shows before the "+N" chip unless a test says otherwise. */
@@ -28,7 +30,8 @@ const MAX_CHIPS = 3;
 /** What a renderer receives for one host, with the AI kind's verdict and nothing else known. */
 export function hostView(host: Element, options: HostViewOptions = {}): HostView {
   const { verdict = disclosed("ai"), allowed = false, ignored = [] } = options;
-  const { slot, hideable = true, verdicts = verdictsWith({ ai: verdict }) } = options;
+  const { slot, hideable = true, retrying = false } = options;
+  const { verdicts = verdictsWith({ ai: verdict }) } = options;
   const { unbadged = [], maxChips = MAX_CHIPS } = options;
   return {
     host,
@@ -38,5 +41,6 @@ export function hostView(host: Element, options: HostViewOptions = {}): HostView
     maxChips,
     slot,
     hideable,
+    retrying,
   };
 }

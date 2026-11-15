@@ -406,7 +406,7 @@ describe("startAppPage", () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
     page.stop();
-    expect(progress.snapshot()).toStrictEqual({ total: 1, answered: 1, unknown: 1 });
+    expect(progress.snapshot()).toStrictEqual({ total: 1, answered: 1, unknown: 1, failed: 1 });
     expect(sink.error).toHaveBeenCalledOnce();
   });
 });

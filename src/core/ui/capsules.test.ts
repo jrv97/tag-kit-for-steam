@@ -440,7 +440,7 @@ describe("createCapsuleUi", () => {
     ui.render({ found: hosts, changed: [] });
     await answer();
     expect(drawn).toStrictEqual([hosts[0]?.element]);
-    expect(progress.snapshot()).toStrictEqual({ total: 2, answered: 1, unknown: 0 });
+    expect(progress.snapshot()).toStrictEqual({ total: 2, answered: 1, unknown: 0, failed: 0 });
     await answer();
     expect(drawn).toStrictEqual(hosts.map((each) => each.element));
     expect(http.calls).toHaveLength(2);
@@ -466,7 +466,7 @@ describe("createCapsuleUi", () => {
     });
     ui.render({ found: [host(make.appId())], changed: [] });
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(progress.snapshot()).toStrictEqual({ total: 1, answered: 1, unknown: 1 });
+    expect(progress.snapshot()).toStrictEqual({ total: 1, answered: 1, unknown: 1, failed: 1 });
     expect(sink.error).toHaveBeenCalledTimes(logged);
   });
 
@@ -508,12 +508,12 @@ describe("createCapsuleUi", () => {
       return { ui, detector, timers, views, answered, progress };
     }
 
-    // The last column is how many games the load progress counts as still unknown
+    // The last columns are how many games the load progress counts as still unknown and as failed
     it.each(
       [
-        ["unknown error: asked again", [ERROR, DISCLOSED], stay, 2, true, 0],
-        ["unknown rate-limited: asked again", [LIMITED, DISCLOSED], stay, 2, true, 0],
-        ["a host that left the page: not asked again", [ERROR, DISCLOSED], leave, 1, false, 1],
+        ["unknown error: asked again", [ERROR, DISCLOSED], stay, 2, true, 0, 0],
+        ["unknown rate-limited: asked again", [LIMITED, DISCLOSED], stay, 2, true, 0, 0],
+        ["a host that left the page: not asked again", [ERROR, DISCLOSED], leave, 1, false, 1, 1],
         [
           "unknown missing, which is stored: not asked again",
           [MISSING, DISCLOSED],
@@ -521,10 +521,19 @@ describe("createCapsuleUi", () => {
           1,
           false,
           1,
+          0,
         ],
-        ["rate-limited every time: asked twice more", [LIMITED], stay, 1 + MAX_RETRIES, false, 1],
+        [
+          "rate-limited every time: asked twice more",
+          [LIMITED],
+          stay,
+          1 + MAX_RETRIES,
+          false,
+          1,
+          1,
+        ],
       ] as const,
-    )("%s", async (_name, answers, after, calls, chips, unknown) => {
+    )("%s", async (_name, answers, after, calls, chips, unknown, failed) => {
       const { ui, detector, timers, views, answered, progress } = retrying(answers);
       const found = host(make.appId());
       ui.render({ found: [found], changed: [] });
@@ -536,7 +545,7 @@ describe("createCapsuleUi", () => {
       expect(detector.calls).toHaveLength(calls);
       expect(timers.size).toBe(0);
       expect(viewAt(views, -1).slot !== undefined).toBe(chips);
-      expect(progress.snapshot()).toStrictEqual({ total: 1, answered: 1, unknown });
+      expect(progress.snapshot()).toStrictEqual({ total: 1, answered: 1, unknown, failed });
     });
 
     it.each<readonly [string, (ui: CapsuleUi) => void]>([
@@ -551,7 +560,7 @@ describe("createCapsuleUi", () => {
       expect(timers.size).toBe(1);
       end(ui);
       expect(timers.size).toBe(0);
-      expect(progress.snapshot()).toStrictEqual({ total: 1, answered: 1, unknown: 1 });
+      expect(progress.snapshot()).toStrictEqual({ total: 1, answered: 1, unknown: 1, failed: 1 });
     });
   });
 });

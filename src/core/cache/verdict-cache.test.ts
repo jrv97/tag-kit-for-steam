@@ -121,11 +121,24 @@ describe("VerdictCache", () => {
     expect(store.gets).toStrictEqual([[verdictKey(first)], [verdictKey(second)]]);
   });
 
-  it("makes no storage call for nothing to look up or to save", async () => {
+  it("makes no storage call for nothing to look up, save or forget", async () => {
     const { cache, store } = setup();
     expect(await cache.lookup([])).toStrictEqual(new Map());
     await cache.save(new Map());
+    await cache.forget([]);
     expect(store.calls).toStrictEqual({ get: 0, set: 0, remove: 0, keys: 0 });
+  });
+
+  it("forgets apps in memory and in storage with one call, and keeps the others", async () => {
+    const { cache, another, store } = setup();
+    const [first, second, kept] = [make.appId(), make.appId(), make.appId()];
+    const verdicts = ai(make.verdict.unknown("malformed"));
+    await cache.save(new Map([[first, verdicts], [second, verdicts], [kept, verdicts]]));
+    await cache.forget([first, second]);
+    expect(store.calls.remove).toBe(1);
+    for (const tab of [cache, another()]) {
+      expect([...(await tab.lookup([first, second, kept])).keys()]).toStrictEqual([kept]);
+    }
   });
 
   it.each<readonly [string, KindVerdicts, boolean]>([

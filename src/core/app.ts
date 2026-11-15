@@ -32,7 +32,7 @@ import { KINDS } from "./kinds/registry";
 import { coversSections, requestSections, type Section } from "./kinds/sections";
 import { type ConsoleSink, createLogger, type Logger } from "./log";
 import type { Clock, Http, KeyValueStore, SettingsSource, Unsubscribe } from "./ports";
-import { createLoadProgress, type LoadProgressFeed } from "./progress";
+import { createLoadProgress, type PageProgress } from "./progress";
 import { appIdFromHref } from "./scan/appid";
 import { createScanner } from "./scan/scanner";
 import { readSettingsOrDefault } from "./settings/read";
@@ -69,10 +69,12 @@ export interface AppDeps {
   readonly addPageStyles: (doc: Document) => void;
 }
 
-/** A running app on one store page. */
-export interface App {
-  /** How far the page's tags have loaded, for the toolbar popup and the userscript dialog. */
-  readonly progress: LoadProgressFeed;
+/**
+ * A running app on one store page. Its progress tells the toolbar popup and the userscript dialog
+ * how far the page's tags have loaded, and `recheck` asks the capsules and the app page again
+ * about the games whose lookup failed.
+ */
+export interface App extends PageProgress {
   /** Stops scanning and listening; what is drawn stays. */
   stop(): void;
 }
@@ -101,8 +103,9 @@ function createDetector(
     logger,
   );
   const chain = createDedupingDetector(createChainDetector([getItems, appPage], logger), logger);
-  const cached = cachedDetector(chain, createVerdictCache(store, clock), logger, sections);
-  return { getItems, detector: createFullGameDetector(cached, logger), apiBreaker };
+  const cache = createVerdictCache(store, clock);
+  const cached = cachedDetector(chain, cache, logger, sections);
+  return { getItems, detector: createFullGameDetector(cached, logger), apiBreaker, cache };
 }
 
 /** Whether some kind's setting, as it takes effect, differs between two settings. */
@@ -204,6 +207,7 @@ export async function start(deps: AppDeps): Promise<App> {
     isBadged: (forKind) => effectiveSettings(settings.kinds[forKind]).badge,
     tagged: (verdicts) => taggedView(verdicts, settings.kinds),
     progress,
+    forget: (ids) => detectors.cache.forget(ids),
     logger,
   });
   const scanner = createScanner({ document: doc, renderer: capsules });
@@ -251,11 +255,16 @@ export async function start(deps: AppDeps): Promise<App> {
       card,
       logger,
       progress,
+      forget: (ids) => detectors.cache.forget(ids),
     });
   }
 
   return {
     progress,
+    recheck() {
+      capsules.recheck();
+      appPage?.recheck();
+    },
     stop() {
       scanner.stop();
       capsules.stop();

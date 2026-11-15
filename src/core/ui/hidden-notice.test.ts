@@ -27,6 +27,11 @@ function mark(host: Element, kinds: readonly KindId[], hideable = true): void {
   renderer.render(hostView(host, { verdicts: make.verdicts.only(kinds), hideable }));
 }
 
+/** Marks a host whose AI lookup failed with no retry ahead. */
+function fail(host: Element): void {
+  renderer.render(hostView(host, { verdict: make.verdict.unknown("error") }));
+}
+
 const rows = () => [...document.querySelectorAll(`${LIST} a.search_result_row`)];
 const rowAt = (index: number): Element => {
   const row = rows()[index];
@@ -41,6 +46,13 @@ const shown = () => {
   return element !== null && !element.hasAttribute("hidden");
 };
 const line = () => box()?.querySelector(".tks-list-notice-text")?.textContent;
+/** The failed sentence's text, or undefined while it is hidden. */
+const failedLine = () => {
+  const element = box()?.querySelector(".tks-list-notice-failed");
+  return element?.hasAttribute("hidden") === false ? element.textContent : undefined;
+};
+const hiddenLineShown = () =>
+  box()?.querySelector(".tks-list-notice-text")?.hasAttribute("hidden") === false;
 const button = () => {
   const found = document.querySelector<HTMLButtonElement>(BUTTON);
   if (found === null) {
@@ -141,6 +153,50 @@ describe("createHiddenNotice", () => {
       expect(button().textContent).toBe(i18n.plural("notice_list_show", expected));
     },
   );
+
+  it.each<readonly [string, ListFilter, number, number]>([
+    ["a kind on Dim, with nothing hidden", "dim", 0, 2],
+    ["a kind on Hide, beside hidden rows", "hide", 1, 2],
+  ])("counts the failed lookups of %s", (_name, filter, hiddenRows, failedRows) => {
+    applyFilters({ ai: filter });
+    rows().slice(0, hiddenRows).forEach((row) => {
+      mark(row, ["ai"]);
+    });
+    rows().slice(hiddenRows, hiddenRows + failedRows).forEach(fail);
+    start();
+    expect(shown()).toBe(true);
+    expect(hiddenLineShown()).toBe(hiddenRows > 0);
+    expect(failedLine()).toBe(i18n.plural("notice_list_failed", failedRows));
+  });
+
+  it("counts no failed lookup of a kind that is off", () => {
+    applyFilters({ ai: "off", drm: "hide" });
+    fail(rowAt(0));
+    start();
+    expect(shown()).toBe(false);
+  });
+
+  it("ends the reveal and keeps the failed sentence once nothing is left to hide", async () => {
+    hidingRows(1);
+    fail(rowAt(1));
+    await settle();
+    button().click();
+    rowAt(0).removeAttribute(HOST_KINDS);
+    await settle();
+    expect([revealed(), hiddenLineShown()]).toEqual([false, false]);
+    expect(failedLine()).toBe(i18n.plural("notice_list_failed", 1));
+  });
+
+  it("announces the failed sentence once it stops changing", async () => {
+    applyFilters({ ai: "dim" });
+    fail(rowAt(0));
+    start();
+    delays.run();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(box()?.querySelector("[aria-live='polite']")?.textContent).toBe(
+      i18n.plural("notice_list_failed", 1),
+    );
+  });
 
   it("shows no notice while no kind is on Hide", () => {
     applyFilters({ ai: "dim" });

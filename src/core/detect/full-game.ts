@@ -7,7 +7,7 @@ import type { AppId } from "../types";
 import { createSettle } from "./settle";
 
 /** The full game of a demo; undefined for any other app, a DLC included. */
-function fullGameOf(verdicts: KindVerdicts): AppId | undefined {
+export function fullGameOf(verdicts: KindVerdicts): AppId | undefined {
   return verdicts.demo === true ? verdicts.parent : undefined;
 }
 

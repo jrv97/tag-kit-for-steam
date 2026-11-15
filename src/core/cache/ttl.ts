@@ -51,6 +51,21 @@ export function isTransient(verdicts: KindVerdicts): boolean {
   return transient;
 }
 
+/**
+ * Whether the lookup of this kind failed: the request or its answer broke (`error`, `malformed`)
+ * or a breaker held it back. `gated`, `missing` and `unrequested` are answers Steam gave.
+ */
+export function isFailed(verdict: Verdict): boolean {
+  return verdict.state === "unknown"
+    && (verdict.reason === "error" || verdict.reason === "rate-limited"
+      || verdict.reason === "malformed");
+}
+
+/** Whether the lookup of some kind failed (`isFailed`). */
+export function hasFailed(verdicts: KindVerdicts): boolean {
+  return KINDS.some((kind) => isFailed(verdicts[kind.id]));
+}
+
 /** How long one verdict stays fresh, given the TTLs of its kind. */
 export function ttlMs(ttl: KindTtl, verdict: Verdict): number {
   switch (verdict.state) {
