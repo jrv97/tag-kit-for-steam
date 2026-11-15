@@ -1,0 +1,114 @@
+---
+status: accepted
+date: 2026-11-15
+decision-makers: Jorge Rodriguez de la Vega
+---
+
+# Render the BBCode Steam stores in a developer's text as Steam's formatting
+
+## Context and problem statement
+
+GetItems sends a game's Early Access note as `extra_details.early_access.why_bbcode`, written in Steam's BBCode. ADR 0018 set the note through `textContent`, so the hover card shows the tags as typed: "We chose [b]Early Access[/b] for ...". Steam's own app page renders the same field as formatting: `[b]` is bold, `[list]` and `[*]` a bulleted list.
+
+A live sample on 2026-11-15 of 1000 Early Access games found these tags in the notes: `b` (104), `i` (16), `[*]` (14, some closed with `[/*]`), `list` (6), `u` (4) and `h2` (2). No note held a link or a picture. The same day, a sample of 2328 games held no BBCode in the AI notes (`content_survey_ai_notes`, 339 notes), the third-party DRM (`drm_third_party_type`) or the third-party account (`user_account_third_party`); one AI note used "[UPDATE]" as a plain label. Steam's app page shows the AI notes as plain text.
+
+Rule 4 asks for the developer's text verbatim through `textContent`. Showing the tags raw keeps the characters but not what the developer wrote and what Steam shows. How should a field Steam stores as BBCode render?
+
+## Decision drivers
+
+- Rule 4: the developer's words stay theirs, never parsed as HTML, never rewritten.
+- Rule 1: no request and no link to a host other than Valve's.
+- Rules 2 and 13: the bundles are not minified and have size budgets.
+- ADR 0029: the parser runs in the page world beside Prototype.js.
+- The hover card's clamp and "more" line, and the banner's clamp and toggle, keep working.
+
+## Considered options
+
+1. Render a fixed subset of Steam's BBCode with our own small parser (chosen).
+2. Render it with `@bbob/parser`.
+3. Strip the tags and keep the words.
+4. Keep the tags as typed (ADR 0018).
+
+## Decision outcome
+
+Chosen option 1. A field read from `*_bbcode` renders Steam's formatting; every other developer field stays plain text. `parseBBCode` (`src/core/bbcode.ts`) turns the note into a tree, and `fillNotes` (`src/core/ui/notes.ts`) builds it through the element factory: the words go in as text nodes, and no markup is ever parsed as HTML. The hover card and the banner both call it.
+
+| Tag                          | Renders as                                                                  |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| `b`, `i`, `u`, `s`, `strike` | `strong`, `em`, `u`, `s`                                                    |
+| `spoiler`                    | a stand-in from our catalog, "Spoiler"; its words never reach the page      |
+| `h1`, `h2`, `h3`             | bold text on its own line; a heading element would enter the page's outline |
+| `list`, `olist`, `*`         | `ul`, `ol`, `li`                                                            |
+| `quote`, `quote=...`         | `blockquote`, without the author                                            |
+| `code`                       | `code` on its own line                                                      |
+| `hr`                         | `hr`                                                                        |
+| `url`, `url=...`             | its words alone: no link to the developer's host                            |
+| `img`                        | nothing: no request to another host                                         |
+| `noparse`                    | its raw text                                                                |
+| `p`, `tr`                    | a line of its own                                                           |
+| `table`, `th`, `td`          | its words                                                                   |
+| `previewyoutube`             | nothing: no request to another host                                         |
+
+Tag names ignore case. Any other bracketed text, a closing tag with nothing open, a `[*]` outside a list and a tag that never closes stay as typed. A tag outside Steam's set is kept whole, brackets included, so a label such as "[UPDATE]" reads as the developer typed it; the words inside it always stay. A list left open closes at the end of the note. A `[*]` closes the item before it and the tags opened inside that item. Text in a list before its first `[*]` becomes an item of its own. A line break right after a block's start or end is dropped, since the block breaks the line itself, as on Steam's page. Emphasis inside the italic notes reads upright.
+
+Steam hides a spoiler's words under a black cover that only a hover lifts, which a keyboard or a touch screen cannot reach. Showing the words would reveal what the developer chose to hide, and a `<details>` toggle would put a control inside the hover card, which holds none. The note draws the catalog's "Spoiler" in its place, upright and muted on a dark cover, and the hidden words reach neither the page nor an accessible name. The full note stays on the game's store page.
+
+Every element carries a `tks-bb-*` class, and `notes.css` styles the classes, since the hover card's reset unsets every element it holds. The hover card's notes become a `div`, which may hold a list.
+
+Rule 4 in `AGENTS.md` now says that a field Steam stores as BBCode renders its formatting through text nodes, under this ADR, and that a spoiler shows a stand-in.
+
+### Library check (rule 12)
+
+`@bbob/parser` 4.4.1 (MIT, active, the parser the sibling project mdx2steam uses) was studied and not adopted:
+
+- It adds 24,839 bytes to each bundle unminified, against 1.7 to 4.6 KB of headroom; our parser and renderer add about 4 KB of code.
+- Its `parse` returns `TagNode<any>`, which rule 10 would have to narrow at every step.
+- With its defaults it keeps `\r`, parses inside `[noparse]` unless told not to, turns an unclosed tag into an empty node and loses its text, drops a closing tag on crossed nesting, and turns `[50% off]`-style text into a tag. Matching Steam needs three options and four fixes around it.
+- It is safe beside Prototype.js: no call to a replaced built-in.
+
+### Accepted trade-offs
+
+- Our parser covers the tags above and nothing else; a new Steam tag shows as typed until it joins the table.
+- A link's address is not shown, only its words.
+- A spoiler's words cannot be read in the hover card or the banner, only on the store page.
+- A screen reader hears struck text as plain text, as it does on Steam's page.
+- The content script grows by about 6.5 KB and the userscript by about 7.5 KB, CSS included; their budgets rise to 250 KiB and 440 KiB.
+
+### Consequences
+
+- Good: the hover card and the banner show the note as the developer wrote it and as Steam shows it.
+- Good: no link, picture or video leaves Valve's hosts.
+- Bad: one more module to keep in step with Steam's BBCode.
+- Neutral: the AI notes and the short fields stay plain text.
+
+### Confirmation
+
+`notes.test.ts` renders a table of tags and edge cases, and renders the same table with `fake.prototypeJs()` applied. `hover-card.test.ts` sets HTML inside BBCode as text and shows a BBCode note as formatting beside every plain field; `banner.test.ts` shows the AI notes plain and a BBCode note formatted. The dev bundle, injected into the main world of a live search page (Prototype.js 1.7) and an app page, showed a bold note and a list in the hover card, clamped, with the "more" line, in headless Chromium and Firefox Nightly.
+
+### Revisit when
+
+- Steam renders BBCode in another field we read, such as the AI notes.
+- A note on the store uses a tag the table lacks.
+
+## Pros and cons of the options
+
+### 1. Own parser for a fixed subset (chosen)
+
+- Good: small, typed, and as close to Steam's page as the table goes.
+- Good: unknown and broken markup keeps every character.
+- Bad: we maintain it.
+
+### 2. `@bbob/parser`
+
+- Good: a maintained parser with a plugin API.
+- Bad: the size, the `any` types and the defaults above.
+
+### 3. Strip the tags
+
+- Good: plain text, no styles.
+- Bad: drops what the developer wrote, such as a list's structure, and rewrites the field.
+
+### 4. Keep the tags as typed
+
+- Good: no code.
+- Bad: shows markup that Steam itself never shows, which reads as broken.

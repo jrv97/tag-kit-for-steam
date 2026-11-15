@@ -696,10 +696,10 @@ describe("createHoverCard", () => {
       },
     );
 
-    it("sets the developer's text as text for every kind", () => {
+    it("sets the developer's text as text, and a BBCode note as formatting", () => {
       const markup = make.text.markup();
       const bbcode = `[b]${markup}[/b]`;
-      open([
+      const verdicts = [
         make.verdict.disclosed("ai", { notes: markup, service: markup }),
         make.verdict.disclosed("drm", { text: markup }),
         make.verdict.disclosed("account", { text: markup }),
@@ -707,17 +707,11 @@ describe("createHoverCard", () => {
         make.verdict.disclosed("anticheat", { name: markup }),
         make.verdict.disclosed("kernel", { name: markup }),
         make.verdict.disclosed("earlyaccess", { note: bbcode }),
-      ]);
+      ];
+      open(verdicts);
       expect(document.querySelector(".tks-hovercard b")).toBeNull();
-      expect(entries().map((lines) => lines[1])).toEqual([
-        markup,
-        markup,
-        markup,
-        markup,
-        markup,
-        markup,
-        bbcode,
-      ]);
+      expect(document.querySelectorAll(".tks-hovercard-notes .tks-bb-bold")).toHaveLength(1);
+      expect(entries().map((lines) => lines[1])).toEqual(verdicts.map(() => markup));
       expect(shown()?.querySelector(".tks-hovercard-service-name")?.textContent).toBe(markup);
     });
 

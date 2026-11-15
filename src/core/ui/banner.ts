@@ -33,7 +33,7 @@ import {
 } from "./ignore-menu";
 import { KIND_ATTRIBUTE } from "./kind-attributes";
 import { entryName, fromValve, fullGameLine, type KindDetail, kindDetails } from "./kind-details";
-import { normalizeBreaks } from "./notes";
+import { fillNotes } from "./notes";
 import { adoptStyles, BANNER_CSS } from "./styles";
 
 /** The banner host's id. */
@@ -147,6 +147,8 @@ function partId(scope: string, part: string): string {
  */
 type DeveloperText = Extract<KindDetail, { readonly kind: "quote" | "labeled"; }>;
 
+type QuoteDetail = Extract<KindDetail, { readonly kind: "quote"; }>;
+
 function isDeveloperText(detail: KindDetail): detail is DeveloperText {
   return detail.kind === "quote" || detail.kind === "labeled";
 }
@@ -239,8 +241,9 @@ export function createBanner(
   }
 
   /** The developer's long text behind its source line, with a toggle once it overflows. */
-  function appendQuote(entry: HTMLElement, id: string, text: string): void {
-    const quote = element("blockquote", "tks-banner-quote", normalizeBreaks(text));
+  function appendQuote(entry: HTMLElement, id: string, detail: QuoteDetail): void {
+    const quote = element("blockquote", "tks-banner-quote");
+    fillNotes(quote, detail.text, detail.markup, i18n);
     quote.id = id;
     quote.setAttribute("data-tks-collapsed", "true");
     const toggle = button("tks-banner-link", "toggle", i18n.t("banner_expand"));
@@ -255,7 +258,7 @@ export function createBanner(
 
   function appendDetail(entry: HTMLElement, detail: DeveloperText, quoteId: string): void {
     if (detail.kind === "quote") {
-      appendQuote(entry, quoteId, detail.text);
+      appendQuote(entry, quoteId, detail);
       return;
     }
     const line = element("p", "tks-banner-service", i18n.t(detail.key));
