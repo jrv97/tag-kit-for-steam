@@ -9,6 +9,7 @@ import type { KindId } from "../kinds/id";
 import type { AppId } from "../types";
 import { createHostKindsRenderer } from "../ui/list-filter";
 import { appIdFromHref } from "./appid";
+import { LINK_CANDIDATE } from "./candidates";
 import { HOST_APPID, HOST_HIDEABLE, HOST_KINDS } from "./marks";
 import type { CapsuleHost } from "./renderer";
 import { createScanner, DEBOUNCE_MS, type Scanner, type ScanReport } from "./scanner";
@@ -165,13 +166,30 @@ describe("per-surface hosts", () => {
     }
   });
 
-  it("developer: each sale widget", async () => {
-    loadPage(make.page.surface("developer"));
+  it.each(
+    [
+      ["developer", ".StoreSaleWidgetOuterContainer", placed(SURFACE_APPS.developer, "generic")],
+      ["curator", ".recommendation", placed(SURFACE_APPS.curator, "generic")],
+      [
+        "bundle",
+        ".bundle_package_item [data-ds-appid]:not([data-ds-packageid])",
+        placed(SURFACE_APPS.bundle, "generic"),
+      ],
+      ["franchise", ".LibraryAssetExpandedDisplay, .StoreSaleWidgetOuterContainer", [
+        ...placed(SURFACE_APPS.franchise.slice(0, 1), "hub-carousel"),
+        ...placed(SURFACE_APPS.franchise.slice(1), "generic"),
+      ]],
+    ] as const,
+  )("%s: one host per capsule, its badge inside the capsule link", async (
+    surface,
+    host,
+    expected,
+  ) => {
+    loadPage(make.page.surface(surface));
     await startScanner();
-    expect(hostElements()).toStrictEqual([
-      ...document.querySelectorAll(".StoreSaleWidgetOuterContainer"),
-    ]);
-    expect(mapping()).toStrictEqual(placed(SURFACE_APPS.developer, "generic"));
+    expect(hostElements()).toStrictEqual([...document.querySelectorAll(host)]);
+    expect(mapping()).toStrictEqual(expected);
+    expect(found().map((each) => each.anchor.closest(LINK_CANDIDATE))).not.toContain(null);
   });
 
   it("wishlist: each virtualized row, badge after the title, never hidden", async () => {

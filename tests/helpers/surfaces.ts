@@ -1,6 +1,9 @@
 import dlcRows from "../fixtures/app-page/1808500-ai-only.html?raw";
+import bundle from "../fixtures/surfaces/bundle/items.html?raw";
+import curator from "../fixtures/surfaces/curator/reviews.html?raw";
 import developer from "../fixtures/surfaces/developer/widgets.html?raw";
 import discoveryQueue from "../fixtures/surfaces/discovery-queue/player.html?raw";
+import franchise from "../fixtures/surfaces/franchise/page.html?raw";
 import home from "../fixtures/surfaces/home/capsules.html?raw";
 import nextFest from "../fixtures/surfaces/next-fest/feed.html?raw";
 import searchSuggestions from "../fixtures/surfaces/search-suggestions/popup.html?raw";
@@ -15,6 +18,9 @@ export const SURFACES = {
   "tag-hub": tagHub,
   "next-fest": nextFest,
   "developer": developer,
+  "curator": curator,
+  "bundle": bundle,
+  "franchise": franchise,
   "wishlist": wishlist,
   "search-suggestions": searchSuggestions,
   "dlc-rows": dlcRows,

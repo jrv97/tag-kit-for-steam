@@ -248,6 +248,13 @@ export const SUMMARY_PLACEMENTS: readonly ListPlacement[] = [
     list: ".package_landing_page_item_list",
     after: "#package_header_container",
   },
+  // A bundle page (`/bundle/<id>/`): under the purchase box, above "Items included in this
+  // bundle". Its rows sit loose in the column, which a package page's column shares too.
+  {
+    id: "bundle-items",
+    list: ".leftcol:has(> .bundle_package_item)",
+    after: "#game_area_purchase_top",
+  },
 ];
 
 /** A list surface in the page, and the store element above it that our block follows, if any. */

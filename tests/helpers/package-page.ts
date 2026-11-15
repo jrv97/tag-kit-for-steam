@@ -1,5 +1,6 @@
 import { HOST_APPID } from "../../src/core/scan/marks";
 import { setBody } from "./dom";
+import { loadPage, SURFACES } from "./surfaces";
 
 /** The package ID of the page `packagePage` stands for. */
 export const PACKAGE_PATH = "/sub/1756458/";
@@ -50,7 +51,20 @@ export function packagePage(ids: readonly number[]): string {
  */
 export function markedPackagePage(ids: readonly number[]): readonly Element[] {
   setBody(packagePage(ids));
-  const rows = [...document.querySelectorAll("[data-ds-appid]")];
+  return markRows("[data-ds-appid]");
+}
+
+/**
+ * Loads the captured bundle page with each included game's row marked as the scanner marks a
+ * host, and returns the rows in page order. The package row names two apps and gets no host.
+ */
+export function markedBundlePage(): readonly Element[] {
+  loadPage(SURFACES.bundle);
+  return markRows(".bundle_package_item [data-ds-appid]:not([data-ds-packageid])");
+}
+
+function markRows(selector: string): readonly Element[] {
+  const rows = [...document.querySelectorAll(selector)];
   for (const row of rows) {
     row.setAttribute(HOST_APPID, row.getAttribute("data-ds-appid") ?? "");
   }

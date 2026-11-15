@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { make } from "../../../tests/helpers/factory";
 import { hostView, type HostViewOptions } from "../../../tests/helpers/host-view";
 import { englishI18n } from "../../../tests/helpers/i18n";
-import { markedPackagePage } from "../../../tests/helpers/package-page";
+import { markedBundlePage, markedPackagePage } from "../../../tests/helpers/package-page";
 import { KIND_IDS, type KindId } from "../kinds/id";
 import { kindsInOrder, parseOrder } from "../kinds/order";
 import { KIND_BY_ID } from "../kinds/registry";
@@ -120,12 +120,27 @@ describe("createPackageSummary", () => {
     expect(lines()).toStrictEqual([games("drm", 1, 1), games("ai", 1, 1)]);
   });
 
-  it("sits right after the package header, above the included games, inside no host", async () => {
-    await drawnPage([AI]);
+  it.each<[string, () => readonly Element[], string, string]>([
+    [
+      "the package header, above the included games",
+      () => markedPackagePage(make.appIds(2)),
+      "#package_header_container",
+      ".package_landing_page_item_list",
+    ],
+    [
+      "a bundle's purchase box, above its included items",
+      markedBundlePage,
+      "#game_area_purchase_top",
+      "h2",
+    ],
+  ])("sits right after %s, inside no host", async (_, load, before, after) => {
+    const rows = load();
+    await draw(createPackageSummary(document, i18n), rows, rows.map(() => AI));
     const box = summary();
-    expect(box?.previousElementSibling?.id).toBe("package_header_container");
-    expect(box?.nextElementSibling?.className).toBe("package_landing_page_item_list");
+    expect(box?.previousElementSibling?.matches(before)).toBe(true);
+    expect(box?.nextElementSibling?.matches(after)).toBe(true);
     expect(box?.closest(`[${HOST_APPID}]`)).toBeNull();
+    expect(lines()).toStrictEqual([games("ai", rows.length, rows.length)]);
   });
 
   it("keeps the drawn node when the lines stay the same", async () => {
