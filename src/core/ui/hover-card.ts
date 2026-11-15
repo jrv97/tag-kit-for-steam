@@ -246,7 +246,7 @@ export function createHoverCard(
         return line("tks-hovercard-detail", detail.text);
       case "quote": {
         const quote = createElement(doc, "div", "tks-hovercard-notes");
-        fillNotes(quote, detail.text, detail.markup);
+        fillNotes(quote, detail.text, detail.markup, i18n);
         quotes.push(quote);
         return quote;
       }

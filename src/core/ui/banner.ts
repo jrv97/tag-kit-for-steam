@@ -243,7 +243,7 @@ export function createBanner(
   /** The developer's long text behind its source line, with a toggle once it overflows. */
   function appendQuote(entry: HTMLElement, id: string, detail: QuoteDetail): void {
     const quote = element("blockquote", "tks-banner-quote");
-    fillNotes(quote, detail.text, detail.markup);
+    fillNotes(quote, detail.text, detail.markup, i18n);
     quote.id = id;
     quote.setAttribute("data-tks-collapsed", "true");
     const toggle = button("tks-banner-link", "toggle", i18n.t("banner_expand"));

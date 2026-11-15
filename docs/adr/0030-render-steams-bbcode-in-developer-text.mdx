@@ -36,7 +36,7 @@ Chosen option 1. A field read from `*_bbcode` renders Steam's formatting; every 
 | Tag                          | Renders as                                                                  |
 | ---------------------------- | --------------------------------------------------------------------------- |
 | `b`, `i`, `u`, `s`, `strike` | `strong`, `em`, `u`, `s`                                                    |
-| `spoiler`                    | its words: a tooltip cannot reveal a cover, and a keyboard cannot hover     |
+| `spoiler`                    | a stand-in from our catalog, "Spoiler"; its words never reach the page      |
 | `h1`, `h2`, `h3`             | bold text on its own line; a heading element would enter the page's outline |
 | `list`, `olist`, `*`         | `ul`, `ol`, `li`                                                            |
 | `quote`, `quote=...`         | `blockquote`, without the author                                            |
@@ -51,9 +51,11 @@ Chosen option 1. A field read from `*_bbcode` renders Steam's formatting; every 
 
 Tag names ignore case. Any other bracketed text, a closing tag with nothing open, a `[*]` outside a list and a tag that never closes stay as typed. A tag outside Steam's set is kept whole, brackets included, so a label such as "[UPDATE]" reads as the developer typed it; the words inside it always stay. A list left open closes at the end of the note. A `[*]` closes the item before it and the tags opened inside that item. Text in a list before its first `[*]` becomes an item of its own. A line break right after a block's start or end is dropped, since the block breaks the line itself, as on Steam's page. Emphasis inside the italic notes reads upright.
 
+Steam hides a spoiler's words under a black cover that only a hover lifts, which a keyboard or a touch screen cannot reach. Showing the words would reveal what the developer chose to hide, and a `<details>` toggle would put a control inside the hover card, which holds none. The note draws the catalog's "Spoiler" in its place, upright and muted on a dark cover, and the hidden words reach neither the page nor an accessible name. The full note stays on the game's store page.
+
 Every element carries a `tks-bb-*` class, and `notes.css` styles the classes, since the hover card's reset unsets every element it holds. The hover card's notes become a `div`, which may hold a list.
 
-Rule 4 in `AGENTS.md` now says that a field Steam stores as BBCode renders its formatting through text nodes, under this ADR.
+Rule 4 in `AGENTS.md` now says that a field Steam stores as BBCode renders its formatting through text nodes, under this ADR, and that a spoiler shows a stand-in.
 
 ### Library check (rule 12)
 
@@ -68,6 +70,7 @@ Rule 4 in `AGENTS.md` now says that a field Steam stores as BBCode renders its f
 
 - Our parser covers the tags above and nothing else; a new Steam tag shows as typed until it joins the table.
 - A link's address is not shown, only its words.
+- A spoiler's words cannot be read in the hover card or the banner, only on the store page.
 - A screen reader hears struck text as plain text, as it does on Steam's page.
 - The content script grows by about 6.5 KB and the userscript by about 7.5 KB, CSS included; their budgets rise to 250 KiB and 440 KiB.
 

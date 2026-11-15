@@ -20,6 +20,15 @@
   text-decoration: line-through;
 }
 
+/* A spoiler's stand-in is our copy: upright and muted on a dark cover, as Steam hides one */
+.tks-bb-spoiler {
+  padding-inline: var(--tks-space-1);
+  border-radius: var(--tks-radius-sm);
+  background: var(--tks-color-bg-sunken);
+  color: var(--tks-color-text-subtle);
+  font-style: normal;
+}
+
 .tks-bb-heading,
 .tks-bb-line,
 .tks-bb-quote,

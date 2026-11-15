@@ -1,16 +1,19 @@
 import { describe, expect, it, onTestFinished } from "vitest";
 import { make } from "../../../tests/helpers/factory";
 import { fake } from "../../../tests/helpers/fakes";
+import { englishI18n } from "../../../tests/helpers/i18n";
 import { fillNotes, type NotesMarkup } from "./notes";
 
 describe("fillNotes", () => {
   const one = make.text.note();
   const two = make.text.note();
   const url = make.text.url();
+  const i18n = englishI18n();
 
   const ITEM = `<li class="tks-bb-item">`;
   const LINE = `<span class="tks-bb-line">`;
   const BOLD = `<strong class="tks-bb-bold">`;
+  const SPOILER = `<span class="tks-bb-spoiler">${i18n.t("badge_note_spoiler")}</span>`;
   /** A letter whose lower case takes two UTF-16 units. */
   const LONGER = String.fromCodePoint(0x130);
   const CASES: readonly (readonly [string, NotesMarkup, string, string])[] = [
@@ -33,11 +36,12 @@ describe("fillNotes", () => {
       `[s]${one}[/s][strike]${two}[/strike]`,
       `<s class="tks-bb-strike">${one}</s><s class="tks-bb-strike">${two}</s>`,
     ],
+    ["the words of a link", "bbcode", `[url=${url}]${one}[/url]`, one],
     [
-      "the words of a link and a spoiler",
+      "a spoiler as a stand-in, without its words",
       "bbcode",
-      `[url=${url}]${one}[/url][spoiler]${two}[/spoiler]`,
-      `${one}${two}`,
+      `${one}[spoiler][b]${two}[/b][/spoiler]`,
+      `${one}${SPOILER}`,
     ],
     [
       "no picture or video",
@@ -114,7 +118,7 @@ describe("fillNotes", () => {
   function filled(markup: NotesMarkup, text: string): string {
     const target = document.createElement("div");
     target.textContent = make.text.note();
-    fillNotes(target, text, markup);
+    fillNotes(target, text, markup, i18n);
     return target.innerHTML;
   }
 

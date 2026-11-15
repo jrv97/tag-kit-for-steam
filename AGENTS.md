@@ -41,8 +41,8 @@ These are hard rules. A change that breaks one needs an ADR first.
    "uses AI", "AI-free" or "no AI", and states nothing about a game beyond Steam's words and data,
    apart from that qualified exception. The developer's own text is rendered verbatim, set as text
    nodes and never parsed as HTML; a field Steam stores as BBCode shows Steam's formatting
-   for a fixed set of tags, with a link's words but no link and no picture (ADR 0030). A person
-   may replace a kind's chip text with their own words (ADR 0017); the hover card, the banner's
+   for a fixed set of tags, with a link's words but no link, no picture and a stand-in for a
+   spoiler's words (ADR 0030). A person may replace a kind's chip text with their own words (ADR 0017); the hover card, the banner's
    headings, the settings heading and the package summary keep Steam's words, every chip's
    accessible name begins with the chip's visible text and then gives Steam's words, and the
    person's text is rendered through `textContent` and never enters a catalog.
