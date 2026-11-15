@@ -31,8 +31,6 @@ export interface TransientRetry<Item extends WeakKey> {
   offer(item: Item, verdicts: KindVerdicts): boolean;
   /** Drops the queued items, cancels the round's timer and returns the items it dropped. */
   cancel(): readonly Item[];
-  /** Forgets the rounds the item used, as when a person asks for it again. */
-  reset(item: Item): void;
 }
 
 /**
@@ -72,9 +70,6 @@ export function createTransientRetry<Item extends WeakKey>(
       const dropped = [...queued];
       queued = new Set();
       return dropped;
-    },
-    reset(item) {
-      tries.delete(item);
     },
   };
 }

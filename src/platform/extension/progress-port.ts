@@ -1,10 +1,8 @@
 import type { LoadProgress, ProgressSource } from "../../core/progress";
 
-// The load strip of the toolbar popup reads the store tab's progress through a runtime port: the
-// popup connects to the active tab (tab-progress.ts), the content script answers (this module).
-// The popup sends one message back, which asks the page's failed games again. No permission and
-// no background script are involved (rule 3). Neither module names a WebExtension API; ext.ts
-// binds them.
+// The popup's load strip reads the store tab's progress over a runtime port, with no permission
+// or background script (rule 3). The content script serves it here and hears one recheck back.
+// tab-progress.ts is the popup's end, and ext.ts binds both ends to the WebExtension API.
 
 /** The name both ends give the port, so the content script ignores any other. */
 export const PROGRESS_PORT = "tks-progress";

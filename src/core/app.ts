@@ -1,5 +1,5 @@
 import { type AppPage, startAppPage } from "./app-page";
-import { cachedDetector } from "./cache/cached-detector";
+import { cachedDetector, forgetQuietly } from "./cache/cached-detector";
 import { maintainCache } from "./cache/maintenance";
 import { createVerdictCache } from "./cache/verdict-cache";
 import { createAppPageDetector, type OpenPage, parseLiveAppPage } from "./detect/app-page";
@@ -207,7 +207,6 @@ export async function start(deps: AppDeps): Promise<App> {
     isBadged: (forKind) => effectiveSettings(settings.kinds[forKind]).badge,
     tagged: (verdicts) => taggedView(verdicts, settings.kinds),
     progress,
-    forget: (ids) => detectors.cache.forget(ids),
     logger,
   });
   const scanner = createScanner({ document: doc, renderer: capsules });
@@ -255,15 +254,21 @@ export async function start(deps: AppDeps): Promise<App> {
       card,
       logger,
       progress,
-      forget: (ids) => detectors.cache.forget(ids),
     });
   }
 
   return {
     progress,
     recheck() {
-      capsules.recheck();
-      appPage?.recheck();
+      const due = [capsules.recheck(), appPage?.recheck()].filter((each) => each !== undefined);
+      progress.recheck(due.flatMap((each) => each.games));
+      if (due.length > 0) {
+        void forgetQuietly(detectors.cache, due.flatMap((each) => each.forget), logger).then(() => {
+          for (const each of due) {
+            each.lookUp();
+          }
+        });
+      }
     },
     stop() {
       scanner.stop();

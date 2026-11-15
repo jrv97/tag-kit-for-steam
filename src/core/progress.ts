@@ -1,4 +1,4 @@
-import { hasFailed, isTransient } from "./cache/ttl";
+import { failedForGood, isTransient } from "./cache/ttl";
 import { KINDS } from "./kinds/registry";
 import type { KindVerdicts } from "./kinds/verdicts";
 import type { Unsubscribe } from "./ports";
@@ -12,7 +12,7 @@ export interface LoadProgress {
   readonly answered: number;
   /** The answered games with no known kind, after their retry rounds or in a final answer. */
   readonly unknown: number;
-  /** The answered games whose lookup failed for some kind (`hasFailed`), with no retry ahead. */
+  /** The answered games whose lookup failed for some kind for good (`failedForGood`). */
   readonly failed: number;
   /** When GetItems requests go out again (epoch milliseconds), while Steam's limit holds them. */
   readonly pausedUntil?: number;
@@ -27,6 +27,21 @@ export interface LoadTracker {
   asked(ids: Iterable<AppId>): void;
   /** Records a game's answer; `retrying` when a retry round will ask for it again. */
   answered(id: AppId, verdicts: KindVerdicts, retrying: boolean): void;
+  /**
+   * Counts the failed games among `ids` as waiting again, as a recheck asks for them, and stops
+   * counting the other failed games as failed: no host on the page asks for them now.
+   */
+  recheck(ids: Iterable<AppId>): void;
+}
+
+/** The games one surface asks again after their lookup failed for good. */
+export interface Recheck {
+  /** The games asked again. */
+  readonly games: readonly AppId[];
+  /** The apps whose failed answers the cache drops first (`recheckIds`). */
+  readonly forget: readonly AppId[];
+  /** Asks about the games again, once the cache dropped `forget`. */
+  lookUp(): void;
 }
 
 /** The page's progress and its changes. */
@@ -150,14 +165,27 @@ export function createLoadProgress(
     games.set(id, next);
   }
 
+  function asked(ids: Iterable<AppId>): void {
+    for (const id of ids) {
+      const wasFailed = failed.delete(id);
+      if (!games.has(id) || wasFailed) {
+        move(id, "waiting");
+      }
+    }
+    changed();
+  }
+
   return {
-    asked(ids) {
-      for (const id of ids) {
-        if (!games.has(id) || failed.delete(id)) {
-          move(id, "waiting");
+    asked,
+
+    recheck(ids) {
+      const due = new Set(ids);
+      for (const id of failed) {
+        if (!due.has(id)) {
+          failed.delete(id);
         }
       }
-      changed();
+      asked(due);
     },
 
     answered(id, verdicts, retrying) {
@@ -168,7 +196,7 @@ export function createLoadProgress(
         next = "unknown";
       }
       move(id, next);
-      if (next !== "retrying" && hasFailed(verdicts)) {
+      if (failedForGood(verdicts, next === "retrying")) {
         failed.add(id);
       } else {
         failed.delete(id);

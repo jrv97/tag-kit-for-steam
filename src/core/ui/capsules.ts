@@ -1,12 +1,11 @@
-import { hasFailed } from "../cache/ttl";
-import { fullGameOf } from "../detect/full-game";
+import { failedForGood } from "../cache/ttl";
 import { createTransientRetry, type Delay } from "../detect/retry";
 import type { KindId } from "../kinds/id";
 import { KINDS, perKind } from "../kinds/registry";
-import { type KindVerdicts, type Relations, UNKNOWN_KINDS } from "../kinds/verdicts";
+import { type KindVerdicts, recheckIds, type Relations, UNKNOWN_KINDS } from "../kinds/verdicts";
 import type { Logger } from "../log";
 import type { Detector } from "../ports";
-import type { LoadTracker } from "../progress";
+import type { LoadTracker, Recheck } from "../progress";
 import { HOST_APPID } from "../scan/marks";
 import type { RowPlacement } from "../scan/placements";
 import type { CapsuleHost, CapsuleRenderer, ScanBatch } from "../scan/renderer";
@@ -70,8 +69,6 @@ export interface CapsuleUiOptions {
   readonly delay?: Delay;
   /** Hears which games the hosts ask for and how each answer lands. */
   readonly progress?: LoadTracker;
-  /** Drops the cached answers of games asked for again; nothing is cached by default. */
-  readonly forget?: (ids: readonly AppId[]) => Promise<void>;
   /** Logs a lookup that failed. */
   readonly logger: Pick<Logger, "error">;
 }
@@ -89,10 +86,11 @@ export interface CapsuleUi extends CapsuleRenderer {
    */
   redetect(stale: (verdicts: KindVerdicts) => boolean): void;
   /**
-   * Asks again, in one call, about the known hosts whose lookup failed with no retry ahead, past
-   * the cache, with fresh retry rounds. A demo's full game is asked again with it.
+   * Takes the known hosts whose lookup failed with no retry ahead, to ask again in one call once
+   * the cache dropped their failed answers; undefined when there are none. A host taken stays
+   * out of the next recheck until its answer lands.
    */
-  recheck(): void;
+  recheck(): Recheck | undefined;
   /** Stops watching image boxes, cancels a pending retry and stops listening for `pagehide`. */
   stop(): void;
 }
@@ -104,8 +102,8 @@ interface HostRecord {
   readonly allowed: Record<KindId, boolean>;
   /** Per kind: the badge shows. Refreshed by each draw like `allowed`. */
   readonly badged: Record<KindId, boolean>;
-  /** A retry round will ask for the game again. */
-  retrying: boolean;
+  /** A lookup in flight or a retry round will answer for the game again. */
+  pending: boolean;
 }
 
 const NOT_ALLOWED: Readonly<Record<KindId, boolean>> = perKind(() => false);
@@ -165,14 +163,13 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
   }, options.delay);
 
   /**
-   * Counts the games of hosts that will not be asked again as answered, with what they hold, and
-   * draws them so that a failure shows as final.
+   * Counts the games of hosts that will not be asked again as answered, with what they hold. It
+   * queues no draw: these hosts left the page, or the UI stops.
    */
   function giveUp(records: readonly HostRecord[]): void {
     for (const record of records) {
-      record.retrying = false;
+      record.pending = false;
       if (record.verdicts !== undefined) {
-        queue(record);
         progress?.answered(record.host.appId, record.verdicts, false);
       }
     }
@@ -281,7 +278,7 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
         maxChips: record.host.placement.maxChips,
         slot,
         hideable: record.host.placement.hideable,
-        retrying: record.retrying,
+        pending: record.pending,
       };
       for (const renderer of renderers) {
         renderer.render(view);
@@ -293,6 +290,20 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
   function concerns(ids: ReadonlySet<AppId>, record: HostRecord): boolean {
     const parent = record.verdicts?.parent;
     return ids.has(record.host.appId) || (parent !== undefined && ids.has(parent));
+  }
+
+  /** The known hosts in the page whose record and verdicts `pick` takes. */
+  function knownRecords(
+    pick: (record: HostRecord, verdicts: KindVerdicts) => boolean,
+  ): HostRecord[] {
+    const picked: HostRecord[] = [];
+    for (const element of doc.querySelectorAll(`[${HOST_APPID}]`)) {
+      const record = records.get(element);
+      if (record?.verdicts !== undefined && pick(record, record.verdicts)) {
+        picked.push(record);
+      }
+    }
+    return picked;
   }
 
   function queue(record: HostRecord): void {
@@ -309,6 +320,7 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
   async function detect(found: readonly HostRecord[]): Promise<void> {
     const waiting = new Map<AppId, HostRecord[]>();
     for (const record of found) {
+      record.pending = true;
       const { appId } = record.host;
       const records = waiting.get(appId);
       if (records === undefined) {
@@ -323,9 +335,9 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
         let retrying = false;
         for (const record of waiting.get(id) ?? []) {
           record.verdicts = answer;
-          record.retrying = retry.offer(record, answer);
+          record.pending = retry.offer(record, answer);
           queue(record);
-          retrying ||= record.retrying;
+          retrying ||= record.pending;
         }
         if (waiting.delete(id)) {
           progress?.answered(id, answer, retrying);
@@ -337,23 +349,15 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
     } catch (problem: unknown) {
       logger.error(problem);
     }
-    // An ID the answer left out, or a failed lookup, ends its wait as a failure Check again finds
+    // No answer landed for these IDs: the lookup failed, or a detector dropped them. Steam's own
+    // `missing` answer never comes this way. They end their wait as a failure a recheck finds.
     for (const [id, left] of waiting) {
       for (const record of left) {
         record.verdicts = UNKNOWN_KINDS.error;
-        record.retrying = false;
+        record.pending = false;
         queue(record);
       }
       progress?.answered(id, UNKNOWN_KINDS.error, false);
-    }
-  }
-
-  /** Drops the cached answers; a failed drop is logged, and the lookup still runs. */
-  async function forgetQuietly(ids: readonly AppId[]): Promise<void> {
-    try {
-      await options.forget?.(ids);
-    } catch (problem: unknown) {
-      logger.error(problem);
     }
   }
 
@@ -377,7 +381,7 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
           verdicts: undefined,
           allowed: { ...NOT_ALLOWED },
           badged: { ...ALL_BADGED },
-          retrying: false,
+          pending: false,
         };
         records.set(host.element, record);
         found.push(record);
@@ -388,46 +392,42 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
     },
 
     refresh(ids) {
-      for (const element of doc.querySelectorAll(`[${HOST_APPID}]`)) {
-        const record = records.get(element);
-        if (record?.verdicts !== undefined && (ids === undefined || concerns(ids, record))) {
-          queue(record);
-        }
+      for (const record of knownRecords((each) => ids === undefined || concerns(ids, each))) {
+        queue(record);
       }
     },
 
     redetect(stale) {
-      const due: HostRecord[] = [];
-      for (const element of doc.querySelectorAll(`[${HOST_APPID}]`)) {
-        const record = records.get(element);
-        if (record?.verdicts !== undefined && stale(record.verdicts)) {
-          due.push(record);
-        }
-      }
+      const due = knownRecords((_record, verdicts) => stale(verdicts));
       if (due.length > 0) {
         void detect(due);
       }
     },
 
     recheck() {
-      const due: HostRecord[] = [];
-      const ids = new Set<AppId>();
-      for (const element of doc.querySelectorAll(`[${HOST_APPID}]`)) {
-        const record = records.get(element);
-        if (record?.verdicts === undefined || record.retrying || !hasFailed(record.verdicts)) {
-          continue;
+      const forget = new Set<AppId>();
+      const due = knownRecords((record, verdicts) => {
+        const failed = failedForGood(verdicts, record.pending);
+        if (failed) {
+          for (const id of recheckIds(record.host.appId, verdicts)) {
+            forget.add(id);
+          }
         }
-        due.push(record);
-        retry.reset(record);
-        ids.add(record.host.appId);
-        const game = fullGameOf(record.verdicts);
-        if (game !== undefined) {
-          ids.add(game);
-        }
+        return failed;
+      });
+      if (due.length === 0) {
+        return undefined;
       }
-      if (due.length > 0) {
-        void forgetQuietly([...ids]).then(() => detect(due));
+      for (const record of due) {
+        record.pending = true;
       }
+      return {
+        games: [...new Set(due.map((record) => record.host.appId))],
+        forget: [...forget],
+        lookUp: () => {
+          void detect(due);
+        },
+      };
     },
 
     stop() {

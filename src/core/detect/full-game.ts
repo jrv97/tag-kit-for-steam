@@ -1,15 +1,10 @@
 import type { KindId } from "../kinds/id";
 import { KINDS } from "../kinds/registry";
-import { isKindVerdicts, type KindVerdict, type KindVerdicts } from "../kinds/verdicts";
+import { fullGameOf, isKindVerdicts, type KindVerdict, type KindVerdicts } from "../kinds/verdicts";
 import type { Logger } from "../log";
 import type { Detector, VerdictSink } from "../ports";
 import type { AppId } from "../types";
 import { createSettle } from "./settle";
-
-/** The full game of a demo; undefined for any other app, a DLC included. */
-export function fullGameOf(verdicts: KindVerdicts): AppId | undefined {
-  return verdicts.demo === true ? verdicts.parent : undefined;
-}
 
 /**
  * One kind of a demo, given its full game's. The demo's own disclosure wins, then the game's,

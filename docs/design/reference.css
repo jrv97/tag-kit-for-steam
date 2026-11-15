@@ -289,7 +289,7 @@
   display: none !important;
 }
 
-.tks-list-notice-text:not([hidden]) ~ .tks-list-notice-failed {
+.tks-list-notice-failed:not([hidden]) ~ .tks-list-notice-text {
   margin-inline-start: var(--tks-space-1);
 }
 

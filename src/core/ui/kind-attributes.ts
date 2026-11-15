@@ -20,9 +20,18 @@ export function colorProperty(id: KindId): string {
 }
 
 /** Sets the attribute unless it holds the value already, so a repeated draw mutates nothing. */
-export function setAttributeOnce(element: Element, name: string, value: string): void {
+function setAttributeOnce(element: Element, name: string, value: string): void {
   if (element.getAttribute(name) !== value) {
     element.setAttribute(name, value);
+  }
+}
+
+/** Sets the attribute as `setAttributeOnce` does, or removes it when `value` is empty. */
+export function setOrRemove(element: Element, name: string, value: string): void {
+  if (value === "") {
+    element.removeAttribute(name);
+  } else {
+    setAttributeOnce(element, name, value);
   }
 }
 

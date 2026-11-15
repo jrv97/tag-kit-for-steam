@@ -967,6 +967,34 @@
       }
     }
   },
+  "options_progress_done_failed_one": {
+    "message": "Etiquetas cargadas de $count$ juego. $failed$ sin consultar",
+    "description": "Replaces options_progress_done once every game on the page has an answer and the lookup of some games failed: the request failed, its answer was broken, or Steam limited requests. The Check again button (options_progress_recheck) follows it. $count$ is how many games have their tags and $failed$ how many could not be checked, in the words of notice_list_failed. It says nothing about any game. Singular form, chosen by $count$.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "1"
+      },
+      "failed": {
+        "content": "$2",
+        "example": "2"
+      }
+    }
+  },
+  "options_progress_done_failed_other": {
+    "message": "Etiquetas cargadas de $count$ juegos. $failed$ sin consultar",
+    "description": "Replaces options_progress_done once every game on the page has an answer and the lookup of some games failed: the request failed, its answer was broken, or Steam limited requests. The Check again button (options_progress_recheck) follows it. $count$ is how many games have their tags and $failed$ how many could not be checked, in the words of notice_list_failed. It says nothing about any game. Plural form, chosen by $count$.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "46"
+      },
+      "failed": {
+        "content": "$2",
+        "example": "2"
+      }
+    }
+  },
   "options_progress_done_unknown_one": {
     "message": "Etiquetas cargadas de $count$ juego. Sin respuesta de $unknown$",
     "description": "Replaces options_progress_done when Steam gave no answer for some games even after asking again. $count$ is how many games have their tags and $unknown$ how many got no answer. It says nothing about any game. Singular form, chosen by $count$.",
@@ -1004,8 +1032,8 @@
     "description": "The load strip at the top of the toolbar popup and of the userscript settings dialog, which shows how far the tags of the store page in the current tab have loaded. Its message when the store page has asked for no game yet, as on a page that lists none or before its first games are found. Shown muted, with an empty bar and no count."
   },
   "options_progress_recheck": {
-    "message": "Volver a consultar",
-    "description": "Quiet link-style button in the load strip of the toolbar popup and of the userscript settings dialog, in place of the count once every game on the page has an answer and the lookup of some games failed. Asks Steam again about those games. Short."
+    "message": "Reintentar",
+    "description": "Quiet link-style button in the load strip of the toolbar popup and of the userscript settings dialog, after options_progress_done_failed, once every game on the page has an answer and the lookup of some games failed. Asks Steam again about those games now. It differs from options_lookups_recheck (Check unknown games again) on the options page, which clears stored answers Steam gave. Short: it shares a line with the message in a 360px popup."
   },
   "options_chip_reset_label": {
     "message": "Restablecer el texto del marcador de $heading$",
@@ -1353,7 +1381,7 @@
   },
   "options_lookups_recheck": {
     "message": "Volver a consultar los juegos sin respuesta",
-    "description": "Button in the Lookup results card. It removes only the stored results of games Steam gave no answer for, so store pages ask about them again."
+    "description": "Button in the Lookup results card. It removes only the stored results of games Steam gave no answer for, so store pages ask about them again. It differs from options_progress_recheck (Check again) in the toolbar popup, which asks Steam now about the games of the open page whose lookup failed."
   },
   "notice_lookups_cleared_one": {
     "message": "Se borró $count$ resultado. Recarga las páginas de la tienda abiertas para volver a consultarlo.",

@@ -54,8 +54,12 @@ PR 190 (shared element factory) moves the `[hidden]` rule into `ui/shared.css` a
 
 ## Outcome
 
-Built as planned, with three additions:
+Built as planned, with these changes after the review round:
 
-- A host whose ID the answer left out, or whose lookup rejected, now holds unknown `error` instead of no verdicts, so it draws as failed and Check again finds it.
-- `LoadTracker.asked` moves a failed game back to waiting, so the strip shows `loading` while Check again runs.
-- The strip's line is a `div`; its status part is a `p` with `role="status"` and `tabindex="-1"`, which takes focus when Check again hides under it.
+- A host whose ID no answer reached, because the lookup rejected or a detector dropped it, now holds unknown `error` instead of no verdicts, so it draws as failed and a recheck finds it.
+- `App.recheck` owns the cache step. Each surface hands over a `Recheck` (its games, the IDs to forget, a lookup), the tracker's `recheck` counts those games as waiting and drops failed games no host shows, `forgetQuietly` drops the failed cache entries once, and each surface looks its games up in one batch.
+- No retry round is reset, so one press costs one GetItems batch. The cache keeps a demo's own entry when only its full game failed.
+- The strip takes one press per progress it hears, and a surface skips hosts whose lookup is pending. Neither draws after `stop` or `pagehide`.
+- The strip's done line names the failed games (`options_progress_done_failed`), Spanish reads "Reintentar", and Check again has a 24px hit area on its 16px line. When it hides under focus, focus moves to the bar, outside the live status.
+- The notice puts the failed sentence first, so the bar ends on its button, and moves focus to the bar when the button hides under it.
+- `ProgressSource` has a contract suite that runs over `followProgress`, `tabProgress` and the fake.

@@ -36,8 +36,8 @@ Chosen option 5. A failed game is neither dimmed nor hidden. The list filter kee
 - A failure is an unknown with the reason `error` or `rate-limited` after its last retry round, or `malformed` (`isFailed` in `cache/ttl.ts`). `gated` and `missing` mean Steam gave an answer with no data for the kind; reporting them would flag the same games on every page view for as long as Steam keeps them that way, and Check again could never clear them. `unrequested` was never asked.
 - The host renderer writes `data-tks-failed` with the failed kinds that are not ignored, and none while a retry round is ahead. No CSS reads it.
 - On a list surface, the hidden results notice adds "2 titles could not be checked." (`notice_list_failed`) for the kinds on Dim or Hide, even when nothing is hidden. A kind on Off filters nothing, and its failures go unreported there.
-- `LoadProgress` gains `failed`, the answered games with a failed kind. In `done` with `failed` above zero, the load strip of the toolbar popup and the userscript dialog shows a quiet Check again button in the count's place, sized to its 16px line. The popup posts `tks-recheck` on the progress port; the dialog calls the running app.
-- `App.recheck` asks the capsules and the app page for their final failures again: it drops their cache entries (`VerdictCache.forget`), a demo's full game included, resets their retry rounds and detects them in one call.
+- `LoadProgress` gains `failed`, the answered games with a failed kind. In `done` with `failed` above zero, the load strip of the toolbar popup and the userscript dialog says "Tags loaded for 46 games. 2 could not be checked" (`options_progress_done_failed`) and shows a quiet Check again button in the count's place: a 16px box on its line with a 24px hit area. The popup posts `tks-recheck` on the progress port; the dialog calls the running app.
+- `App.recheck` takes from the capsules and the app page the games whose lookup failed for good. The tracker counts them as waiting and stops counting as failed the games no host on the page shows any more. The cache drops their failed entries in one call (`VerdictCache.forgetFailed`), a demo's full game included when the game's own entry failed, and an entry that did not fail stays. Each surface then detects its games in one call, with the retry rounds they have left. The strip takes one press per progress it hears, and a surface skips games whose lookup still runs.
 
 ### Library check (rule 12)
 
@@ -45,9 +45,11 @@ Nothing adopted. The change is a reason table, one attribute, one counted set an
 
 ### Accepted trade-offs
 
-- Games past the HTML fallback budget answer `rate-limited` for the page view (`detect/budget.ts`). They count as failed, and Check again spends one GetItems batch on them that may change nothing.
-- `forget` drops a `malformed` entry before its 6 h cache life ends, for one request.
-- A game with one malformed kind among known ones counts as failed: the strip can say "Tags loaded for 48 games" beside Check again.
+- A recheck resets no retry rounds, so one press costs one GetItems batch. A game that answers `error` or `rate-limited` again stays failed until the next press.
+- Games past the HTML fallback budget answer `rate-limited` for the page view (`detect/budget.ts`). They count as failed, and each press spends one GetItems batch on them that may change nothing.
+- `forgetFailed` drops a `malformed` entry before its 6 h cache life ends, for one request.
+- A game whose host left the page still counts as failed until the next press, so Check again can show once for a game nothing on the page asks about.
+- A title that is hidden for one kind and failed for another counts in both sentences of the notice: both are true of it.
 
 ### Consequences
 
@@ -60,7 +62,7 @@ Nothing adopted. The change is a reason table, one attribute, one counted set an
 
 ### Confirmation
 
-Unit tests cover the reasons table (`ttl.test.ts`), the renderer's `data-tks-failed` (`list-filter.test.ts`), the notice's failed sentence, live region and reveal end (`hidden-notice.test.ts`), the progress count and the port message (`progress.test.ts`, `progress-port.test.ts`, `tab-progress.test.ts`), `forget` (`verdict-cache.test.ts`), the strip's button and focus (`load-strip.test.ts`) and the dialog's click (`settings-dialog.test.ts`). One `app.test.ts` case runs a malformed row through the notice and Check again to its tags with one GetItems call.
+Unit tests cover the reasons table (`ttl.test.ts`), the renderer's `data-tks-failed` (`list-filter.test.ts`), the notice's failed sentence, order, focus, live region and reveal end (`hidden-notice.test.ts`), the progress count and its recheck (`progress.test.ts`), the port message (`progress-port.test.ts`), `forgetFailed` and `forgetQuietly` (`verdict-cache.test.ts`, `cached-detector.test.ts`), what each surface takes to recheck (`capsules.test.ts`, `app-page.test.ts`) and the strip's message, button, single press and focus (`load-strip.test.ts`). Every `ProgressSource` passes one contract (`tests/contracts/progress-source.contract.ts`). One `app.test.ts` case runs a malformed row through the notice and two presses of Check again to its tags with one GetItems call.
 
 ## Pros and cons of the options
 

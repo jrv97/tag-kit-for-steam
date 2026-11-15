@@ -640,14 +640,15 @@ A strip between the popup's header and the first tag row, and at the top of the 
 - States, by `data-tks-load` on the strip:
   1. `loading`: `options_progress_loading`, count `options_progress_loading_count` ("12 of 48 games"), fill `tks-load-fill` (accent 500).
   2. `paused`, while the GetItems breaker holds requests and games are left: `options_progress_paused` with the countdown `options_progress_seconds` in bold `tks-color-text-strong`, count `options_progress_count` ("12 of 48"), and a hatched fill: 4px stripes at 135 degrees of `tks-color-text-subtle` and `tks-load-hatch`. The countdown ticks once a second while the popup or the dialog is open; once the pause ends the strip returns to `loading`.
-  3. `done`, once every game has an answer: `options_progress_done` ("Tags loaded for 48 games"), or `options_progress_done_unknown` when some games stayed unknown after their retry rounds ("Tags loaded for 46 games. No answer for 2"); count `options_progress_count` with the total twice; a full bar in `tks-load-fill-done` (accent 700). When the lookup of some games failed for good, Check again takes the count's place (below).
+  3. `done`, once every game has an answer: `options_progress_done` ("Tags loaded for 48 games"), or `options_progress_done_unknown` when some games stayed unknown after their retry rounds ("Tags loaded for 46 games. No answer for 2"); count `options_progress_count` with the total twice; a full bar in `tks-load-fill-done` (accent 700). When the lookup of some games failed for good, the message is `options_progress_done_failed` ("Tags loaded for 46 games. 2 could not be checked"), which names those games in the notice's words (section 16), and Check again takes the count's place (below).
   4. `empty`, while the store page has asked for no game: `options_progress_no_games` ("No games on this page yet") in `tks-color-text-subtle`, no count and an empty track.
   5. `none`, when the active tab has no store page, no content script or the connection fails: `options_progress_no_page` in `tks-color-text-subtle`, no count and an empty track.
 - Until the first progress arrives the strip shows an empty line and track at the same height.
 - What it counts: the distinct games the capsules and the app page asked for; a game is answered once it is known, or once it stayed unknown with no retry left. An answer whose every kind is unknown counts as unknown. The copy speaks about loading only and says nothing about any game (rule 4).
 - Forced colors draw the track with a `CanvasText` edge and the fill in `Highlight`.
-- Check again (`options_progress_recheck`): in `done`, when some answered game has a failed kind (unknown `error` or `rate-limited` after its last retry round, or `malformed`), a quiet button of section 10 replaces the count on the right of the line. It sits outside the status, so a press never makes the status speak twice. It fits the 16px line with no block padding, so the strip keeps its height (rule 18). A press asks the page to look its failed games up again past the cache, with fresh retry rounds: the popup posts `tks-recheck` on the progress port, the dialog calls the running app. The page counts those games as waiting again, the strip returns to `loading` and the button hides.
-- Check again is a real `button`, reached by Tab and pressed with Enter or Space, with the shared focus ring on `:focus-visible`. Its name is its text, and `aria-describedby` points at the status. When it hides while it holds focus, focus moves to the status (`tabindex="-1"`), never to the page body. In forced colors its text takes `LinkText`.
+- Check again (`options_progress_recheck`): in `done`, when some answered game has a failed kind (unknown `error` or `rate-limited` after its last retry round, or `malformed`), a quiet button of section 10 replaces the count on the right of the line. It sits outside the status, so a press never makes the status speak twice. Its box fits the 16px line with no block padding, so the strip keeps its height (rule 18), and an `::after` reaches 4px above and below it for a 24px hit area. A press asks the page to look its failed games up again past the cache: the popup posts `tks-recheck` on the progress port, the dialog calls the running app. The page drops only the failed cache entries, sends one GetItems batch, and gives no game retry rounds beyond those it has left. It counts those games as waiting again and stops counting as failed the ones no host on the page shows any more, so the strip returns to `loading` and the button hides. The strip ignores further presses until the next progress arrives, and the page ignores a recheck of games whose lookup is still running.
+- Check again differs from Check unknown games again (`options_lookups_recheck`, the Lookup results card above): Check again asks Steam now about the open page's failed lookups, while the options page clears stored answers Steam gave (`gated`, `missing`, `malformed`) for every page. Both catalog descriptions say so, so translators keep the labels apart.
+- Check again is a real `button`, reached by Tab and pressed with Enter or Space, with the shared focus ring on `:focus-visible`. Its name is its text, and `aria-describedby` points at the status. When it hides while it holds focus, focus moves to the bar (`tabindex="-1"`), which is no live region, never to the status or the page body. In forced colors its text takes `LinkText`.
 
 ### Longer translations
 
@@ -779,7 +780,7 @@ Preview: `previews/Button.html`.
 
 - Banner controls are the split Ignore button and its menu (`.tks-ignore-*`) and the "Show full report" link (`.tks-banner-link`), documented under Banner.
 - Primary (`data-tks-variant="primary"`): `tks-button-primary-bg` with `tks-button-primary-fg` (6.77:1), `tks-button-primary-bg-hover` on hover (4.98:1). One per check, for the action that overwrites or empties something: Restore in the Backup card, Reset and Stop ignoring in the Reset card.
-- Quiet (`data-tks-variant="quiet"`): no fill, no inline padding, `tks-accent-300` text with an underline, `tks-color-text-strong` on hover; the same minimum height and focus ring, so it keeps its target size. It reads as a link but is a `button`, because it acts on the page and never navigates. Reset, Stop ignoring and Show in General use it; the heavy filled look of a row of Stop ignoring buttons is gone.
+- Quiet (`data-tks-variant="quiet"`): no fill, no inline padding, `tks-accent-300` text with an underline, `tks-color-text-strong` on hover; the same minimum height and focus ring, so it keeps its target size. It reads as a link but is a `button`, because it acts on the page and never navigates. Reset, Stop ignoring and Show in General use it; the heavy filled look of a row of Stop ignoring buttons is gone. The load strip's Check again is the one quiet button with a 16px box, to fit the strip's line (section 6); an `::after` 4px above and below gives it a 24px hit area.
 
 ## 11. Allow-list
 
@@ -1075,13 +1076,14 @@ A bar above a list, in the look of the store's own notice bar above search resul
 
 - The marks of section 5: `data-tks-filter-<kind>` on the root element, `data-tks-kinds`, `data-tks-failed` and `data-tks-hideable` on the hosts. The notice writes no host and reads no setting.
 - The count, from the plural keys `notice_list_hidden` and `notice_list_revealed`, and the button text from `notice_list_show` and `notice_list_hide`.
-- The failed count, from the plural key `notice_list_failed` ("2 titles could not be checked."), in its own sentence after the button. With nothing hidden, the hidden sentence and the button are `hidden` and the failed sentence stands alone, with no button: Check again lives in the load strip (section 6).
+- The failed count, from the plural key `notice_list_failed` ("2 titles could not be checked."), in its own sentence before the hidden sentence, so the bar ends on its button as the store's own bar ends on its link. With nothing hidden, the hidden sentence and the button are `hidden` and the failed sentence stands alone, with no button: Check again lives in the load strip (section 6).
 
 ### Look
 
 - The store's notice bar, sampled on the live search page on 2026-10-26 (decision 52): `tks-store-notice-bg` (black at 20%), `tks-store-notice-fg` (`#fafad2`), `tks-store-notice-pad` (10px on every side), `tks-store-notice-font` (12px Arial, Helvetica, sans-serif at a normal line height), no radius, no border, and `tks-store-notice-margin-block-end` (5px) below it. No violet: the bar reports what the extension did, not a tag.
 - Full width of the list's column, like the store's bar. The store's gear cell at the end is left out: our bar has no menu and components carry no icons.
 - The button is an underlined link inside the sentence, in `tks-store-notice-fg`, like the store's own "here" link in its bar, 4px after the text. On hover it takes `tks-store-notice-link-hover`, the store's usual link hover, which was not sampled on the bar. No minimum block size: an inline link in a sentence is exempt from the target size rule, and the bar keeps the store's height.
+- The failed sentence leads in the same type. The hidden sentence follows it 4px (`tks-space-1`) apart, and the failed sentence starts flush when it stands alone.
 - It goes right after the store's own bar (`#search_results_filtered_warning_persistent`) when the page has one, else right before the list element, under the store's sort bar. It wraps before it truncates.
 - One node of our own, never inside the store's bar and never with its classes or ids, which would pull Valve's CSS onto ours. Light DOM with the badge reset, like the other page components.
 
@@ -1094,7 +1096,8 @@ A bar above a list, in the look of the store's own notice bar above search resul
 ### Accessibility
 
 - A real `button`, reached by Tab and pressed with Enter or Space. Its name is its text, and `aria-describedby` points at the line.
-- A polite live region inside the notice repeats the line, the failed sentence included, once it has held for one second, and a burst of new rows is announced once.
+- A polite live region inside the notice repeats the bar, failed sentence first, once it has held for one second, and a burst of new rows is announced once.
+- When the button hides while it holds focus and the bar stays, focus moves to the bar (`tabindex="-1"`), never to the live region or the page body.
 - The shared focus ring on `:focus-visible`, 7.53:1 on the bar's ground. In forced colors the notice gets a `CanvasText` edge, and the underline still marks the button.
 
 ### Don't
@@ -1303,7 +1306,7 @@ For every translator:
 | `notice_list_revealed_one`, `_other` | `$count$` hidden title(s) is/are showing. | Replaces the line after "Show them"; the results show again, dimmed, on this page only. |
 | `notice_list_show_one`, `_other` | Show it / Show them | Button after the line. Changes no setting. |
 | `notice_list_hide_one`, `_other` | Hide it / Hide them | Button after the revealed line. |
-| `notice_list_failed_one`, `_other` | `$count$` title(s) could not be checked. | Sentence in the same bar, after the hidden line or alone, when the lookup of some results failed for a tag on Dim or Hide. Names the number only. |
+| `notice_list_failed_one`, `_other` | `$count$` title(s) could not be checked. | Sentence in the same bar, before the hidden line or alone, when the lookup of some results failed for a tag on Dim or Hide. Names the number only. |
 | `notice_backup_downloaded` | Backup downloaded. | Screen reader announcement after the file is saved. |
 | `notice_backup_restored` | Backup restored. | Shown under the backup buttons and announced after a restore. |
 | `notice_lookups_cleared_one`, `_other` | Cleared `$count$` lookup result(s). Reload open store pages to look it/them up again. | Status line and announcement after Clear lookup results. |
@@ -1444,8 +1447,9 @@ For every translator:
 | `options_reset_lists_title` | Stop ignoring everything? | Title of that check. |
 | `options_reset_lists_games` | `$list$`: `$all$` for all tags, `$tags$` for one tag | The games line; developers and publishers use `options_backup_summary_list`. |
 | `options_reset_lists_keep` | Your settings stay. | The check's last line. |
-| `options_progress_recheck` | Check again | Quiet button in the load strip, in the count's place once every game answered and some lookups failed. Asks Steam again about those games. |
 | `options_reset_lists_confirm` | Stop ignoring | The check's primary button. |
+| `options_progress_done_failed_one`, `_other` | Tags loaded for `$count$` game(s). `$failed$` could not be checked | The load strip's done line once some lookups failed; uses the notice's words. |
+| `options_progress_recheck` | Check again | Quiet button in the load strip, after that line in the count's place. Asks Steam now about the failed games; unlike Check unknown games again, which clears stored answers. Short. |
 
 ### `ext_`
 

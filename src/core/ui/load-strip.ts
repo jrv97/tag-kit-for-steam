@@ -1,7 +1,7 @@
 import type { Delay } from "../detect/retry";
 import type { MessageCatalog } from "../ports";
 import type { LoadProgress, ProgressSource } from "../progress";
-import { createElement } from "./element";
+import { createElement, quietButton } from "./element";
 
 /** The strip's five states, as its `data-tks-load` attribute names them. */
 type StripState = "loading" | "paused" | "done" | "empty" | "none";
@@ -80,19 +80,24 @@ function viewOf(
     return { ...base, state: "loading", message, count };
   }
   const loaded = total - unknown;
-  const message = unknown === 0
-    ? i18n.plural("options_progress_done", loaded)
-    : i18n.plural("options_progress_done_unknown", loaded, { unknown: numbers.format(unknown) });
+  let message = i18n.plural("options_progress_done", loaded);
+  if (failed > 0) {
+    message = i18n.plural("options_progress_done_failed", loaded, {
+      failed: numbers.format(failed),
+    });
+  } else if (unknown > 0) {
+    message = i18n.plural("options_progress_done_unknown", loaded, {
+      unknown: numbers.format(unknown),
+    });
+  }
   const count = i18n.t("options_progress_count", { ...counts, answered: counts.total });
   return { ...base, state: "done", message, count, recheck: failed > 0 };
 }
 
 /**
- * The load strip of the toolbar popup and the userscript dialog: a status line over a bar. It
- * draws at most once a second, so its `role="status"` line speaks at most once a second, and
- * while Steam's pause runs it draws once a second to count down. It has no timer otherwise. Once
- * every game answered and some lookups failed, a quiet Check again button outside the status
- * takes the count's place and asks the source for them again.
+ * The load strip of the popup and the userscript dialog: a status line over a bar, drawn at most
+ * once a second, and each second while Steam's pause counts down. Once every game answered and
+ * some lookups failed, Check again takes the count's place; it asks once per progress heard.
  */
 export function createLoadStrip(
   doc: Document,
@@ -109,24 +114,21 @@ export function createLoadStrip(
   const status = createElement(doc, "p", "tks-load-status");
   status.id = `${options.idPrefix}load-status`;
   status.setAttribute("role", "status");
-  // Takes focus from Check again when the button hides
-  status.tabIndex = -1;
   const message = createElement(doc, "span", "tks-load-message");
   message.id = `${options.idPrefix}load-message`;
   const count = createElement(doc, "span", "tks-load-count");
   status.append(message, count);
-  const recheck = createElement(
-    doc,
-    "button",
-    "tks-button tks-load-recheck",
-    i18n.t("options_progress_recheck"),
-  );
-  recheck.type = "button";
-  recheck.setAttribute("data-tks-variant", "quiet");
+  const recheck = quietButton(doc, i18n.t("options_progress_recheck"));
+  recheck.classList.add("tks-load-recheck");
   recheck.setAttribute("aria-describedby", status.id);
   recheck.hidden = true;
+  /** A press went out and no progress came back since. */
+  let asked = false;
   const onRecheck = (): void => {
-    source.recheck();
+    if (!asked) {
+      asked = true;
+      source.recheck();
+    }
   };
   recheck.addEventListener("click", onRecheck);
   line.append(status, recheck);
@@ -134,6 +136,8 @@ export function createLoadStrip(
   bar.setAttribute("role", "progressbar");
   bar.setAttribute("aria-valuemin", String(0));
   bar.setAttribute("aria-labelledby", message.id);
+  // Takes focus from Check again when the button hides; it is no live region
+  bar.tabIndex = -1;
   bar.append(createElement(doc, "div", "tks-load-fill"));
   element.append(line, bar);
 
@@ -164,7 +168,7 @@ export function createLoadStrip(
     count.textContent = view.count;
     count.hidden = view.recheck;
     if (!view.recheck && recheck.matches(":focus")) {
-      status.focus();
+      bar.focus();
     }
     recheck.hidden = !view.recheck;
     const max = Math.max(view.total, 1);
@@ -179,6 +183,7 @@ export function createLoadStrip(
 
   function update(progress: LoadProgress | undefined): void {
     latest = { progress };
+    asked = false;
     if (cancelDraw === undefined) {
       const wait = drawnAt + MS_PER_SECOND - now();
       if (wait > 0) {

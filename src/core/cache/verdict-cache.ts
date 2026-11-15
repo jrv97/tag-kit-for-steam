@@ -6,7 +6,7 @@ import { verdictKey } from "../storage-keys";
 import type { AppId } from "../types";
 import { Lru, MEMORY_CAPACITY } from "./lru";
 import { decodeVerdicts, encodeVerdicts, type TimedVerdicts } from "./stored";
-import { isFresh } from "./ttl";
+import { hasFailed, isFresh } from "./ttl";
 
 /**
  * Fresh verdicts remembered in page memory and in storage. Storage is shared by every tab, so a
@@ -24,8 +24,11 @@ export interface VerdictCache {
   ): Promise<ReadonlyMap<AppId, KindVerdicts>>;
   /** Remembers the verdicts now: one storage write for the ones that are stored. */
   save(verdicts: ReadonlyMap<AppId, KindVerdicts>): Promise<void>;
-  /** Drops what memory and storage hold for `ids`, so the next lookup misses them. */
-  forget(ids: readonly AppId[]): Promise<void>;
+  /**
+   * Drops what memory and storage hold for `ids`, so the next lookup misses them. An app whose
+   * entry in memory holds an answer that did not fail keeps it.
+   */
+  forgetFailed(ids: readonly AppId[]): Promise<void>;
 }
 
 export function createVerdictCache(
@@ -80,12 +83,16 @@ export function createVerdictCache(
       }
     },
 
-    async forget(ids) {
-      for (const id of ids) {
+    async forgetFailed(ids) {
+      const dropped = ids.filter((id) => {
+        const held = memory.get(id);
+        return held === undefined || hasFailed(held.verdicts);
+      });
+      for (const id of dropped) {
         memory.delete(id);
       }
-      if (ids.length > 0) {
-        await store.remove(ids.map(verdictKey));
+      if (dropped.length > 0) {
+        await store.remove(dropped.map(verdictKey));
       }
     },
   };

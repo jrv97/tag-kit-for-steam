@@ -365,11 +365,19 @@
 }
 
 .tks-load .tks-load-recheck {
+  position: relative;
   flex: none;
   block-size: var(--tks-leading-sm);
   min-block-size: 0;
   padding-block: 0;
   line-height: inherit;
+}
+
+/* The box keeps the line's 16px; the hit area reaches 24px above and below it */
+.tks-load .tks-load-recheck::after {
+  position: absolute;
+  inset: calc(-1 * var(--tks-space-1)) 0;
+  content: "";
 }
 
 .tks-load[data-tks-load="none"] .tks-load-line,
@@ -690,7 +698,7 @@
 .tks-input:focus-visible,
 .tks-color-pick:focus-visible,
 .tks-button:focus-visible,
-.tks-load-status:focus-visible,
+.tks-load-bar:focus-visible,
 .tks-tab:focus-visible,
 .tks-order-handle:focus-visible,
 .tks-options a:focus-visible {
