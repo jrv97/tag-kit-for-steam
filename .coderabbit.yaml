@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit reviews a pull request only when someone comments "@coderabbitai review".
+reviews:
+  auto_review:
+    enabled: false
+    auto_incremental_review: false
+    drafts: false
+  # No walkthrough comment that only says a review was skipped.
+  review_status: false

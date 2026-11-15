@@ -157,6 +157,8 @@ These are hard rules. A change that breaks one needs an ADR first.
 - Renovate (ADR 0021) opens dependency PRs on `build/` branches. Security fixes, minor, patch and
   digest updates and lockfile maintenance auto-merge once CI passes; majors and mise's own updates
   get a review like any PR.
+- CodeRabbit reviews a PR only when asked through an `@coderabbitai review` comment
+  (`.coderabbit.yaml`). Sessions never post that comment; the author does.
 - On GitHub, sessions may push branches, open PRs, add labels and close superseded PRs. They
   change repo settings only after explicit approval. They post no comments, reviews or issues.
 - Plans in `docs/plans/` and research in `docs/research/` stay committed in this repo, since ADRs
