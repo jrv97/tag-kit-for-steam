@@ -40,12 +40,12 @@ import {
 import { announce, POLITE } from "./announce";
 import { createBackupCard } from "./backup-card";
 import { ownText } from "./badge";
-import type { ActionCard } from "./card-parts";
+import { type ActionCard, cardButton } from "./card-parts";
 import { createChipFields } from "./chip-fields";
-import { createElement } from "./element";
+import { elementFactory, quietButton } from "./element";
 import { facetChoiceKey } from "./facet-choices";
 import { createFeedbackFooter } from "./feedback-footer";
-import { parseIcon, withIcon } from "./icon";
+import { parseIcon } from "./icon";
 import { KIND_ATTRIBUTE, setColorOnce } from "./kind-attributes";
 import { chipText } from "./kind-details";
 import { keyDescription, keyText } from "./kind-keys";
@@ -196,9 +196,6 @@ const COLOR_RESET_ATTRIBUTE = "data-tks-color-reset";
 const PICKER_ATTRIBUTE = "data-tks-picker";
 /** The default violet, accent 400 of tokens.css, which the square shows while no color is set. */
 export const DEFAULT_TAG_COLOR = "#8f73f3";
-/** The quiet, link-like look of Reset, Stop ignoring and Show in General. */
-const QUIET = "quiet";
-const VARIANT_ATTRIBUTE = "data-tks-variant";
 
 /** The controls of one kind's color field. */
 interface ColorControls {
@@ -300,20 +297,7 @@ export async function mountSettingsForm(
     ? Promise.resolve(deps.initialTab)
     : readTab();
 
-  function element<K extends keyof HTMLElementTagNameMap>(
-    tag: K,
-    className: string,
-    text?: string,
-  ): HTMLElementTagNameMap[K] {
-    return createElement(doc, tag, className, text);
-  }
-
-  function quietButton(text: string): HTMLButtonElement {
-    const button = element("button", "tks-button", text);
-    button.type = "button";
-    button.setAttribute(VARIANT_ATTRIBUTE, QUIET);
-    return button;
-  }
+  const element = elementFactory(doc);
 
   function fieldError(): HTMLElement {
     const error = element("p", "tks-field-error", i18n.t("error_settings_save"));
@@ -341,14 +325,14 @@ export async function mountSettingsForm(
   function header(info: SettingsHeader): HTMLElement {
     const node = element("header", "tks-options-header");
     if (info.iconUrl !== undefined) {
-      const icon = element("img", "");
+      const icon = element("img");
       icon.src = info.iconUrl;
       icon.alt = "";
       icon.width = ICON_SIZE;
       icon.height = ICON_SIZE;
       node.append(icon);
     }
-    const text = element("div", "");
+    const text = element("div");
     text.append(
       element("h1", "tks-options-title", i18n.t("ext_name")),
       element("div", "tks-options-version", i18n.t("options_version", { version: info.version })),
@@ -358,8 +342,7 @@ export async function mountSettingsForm(
       node.append(gear(deps.allSettingsUrl));
     }
     if (deps.goBack !== undefined) {
-      goBackButton = withIcon(element("button", "tks-button"), "undo-2", i18n.t("options_go_back"));
-      goBackButton.type = "button";
+      goBackButton = cardButton(doc, i18n.t("options_go_back"), "undo-2");
       node.append(goBackButton);
     }
     return node;
@@ -417,7 +400,7 @@ export async function mountSettingsForm(
     const name = `${prefix}${kind.id}-filter-value`;
     const radios = new Map<ListFilter, HTMLInputElement>();
     for (const value of LIST_FILTERS) {
-      const input = element("input", "");
+      const input = element("input");
       input.type = "radio";
       input.name = name;
       input.id = `${name}-${value}`;
@@ -468,7 +451,7 @@ export async function mountSettingsForm(
     const boxes = new Map<FacetId, HTMLInputElement>();
     const heading = i18n.t(kind.messages.heading);
     for (const facet of facets) {
-      const input = element("input", "");
+      const input = element("input");
       input.type = control.type;
       input.name = label.id;
       input.value = facet.id;
@@ -478,7 +461,7 @@ export async function mountSettingsForm(
       const choice = i18n.t(facetChoiceKey(kind.id, facet));
       // The name adds the tag, which the group's label leaves out
       input.setAttribute("aria-label", i18n.t("options_facet_choice_label", { choice, heading }));
-      const text = element("label", "");
+      const text = element("label");
       text.append(input, choice);
       group.append(text);
     }
@@ -525,7 +508,7 @@ export async function mountSettingsForm(
     picker.value = DEFAULT_TAG_COLOR;
     picker.setAttribute(PICKER_ATTRIBUTE, kind.id);
     picker.setAttribute("aria-label", i18n.t("options_color_pick_label", { heading }));
-    const reset = quietButton(i18n.t("options_color_reset"));
+    const reset = quietButton(doc, i18n.t("options_color_reset"));
     reset.setAttribute(COLOR_RESET_ATTRIBUTE, kind.id);
     reset.setAttribute("aria-label", i18n.t("options_color_reset_label", { heading }));
     const entry = element("div", "tks-color-entry");
@@ -550,7 +533,6 @@ export async function mountSettingsForm(
     doc,
     i18n,
     idPrefix: prefix,
-    quietButton,
     error: (field, id) => {
       const error = fieldError();
       errors.set(errorKey(field, id), error);
@@ -664,7 +646,7 @@ export async function mountSettingsForm(
   function scopeCard(of: AllowScope, title: BareMessageKey): ScopeCard {
     const section = element("section", "tks-card");
     const heading = cardTitle(i18n.t(title), `allow-${of}`, "h3");
-    const body = element("div", "");
+    const body = element("div");
     section.setAttribute("aria-labelledby", heading.id);
     section.append(heading, body);
     return { of, section, title: heading, body };
@@ -1163,7 +1145,7 @@ export async function mountSettingsForm(
     }
     const note = element("p", "tks-allow-note", i18n.plural("options_allow_all_note", count));
     // A button, not a hash link: in the userscript dialog a hash would change the store's URL
-    const show = quietButton(i18n.t("options_allow_all_show"));
+    const show = quietButton(doc, i18n.t("options_allow_all_show"));
     show.setAttribute("data-tks-tab", GENERAL_TAB);
     note.append(" ", show);
     return note;

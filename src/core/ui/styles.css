@@ -173,12 +173,6 @@
   }
 }
 
-/* The reset unsets the user agent's hidden rule */
-.tks-hovercard[hidden],
-.tks-hovercard [hidden] {
-  display: none !important;
-}
-
 /* One entry per kind: Steam's line as a violet title, then its details. */
 .tks-hovercard-entry {
   display: flex;
@@ -372,10 +366,6 @@
   background: var(--tks-store-notice-bg);
   color: var(--tks-store-notice-fg);
   font: var(--tks-store-notice-font);
-}
-
-.tks-list-notice[hidden] {
-  display: none !important;
 }
 
 .tks-list-notice-button {

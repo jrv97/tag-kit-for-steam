@@ -14,6 +14,7 @@ import type { MessageCatalog } from "../ports";
 import { ALLOW_ALL, type AllowScope, toAllowScope } from "../settings/allow-data";
 import { announce, POLITE } from "./announce";
 import { ROLE_LABELS } from "./creator-roles";
+import { elementFactory, plainButton, VARIANT_ATTRIBUTE } from "./element";
 import {
   buildIgnoreMenu,
   CREATOR_ATTRIBUTE,
@@ -195,14 +196,14 @@ export function createBanner(
 ): Banner {
   const frame = options.frame ?? defaultFrame(doc);
   const overflows = options.overflows ?? defaultOverflows;
+  const element = elementFactory(doc);
 
-  const host = doc.createElement("div");
-  host.className = "tks-banner-host";
+  const host = element("div", "tks-banner-host");
   host.id = BANNER_ID;
   const shadow = host.attachShadow({ mode: "open" });
   adoptStyles(shadow, BANNER_CSS);
 
-  let box = doc.createElement("aside");
+  let box = element("aside");
   const live = element("div", "tks-vh");
   live.setAttribute("aria-live", POLITE);
   shadow.append(box, live);
@@ -216,22 +217,8 @@ export function createBanner(
   let hovered = false;
   let leaving: ReturnType<typeof setTimeout> | undefined;
 
-  function element<K extends keyof HTMLElementTagNameMap>(
-    tag: K,
-    className: string,
-    text?: string,
-  ): HTMLElementTagNameMap[K] {
-    const node = doc.createElement(tag);
-    node.className = className;
-    if (text !== undefined) {
-      node.textContent = text;
-    }
-    return node;
-  }
-
   function button(className: string, action: Action, label: string): HTMLButtonElement {
-    const node = element("button", className, label);
-    node.type = "button";
+    const node = plainButton(doc, className, label);
     node.setAttribute("data-tks-action", action);
     return node;
   }
@@ -344,7 +331,7 @@ export function createBanner(
       aside.setAttribute("aria-label", i18n.t(label));
     }
     if (only === undefined) {
-      aside.setAttribute("data-tks-variant", "ignored");
+      aside.setAttribute(VARIANT_ATTRIBUTE, "ignored");
     } else if (view.shown.length > 1) {
       // A banner with one tag takes its color; several tags keep the default violet.
       aside.setAttribute("data-tks-entries", "many");

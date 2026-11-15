@@ -3,6 +3,7 @@ import type { BareMessageKey } from "../i18n/t";
 import { KIND_BY_ID } from "../kinds/registry";
 import { type AnyDisclosed, sameVerdicts } from "../kinds/verdicts";
 import type { MessageCatalog } from "../ports";
+import { createElement } from "./element";
 import { KIND_ATTRIBUTE } from "./kind-attributes";
 import { fromValve, fullGameLine, type KindDetail, kindDetails, sourceLine } from "./kind-details";
 import { normalizeBreaks } from "./notes";
@@ -213,10 +214,7 @@ export function createHoverCard(
   }
 
   function line(className: string, text: string): HTMLElement {
-    const node = doc.createElement("p");
-    node.className = className;
-    node.textContent = text;
-    return node;
+    return createElement(doc, "p", className, text);
   }
 
   function ensureCard(): Card {
@@ -226,8 +224,7 @@ export function createHoverCard(
       }
       return card;
     }
-    const root = doc.createElement("div");
-    root.className = "tks-hovercard";
+    const root = createElement(doc, "div", "tks-hovercard");
     root.id = HOVER_CARD_ID;
     root.setAttribute("role", "tooltip");
     root.setAttribute("popover", "manual");
@@ -253,9 +250,7 @@ export function createHoverCard(
       }
       case "labeled": {
         const labeled = line("tks-hovercard-service", i18n.t(detail.key));
-        const name = doc.createElement("span");
-        name.className = "tks-hovercard-service-name";
-        name.textContent = detail.text;
+        const name = createElement(doc, "span", "tks-hovercard-service-name", detail.text);
         labeled.append(" ", name);
         return labeled;
       }
@@ -273,8 +268,7 @@ export function createHoverCard(
    */
   function entry(verdict: AnyDisclosed): HTMLElement {
     const heading = i18n.t(KIND_BY_ID[verdict.kind].messages.heading);
-    const node = doc.createElement("div");
-    node.className = "tks-hovercard-entry";
+    const node = createElement(doc, "div", "tks-hovercard-entry");
     node.setAttribute(KIND_ATTRIBUTE, verdict.kind);
     node.append(
       line("tks-hovercard-title", heading),

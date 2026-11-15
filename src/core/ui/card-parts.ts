@@ -1,4 +1,4 @@
-import { createElement } from "./element";
+import { createElement, plainButton, PRIMARY_VARIANT, VARIANT_ATTRIBUTE } from "./element";
 import { withIcon } from "./icon";
 import type { LucideName } from "./lucide";
 
@@ -27,14 +27,10 @@ export function actionOf<A extends string>(
 
 /** A secondary button with its text, and with a Lucide icon before it when given. */
 export function cardButton(doc: Document, text: string, icon?: LucideName): HTMLButtonElement {
-  const button = createElement(doc, "button", "tks-button");
-  button.type = "button";
   if (icon === undefined) {
-    button.textContent = text;
-  } else {
-    withIcon(button, icon, text);
+    return plainButton(doc, "tks-button", text);
   }
-  return button;
+  return withIcon(plainButton(doc, "tks-button"), icon, text);
 }
 
 /** A wrapping row of buttons; `end` puts it on the right, as the store's dialogs do. */
@@ -81,7 +77,7 @@ export function createConfirmBox(doc: Document, spec: ConfirmSpec): ConfirmBox {
   title.id = spec.id;
   title.tabIndex = -1;
   const list = createElement(doc, "ul", "tks-confirm-list");
-  spec.confirm.setAttribute("data-tks-variant", "primary");
+  spec.confirm.setAttribute(VARIANT_ATTRIBUTE, PRIMARY_VARIANT);
   const node = createElement(doc, "div", "tks-confirm");
   node.setAttribute("role", "group");
   node.setAttribute("aria-labelledby", title.id);

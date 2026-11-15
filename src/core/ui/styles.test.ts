@@ -90,6 +90,29 @@ function filterSelectors(declaration: string): readonly string[] {
     .filter((selector) => selector.startsWith("[data-tks-filter-"));
 }
 
+describe("the hidden rule", () => {
+  /** The selectors whose rules force `display: none`. */
+  const hiding = (css: string) =>
+    rulesOf(css).filter((rule) => rule.body.includes("display: none !important"))
+      .flatMap((rule) => rule.selectors);
+
+  // Author display rules would otherwise beat the user agent's [hidden] in each of our roots.
+  it.each(
+    [
+      ["PAGE_CSS", [
+        ".tks-hovercard[hidden]",
+        ".tks-hovercard [hidden]",
+        ".tks-list-notice[hidden]",
+      ]],
+      ["BANNER_CSS", [":host [hidden]"]],
+      ["SETTINGS_CSS", [":host [hidden]", ".tks-options [hidden]"]],
+    ] as const,
+  )("%s hides a [hidden] node of ours and leaves the store's alone", (sheet, selectors) => {
+    expect(hiding(RULES[sheet])).toEqual(expect.arrayContaining([...selectors]));
+    expect(hiding(RULES[sheet])).not.toContain("[hidden]");
+  });
+});
+
 describe("the per-kind page rules", () => {
   // The rules list every kind, because no selector can join an attribute on the root element with
   // one on a host. A kind missing from a group fails here instead of silently never matching.
@@ -236,8 +259,7 @@ describe("the page rule declarations", () => {
     // The tag section label is muted and its chips take the store's tag font.
     [".tks-tag-section-label", "color: var(--tks-color-text-muted)"],
     [".tks-tag-section .tks-badge", "font: var(--tks-summary-tag-font)"],
-    // The hidden results notice hides when told and takes the store's notice bar look.
-    [".tks-list-notice[hidden]", "display: none !important"],
+    // The hidden results notice takes the store's notice bar look.
     [".tks-list-notice", "background: var(--tks-store-notice-bg)"],
     [".tks-list-notice", "color: var(--tks-store-notice-fg)"],
     [".tks-list-notice", "padding: var(--tks-store-notice-pad)"],

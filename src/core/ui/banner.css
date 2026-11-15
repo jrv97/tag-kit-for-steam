@@ -9,11 +9,6 @@
   display: block;
 }
 
-/* Author display rules would otherwise beat the user agent's [hidden] */
-[hidden] {
-  display: none !important;
-}
-
 .tks-banner {
   box-sizing: border-box;
   display: block;

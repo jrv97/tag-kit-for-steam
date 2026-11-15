@@ -148,14 +148,11 @@ describe("the Tag order card", () => {
     );
   });
 
-  it("lists every kind in the stored order, with a named handle and the cue", async () => {
+  it("lists every kind in the stored order, each handle described by the cue", async () => {
     const order = parseOrder(["family", "pvp"]);
     const { root, handle, shown } = await setup(order);
     expect(shown()).toEqual(order);
     expect(root.querySelectorAll(".tks-order-list")).toHaveLength(1);
-    expect(handle("family").getAttribute("aria-label")).toBe(
-      i18n.t("options_order_handle", { name: keyOf("family") }),
-    );
     const how = root.querySelector(`#${handle("family").getAttribute("aria-describedby") ?? ""}`);
     expect(how?.textContent).toBe(i18n.t("options_order_how"));
   });

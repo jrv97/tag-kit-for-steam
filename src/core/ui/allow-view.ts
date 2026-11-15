@@ -8,6 +8,7 @@ import {
   toAllowScope,
 } from "../settings/allow-data";
 import type { ScopedList } from "../settings/allow-list";
+import { createElement, elementFactory, quietButton } from "./element";
 
 /** What marks a "Stop ignoring" button, with the key of the item it restores. */
 export const RESTORE_ATTRIBUTE = "data-tks-restore";
@@ -70,9 +71,7 @@ export interface AllowSource {
 }
 
 function errorLine(doc: Document, text: string): HTMLElement {
-  const error = doc.createElement("p");
-  error.className = "tks-field-error";
-  error.textContent = text;
+  const error = createElement(doc, "p", "tks-field-error", text);
   error.setAttribute("role", "alert");
   return error;
 }
@@ -83,32 +82,18 @@ export function createAllowSource<Key extends string | number>(
   context: AllowViewContext,
 ): AllowSource {
   const { doc, i18n, dates, prefix, scopeName } = context;
+  const element = elementFactory(doc);
   let entries: AllowEntries<Key> | undefined;
-
-  function element<K extends keyof HTMLElementTagNameMap>(
-    tag: K,
-    className: string,
-    text?: string,
-  ): HTMLElementTagNameMap[K] {
-    const node = doc.createElement(tag);
-    node.className = className;
-    if (text !== undefined) {
-      node.textContent = text;
-    }
-    return node;
-  }
 
   function item(of: AllowScope, key: Key, entry: AllowEntry): HTMLElement {
     const node = element("li", "tks-allow-item");
-    const text = doc.createElement("div");
+    const text = element("div");
     const since = dates.format(new Date(entry.added));
     text.append(
       spec.nameOf(key, entry),
       element("span", "tks-allow-meta", i18n.t("options_allow_since", { date: since })),
     );
-    const stop = element("button", "tks-button", i18n.t("options_allow_restore"));
-    stop.type = "button";
-    stop.setAttribute("data-tks-variant", "quiet");
+    const stop = quietButton(doc, i18n.t("options_allow_restore"));
     stop.setAttribute(RESTORE_ATTRIBUTE, String(key));
     stop.setAttribute(LIST_ATTRIBUTE, spec.id);
     stop.setAttribute(SCOPE_ATTRIBUTE, of);

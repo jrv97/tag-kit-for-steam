@@ -13,7 +13,7 @@ import { type KindSettings, taggedFacets } from "../kinds/kind-settings";
 import type { MessageCatalog } from "../ports";
 import type { SettingsPatch } from "../settings/settings";
 import { createChipElement } from "./badge";
-import { createElement } from "./element";
+import { createElement, quietButton } from "./element";
 import { chipText } from "./kind-details";
 
 /** What the chip text fields need from the form around them. */
@@ -26,8 +26,6 @@ export interface ChipFieldsDeps {
   readonly error: (field: ChipTextField, id: KindId) => HTMLElement;
   /** Stores a patch; the form syncs the fields once it is stored or has failed. */
   readonly save: (patch: SettingsPatch, field: ChipTextField, id: KindId) => Promise<void>;
-  /** Quiet buttons, in the form's own look. */
-  readonly quietButton: (text: string) => HTMLButtonElement;
 }
 
 export interface ChipFields {
@@ -101,7 +99,7 @@ export function createChipFields(deps: ChipFieldsDeps): ChipFields {
     input.setAttribute(FOR_ATTRIBUTE, kind.id);
     const label = createElement(doc, "label", "tks-field-label", i18n.t(keys.label));
     label.htmlFor = input.id;
-    const reset = deps.quietButton(i18n.t("options_color_reset"));
+    const reset = quietButton(doc, i18n.t("options_color_reset"));
     reset.setAttribute(RESET_ATTRIBUTE, name);
     reset.setAttribute(FOR_ATTRIBUTE, kind.id);
     const heading = i18n.t(kind.messages.heading);

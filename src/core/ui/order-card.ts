@@ -3,7 +3,7 @@ import { KIND_IDS, type KindId } from "../kinds/id";
 import { OVERLAY_CHIPS, ROW_CHIPS, sameOrder, SUGGESTION_CHIPS } from "../kinds/order";
 import { KIND_BY_ID } from "../kinds/registry";
 import type { MessageCatalog } from "../ports";
-import { createElement } from "./element";
+import { createElement, quietButton } from "./element";
 import { parseIcon } from "./icon";
 import { keyDescription, keyText } from "./kind-keys";
 import { dropIndex, heldIndex, type Reorder, reorder } from "./reorder";
@@ -163,9 +163,7 @@ export function createOrderCard(doc: Document, deps: OrderCardDeps): OrderCard {
     "tks-vh",
     limits.map(({ text }) => text).join(" "),
   );
-  const reset = createElement(doc, "button", "tks-button", i18n.t("options_order_reset"));
-  reset.type = "button";
-  reset.setAttribute("data-tks-variant", "quiet");
+  const reset = quietButton(doc, i18n.t("options_order_reset"));
   reset.setAttribute(RESET_ATTRIBUTE, "");
   section.append(
     title,

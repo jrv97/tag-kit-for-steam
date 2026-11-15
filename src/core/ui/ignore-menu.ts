@@ -5,6 +5,7 @@ import type { ChipWords } from "../kinds/kind-settings";
 import { KIND_BY_ID } from "../kinds/registry";
 import type { MessageCatalog } from "../ports";
 import { ALLOW_ALL, type AllowScope } from "../settings/allow-data";
+import { elementFactory, plainButton } from "./element";
 
 /** The menu's groups, in the order they show after the game's own row. A creator group is named
  * by its role. */
@@ -86,23 +87,11 @@ export function buildIgnoreMenu(
   view: MenuView,
   state: MenuState,
 ): HTMLElement {
-  function element<K extends keyof HTMLElementTagNameMap>(
-    tag: K,
-    className: string,
-    text?: string,
-  ): HTMLElementTagNameMap[K] {
-    const node = doc.createElement(tag);
-    node.className = className;
-    if (text !== undefined) {
-      node.textContent = text;
-    }
-    return node;
-  }
+  const element = elementFactory(doc);
 
   /** A plain button that names what it does in `data-tks-action`. */
   function control(className: string, action: MenuAction, text?: string): HTMLButtonElement {
-    const node = element("button", className, text);
-    node.type = "button";
+    const node = plainButton(doc, className, text);
     node.setAttribute("data-tks-action", action);
     return node;
   }
