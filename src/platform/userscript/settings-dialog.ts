@@ -1,3 +1,4 @@
+import { detach } from "../../core/dom";
 import type { Catalogs } from "../../core/i18n/catalog";
 import type { I18n } from "../../core/i18n/t";
 import type { IgnoreLists } from "../../core/ignored";
@@ -94,7 +95,7 @@ export async function openSettingsDialog(deps: SettingsDialogDeps): Promise<void
   });
   dialog.addEventListener("close", () => {
     form.destroy();
-    host.remove();
+    detach(host);
     if (opener instanceof HTMLElement) {
       opener.focus();
     }

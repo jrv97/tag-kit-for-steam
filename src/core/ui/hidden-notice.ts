@@ -1,3 +1,4 @@
+import { detach } from "../dom";
 import { KINDS } from "../kinds/registry";
 import type { MessageCatalog } from "../ports";
 import { HOST_FAILED, HOST_HIDEABLE, HOST_KINDS } from "../scan/marks";
@@ -258,7 +259,7 @@ export function createHiddenNotice(options: HiddenNoticeOptions): HiddenNotice {
     },
     stop() {
       disconnect();
-      box.remove();
+      detach(box);
       button.removeEventListener("click", onClick);
       view?.removeEventListener("pagehide", disconnect);
       view?.removeEventListener("pageshow", onPageShow);

@@ -546,7 +546,7 @@ describe("the ignore menu", () => {
     banner.show(view(SEVERAL));
     query(root, CARET).click();
     const stop = vi.spyOn(document, "removeEventListener");
-    banner.remove();
+    banner.detach();
     expect(banner.host.isConnected).toBe(false);
     expect(stop).toHaveBeenCalledWith("pointerdown", expect.any(Function), true);
     placeBanner(document, banner.host);

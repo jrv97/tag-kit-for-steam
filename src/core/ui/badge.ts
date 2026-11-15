@@ -1,3 +1,4 @@
+import { detach } from "../dom";
 import { facetOf } from "../kinds/facets";
 import type { KindId } from "../kinds/id";
 import type { TagKind } from "../kinds/kind";
@@ -198,7 +199,7 @@ export function createBadgeRenderer(
       const current = drawn.get(host);
       const texts = words?.();
       if (present === undefined || slot === undefined) {
-        current?.group.remove();
+        detach(current?.group);
         drawn.delete(host);
         return;
       }
@@ -213,7 +214,7 @@ export function createBadgeRenderer(
         }
         return;
       }
-      current?.group.remove();
+      detach(current?.group);
       const group = build(slot, present, maxChips, texts);
       slot.anchor.insertAdjacentElement(slot.position, group);
       if (slot.kind === "compact") {

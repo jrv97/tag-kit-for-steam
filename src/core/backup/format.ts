@@ -80,7 +80,7 @@ function rawEntries(list: unknown): number {
     return 0;
   }
   let count = 0;
-  for (const scope of Object.values(scopes.output)) {
+  for (const [, scope] of Object.entries(scopes.output)) {
     if (typeof scope === "object" && scope !== null) {
       count += Object.keys(scope).length;
     }
@@ -92,7 +92,7 @@ function rawEntries(list: unknown): number {
 export function countEntries(lists: readonly AllowEntries<unknown>[]): number {
   let count = 0;
   for (const entries of lists) {
-    for (const scoped of Object.values(entries)) {
+    for (const [, scoped] of Object.entries(entries)) {
       count += scoped.size;
     }
   }

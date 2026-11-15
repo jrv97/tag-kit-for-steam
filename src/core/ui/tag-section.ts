@@ -1,3 +1,4 @@
+import { detach } from "../dom";
 import type { ChipWords } from "../kinds/kind-settings";
 import { type AnyDisclosed, sameVerdicts } from "../kinds/verdicts";
 import type { MessageCatalog } from "../ports";
@@ -89,7 +90,7 @@ export function createTagSection(
   }
 
   function remove(): void {
-    drawn?.element.remove();
+    detach(drawn?.element);
     drawn = undefined;
   }
 
