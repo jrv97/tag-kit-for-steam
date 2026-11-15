@@ -125,12 +125,13 @@ depends = ["deps", "gen"]
 run = "vitest run"
 
 [tasks.check]
-description = "Check text hygiene, versions, message catalogs and the built bundles"
+description = "Check text hygiene, versions, message catalogs, wording and the built bundles"
 depends = ["build"]
 run = [
   "python scripts/check_text.py",
   "python scripts/check_versions.py",
   "python scripts/check_i18n.py",
+  "python scripts/check_wording.py",
   "python scripts/check_bundle.py",
   "python scripts/check_screenshots.py",
 ]
@@ -272,6 +273,7 @@ run = [
   "bash scripts/precommit_format.sh",
   "python scripts/check_text.py --staged",
   "python scripts/check_i18n.py",
+  "python scripts/check_wording.py",
 ]
 
 [tasks.prepush]

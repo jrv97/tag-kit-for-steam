@@ -13,73 +13,20 @@
   @supportURL and @icon (the 48 px icon as a data URI); every `GM` name in the bundle has an
   @grant and every @grant is used; valibot's license block is in the body; no userscript header
   in any other bundle.
+- Manifests declare no web_accessible_resources, so no page can load or probe an extension file;
+  every content script runs in the isolated world (rules 2 and 3).
 - No eval( or new Function in any bundle (rule 2); no URL outside the two Valve hosts, except the
   three feedback links of the settings footer, which options.js and the userscript may carry.
+- No bundle writes a cookie through `document.cookie` or `cookieStore` (rule 1).
+- The extension bundles create no <script> element, which would run code in the page world. The
+  userscript and the dev bundle run in the page world by design (ADR 0029).
 - Catalogs: each shipped bundle carries exactly the messages its code reads (decision 58). Every
   key or plural base that a string literal of its code names is in its inlined catalogs, and every
   message there is named, so a missing key fails here and never falls back to the raw key on a
   store page. scripts/gen_catalogs.py writes each entry's catalogs by the same reading.
-- Size budgets: content.js at most 245 KiB, options.js at most 260 KiB and the userscript at most
-  430 KiB, unminified (rule 13). Each is the measured size plus a few percent of headroom; raise one
-  only with a measurement. A message costs bytes only in the bundles that read it, and an added
-  locale costs about 5 KB in content.js, 9 KB in options.js and 12 KB in the userscript. Measured
-  when ignoring by developer or publisher landed (ADR 0013): content.js 186,313 B (from 169,265),
-  options.js 126,147 B (from 118,688), userscript 251,440 B (from 232,227). Measured when backup
-  and restore landed (decision 54): content.js 198,433 B (from 193,262, catalog text only),
-  options.js 147,172 B (from 127,308), userscript 279,609 B (from 259,792); the backup code ships
-  in options.js and the userscript only. Measured when each bundle got its own catalogs (decision
-  58): content.js 190,090 B (from 204,338), options.js 140,579 B (from 148,242), userscript
-  285,327 B (from 285,925). The userscript reads both sets and keeps 284 KiB, which is already
-  under its size plus a few percent. Measured when the Steam Deck and Steam Machine tags landed
-  (decision 62): content.js 203,934 B (from 194,020), options.js 148,073 B (from 141,935),
-  userscript 303,799 B (from 289,921); each passed its budget, which rises to the size plus 2 to 3
-  percent. Measured when the settings became tabs and the popup a row per tag (decision 65):
-  content.js 206,761 B (unchanged: the tab code and its messages stay out of its graph), options.js
-  164,999 B (from 150,395) and userscript 320,101 B (from 307,306); their budgets rise to 165 and
-  320 KiB, the size plus 2.4 percent. Measured when the tag order card landed (decision 66):
-  content.js 208,094 B (from 206,761: the order setting and the surfaces that follow it),
-  options.js 182,687 B (from 165,741) and userscript 338,320 B (from 321,389): the card's code
-  about 12.5 KB, its CSS 2 KB and its messages 2 KB. Their budgets rise to 183 and 339 KiB, the
-  size plus 2.6 percent; content.js keeps 205 KiB. Measured when a person's chip text and the color
-  picker landed (decisions 67 and 68): content.js 209,814 B (from 208,094: the two stored fields,
-  their schema and the chips that read them), which keeps 205 KiB with 106 bytes to spare;
-  options.js 200,213 B (from 182,687) and userscript 354,609 B (from 338,320): the chip text fields
-  and their preview about 6.8 KB of code, the shared chip rules and the field rules 1.9 KB of CSS,
-  their messages 1.8 KB, the picker 1.6 KB and the tabs, rows and order card that follow the text
-  2.2 KB. Their budgets rise to 200 and 355 KiB, the size plus 2.3 and 2.5 percent. Measured when
-  the feedback footer landed: content.js 209,805 B (unchanged), options.js 202,937 B (from 200,204)
-  and userscript 357,333 B (from 354,600), 2,733 B each: the footer, its three links, its rule and
-  four messages in two locales. No budget changes. Measured when the Early Access tag landed (ADR
-  0018): content.js 214,132 B (from 209,805), options.js 205,109 B (from 202,937) and userscript
-  362,174 B (from 357,333): the kind, its schema fields, the dated hover line, the date format and
-  the update-time reader, plus four messages in two locales. Their budgets rise to 215, 206 and
-  363 KiB, the size plus 2.8, 2.8 and 2.6 percent. Measured when the popup's gear and tag
-  rows began to answer a click before the form loads: options.js 211,168 B (from 210,943) and
-  userscript 365,541 B (from 365,316), 225 B each for the listener the form attaches when it
-  draws. The options.js budget rises to 211 KiB, the size plus 2.3 percent. Measured when the tags
-  got keys for the settings and the Tag order card its cut lines (ADR 0023): content.js 214,273 B
-  (unchanged: the keys stay out of its graph), options.js 216,843 B (from 211,168) and userscript
-  371,180 B (from 365,541): the keys, descriptions, cut lines and caption in two locales, the key
-  table, the cut lines' code and the tab rules. Their budgets rise to 217 and 372 KiB, the size
-  plus 2.5 and 2.6 percent. Measured when the banner's ignore menu landed (ADR 0026): content.js
-  227,692 B and userscript 391,748 B, for the menu module, its keyboard and hover handling, its
-  rules and its messages in two locales; the userscript also carries the header's data URI icon.
-  Their budgets rise to 227 and 391 KiB, the size plus 2.1 and 2.2 percent. Measured when tags
-  began to draw per GetItems batch and the popup and dialog got the load strip: content.js
-  238,647 B (from 229,334: the detector sink in every layer, the progress record and the port's
-  content end), options.js 233,097 B (from 222,201) and userscript 410,135 B (from 393,567): the
-  strip, its rules, its eleven messages in two locales and the port's popup end. Their budgets
-  rise to 239, 233 and 410 KiB, the size plus 2.6, 2.4 and 2.4 percent. Measured when the Lookup
-  results and Reset cards and the settings icons landed (decision 82): content.js 239,796 B (from
-  239,742: the ignore lists' clear), options.js 259,459 B (from 233,696) and userscript 429,676 B
-  (from 411,764): the two cards and the parts they share with Backup, seven Lucide icons and 31
-  messages in two locales. Their budgets rise to 260 and 430 KiB, the size plus 2.6 and 2.5
-  percent. Measured when the toolbar icon began to dim outside the store (ADR 0027): announce.js
-  953 B and background.js 978 B; neither carries valibot. Their budgets are 1 KiB each. Measured
-  when failed lookups got reported (ADR 0028): content.js 245,779 B (from 240,502: the failed
-  marks, the notice's failed sentence and its plural message in two locales, and the recheck
-  through the surfaces, the tracker and the port). Its budget rises to 245 KiB, the size plus 2.1
-  percent.
+- Size budgets, unminified (rule 13): content.js 250 KiB, options.js 260 KiB, announce.js and
+  background.js 1 KiB each, and the userscript 440 KiB. Each is a measured size plus 2 to 3
+  percent of headroom. Raise one only with a measurement, and give it in the pull request.
 - The STEAM_API_KEY value, when set, appears nowhere in dist/ or artifacts/ (rule 16).
 - The dev injection bundle is never packaged into artifacts/, and when artifacts/ exists it holds
   exactly the five release artifacts, with a manifest at the root of each extension zip. The source
@@ -145,6 +92,15 @@ SETTINGS_LINKS = (
 HEADER_START = "// ==UserScript=="
 HEADER_END = "// ==/UserScript=="
 REMOTE_CODE = re.compile(r"\beval\s*\(|\bnew\s+Function\b")
+COOKIE_WRITE = re.compile(r"\bdocument\.cookie\s*\+?=(?!=)|\bcookieStore\.(?:set|delete)\b")
+SCRIPT_ELEMENT = re.compile(r"\bcreateElement\(\s*([\"'`])(?i:script)\1")
+# Manifest keys that grant more than storage or expose extension files to pages (rules 2 and 3).
+FORBIDDEN_KEYS = (
+    "host_permissions",
+    "optional_host_permissions",
+    "optional_permissions",
+    "web_accessible_resources",
+)
 URL = re.compile(r"https?://([A-Za-z0-9.-]+)")
 GM_NAME = re.compile(r"\bGM(?:\.[A-Za-z_]\w*|_[A-Za-z]\w*)")
 HEADER_FIELD = re.compile(r"^//\s+(@[\w:-]+)[ \t]*(.*?)\s*$", re.MULTILINE)
@@ -264,16 +220,13 @@ def notices_problems(where: str, path: Path) -> list[str]:
     return notices_text_problems(where, path.read_text(encoding="utf-8"))
 
 
-def manifest_problems(target: str) -> list[str]:
-    root = DIST / target
+def manifest_shape_problems(target: str, manifest: dict[str, object]) -> list[str]:
+    """The keys a manifest may declare and the exact values the rules allow (rules 2 and 3)."""
     where = f"dist/{target}/manifest.json"
-    manifest = json_object(read_json(root / "manifest.json"), where)
     problems: list[str] = []
     if manifest.get("permissions") != ["storage"]:
         problems.append(f'{where}: permissions must be exactly ["storage"]')
-    for key in ("host_permissions", "optional_host_permissions", "optional_permissions"):
-        if key in manifest:
-            problems.append(f"{where}: {key} is not allowed")
+    problems += [f"{where}: {key} is not allowed" for key in FORBIDDEN_KEYS if key in manifest]
     if manifest.get("background") != BACKGROUND[target]:
         problems.append(f"{where}: background must be exactly {BACKGROUND[target]}")
     if json_object(manifest.get("action", {}), where).get("default_icon") != OFF_ICONS:
@@ -283,11 +236,22 @@ def manifest_problems(target: str) -> list[str]:
         problems.append(f"{where}: content_scripts is missing")
     else:
         for script in scripts:
-            if json_object(script, where).get("matches") != STORE_MATCH:
+            entry = json_object(script, where)
+            if entry.get("matches") != STORE_MATCH:
                 problems.append(f"{where}: content script matches must be {STORE_MATCH}")
+            if entry.get("world", "ISOLATED") != "ISOLATED":
+                problems.append(f"{where}: content scripts must run in the isolated world")
     has_gecko = "browser_specific_settings" in manifest
     if has_gecko != (target == "gecko"):
         problems.append(f"{where}: browser_specific_settings belongs in the Gecko build only")
+    return problems
+
+
+def manifest_problems(target: str) -> list[str]:
+    root = DIST / target
+    where = f"dist/{target}/manifest.json"
+    manifest = json_object(read_json(root / "manifest.json"), where)
+    problems = manifest_shape_problems(target, manifest)
     locale = json_string(manifest.get("default_locale"), f"{where} default_locale")
     catalog = json_object(read_json(root / "_locales" / locale / "messages.json"), locale)
     for key in MSG.findall((root / "manifest.json").read_text(encoding="utf-8")):
@@ -315,11 +279,9 @@ def header_fields(header: str) -> dict[str, list[str]]:
     return fields
 
 
-def header_problems(where: str, header: str) -> list[str]:
-    """Each fixed header field that is missing or holds another value, and a missing @noframes."""
-    fields = header_fields(header)
-    problems: list[str] = []
-    expected = {
+def fixed_header_fields() -> dict[str, list[str]]:
+    """The userscript header fields whose values are fixed, by key."""
+    return {
         "@match": STORE_MATCH,
         "@updateURL": [f"{RELEASE_BASE}/{SLUG}.meta.js"],
         "@downloadURL": [f"{RELEASE_BASE}/{SLUG}.user.js"],
@@ -327,7 +289,13 @@ def header_problems(where: str, header: str) -> list[str]:
         "@supportURL": [ISSUES_URL],
         "@icon": [png_data_uri(USERSCRIPT_ICON)],
     }
-    for key, values in expected.items():
+
+
+def header_problems(where: str, header: str) -> list[str]:
+    """Each fixed header field that is missing or holds another value, and a missing @noframes."""
+    fields = header_fields(header)
+    problems: list[str] = []
+    for key, values in fixed_header_fields().items():
         if fields.get(key) != values:
             problems.append(f"{where}: {key} must be {values}")
     if "@noframes" not in fields:
@@ -349,28 +317,38 @@ def notice_problems(where: str, body: str) -> list[str]:
     return [f"{where}: valibot's license text is missing from the userscript"]
 
 
-def script_problems(path: Path) -> list[str]:
-    text = path.read_text(encoding="utf-8")
-    where = path.relative_to(DIST.parent).as_posix()
+def script_problems(where: str, text: str, isolated: bool) -> list[str]:
+    """A bundle's problems. An isolated bundle must not reach the page world (ADR 0029)."""
+    name = where.rsplit("/", 1)[-1]
     problems: list[str] = []
     header, body = split_header(text)
-    if path.name.endswith((".user.js", ".meta.js")):
+    if name.endswith((".user.js", ".meta.js")):
         if not header:
             problems.append(f"{where}: the userscript header is missing")
         if "@connect" in header:
             problems.append(f"{where}: @connect is not allowed")
         if header:
             problems += header_problems(where, header)
-            if path.name.endswith(".user.js"):
+            if name.endswith(".user.js"):
                 problems += grant_problems(where, header, body)
                 problems += notice_problems(where, body)
     elif HEADER_START in text:
         problems.append(f"{where}: a userscript header belongs in the userscript only")
-    if path.name.endswith(".meta.js"):
+    if name.endswith(".meta.js"):
         return problems
+    return problems + code_problems(where, body, isolated)
+
+
+def code_problems(where: str, body: str, isolated: bool) -> list[str]:
+    """Remote code, cookie writes, a way into the page world and hosts in a bundle's code."""
+    problems: list[str] = []
     if REMOTE_CODE.search(body):
         problems.append(f"{where}: eval( or new Function found")
-    if path.name != "content.js":
+    if COOKIE_WRITE.search(body):
+        problems.append(f"{where}: writes a cookie")
+    if isolated and SCRIPT_ELEMENT.search(body):
+        problems.append(f"{where}: creates a <script> element, which runs in the page world")
+    if not where.endswith("/content.js"):
         for link in SETTINGS_LINKS:
             body = body.replace(link, "")
     for host in sorted(set(URL.findall(body)) - ALLOWED_HOSTS):
@@ -476,7 +454,9 @@ def main() -> None:
     for target in EXTENSION_TARGETS:
         problems += manifest_problems(target)
     for path in sorted(DIST.rglob("*.js")):
-        problems += script_problems(path)
+        where = path.relative_to(DIST.parent).as_posix()
+        isolated = path.relative_to(DIST).parts[0] in EXTENSION_TARGETS
+        problems += script_problems(where, path.read_text(encoding="utf-8"), isolated)
     problems += catalog_problems([path for path in BUDGETS if path.is_file()])
     for path, budget in BUDGETS.items():
         if not path.is_file():
