@@ -110,7 +110,6 @@ The toolbar popup lists every tag by its short name, with its Show, Dim and Hide
 - <img src="https://api.iconify.design/lucide/bug.svg?color=%238f73f3" alt="" width="16" height="16"> [Report a bug](https://github.com/jrv97/tag-kit-for-steam/issues/new?template=bug_report.yml)
 - <img src="https://api.iconify.design/lucide/lightbulb.svg?color=%238f73f3" alt="" width="16" height="16"> [Request a feature](https://github.com/jrv97/tag-kit-for-steam/issues/new?template=feature_request.yml)
 - <img src="https://api.iconify.design/lucide/languages.svg?color=%238f73f3" alt="" width="16" height="16"> [Request a language or fix a translation](https://github.com/jrv97/tag-kit-for-steam/issues/new?template=translation.yml)
-- <img src="https://api.iconify.design/lucide/message-square-heart.svg?color=%238f73f3" alt="" width="16" height="16"> [Send quick anonymous feedback](https://forms.gle/Fo652zzyFWUQn2qK9)
 
 ## Privacy
 
