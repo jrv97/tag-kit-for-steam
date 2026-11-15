@@ -158,7 +158,7 @@ async function main(): Promise<void> {
 
   // A game, developer or publisher ignored or restored on a store page shows up here at once,
   // as does a tab the popup asks for.
-  const listKeys = [ALLOW_KEY, ...Object.values(CREATOR_ALLOW_KEYS)];
+  const listKeys = [ALLOW_KEY, ...Object.entries(CREATOR_ALLOW_KEYS).map(([, key]) => key)];
   onLocalChanged((changes) => {
     if (listKeys.some((key) => changes[key] !== undefined)) {
       void form.refreshAllowList();

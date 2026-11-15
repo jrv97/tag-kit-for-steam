@@ -1,5 +1,5 @@
 // @vitest-environment-options {"url":"https://store.steampowered.com/search/?term=roguelike"}
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import kindItems from "../../tests/fixtures/getitems/kinds.json";
 import searchItems from "../../tests/fixtures/getitems/search-roguelike-50.json";
 import { clearRoot, setBody } from "../../tests/helpers/dom";
@@ -189,17 +189,11 @@ describe("start on a package page", () => {
 
 describe("start on the search page", () => {
   it("badges and stops in the page's own world, where Prototype.js patched built-ins", async () => {
-    const restore = fake.prototypeJs();
-    try {
-      await startOnSearch();
-      await expect.poll(() => document.querySelectorAll(".tks-badge").length).toBe(
-        DISCLOSED_BADGES,
-      );
-      expect(() => app?.stop()).not.toThrow();
-    } finally {
-      app = undefined;
-      restore();
-    }
+    onTestFinished(fake.prototypeJs());
+    await startOnSearch();
+    await expect.poll(() => document.querySelectorAll(".tks-badge").length).toBe(DISCLOSED_BADGES);
+    expect(() => app?.stop()).not.toThrow();
+    app = undefined;
   });
 
   it("badges the disclosed row after one GetItems request for the page", async () => {

@@ -1,5 +1,5 @@
 /** A callback as Prototype.js's `Enumerable` calls it: the value and its index, no array. */
-type Iterator = (value: unknown, index: number) => unknown;
+type Callback = (value: unknown, index: number) => unknown;
 
 /** Each patch: the object, the property and the replacement Prototype.js 1.7 installs. */
 const PATCHES: readonly (readonly [object, PropertyKey, unknown])[] = [
@@ -8,14 +8,14 @@ const PATCHES: readonly (readonly [object, PropertyKey, unknown])[] = [
     return this.slice();
   }],
   // `Enumerable#collect` and `#all` call back with the value and its index only.
-  [Array.prototype, "map", function(this: readonly unknown[], fn: Iterator, self?: unknown) {
+  [Array.prototype, "map", function(this: readonly unknown[], fn: Callback, self?: unknown) {
     const out: unknown[] = [];
     for (let index = 0; index < this.length; index++) {
       out.push(fn.call(self, this[index], index));
     }
     return out;
   }],
-  [Array.prototype, "every", function(this: readonly unknown[], fn: Iterator, self?: unknown) {
+  [Array.prototype, "every", function(this: readonly unknown[], fn: Callback, self?: unknown) {
     for (let index = 0; index < this.length; index++) {
       const kept = Boolean(fn.call(self, this[index], index));
       if (!kept) {

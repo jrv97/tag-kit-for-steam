@@ -5,7 +5,7 @@ import {
   type CreatorRole,
   toCreatorKey,
 } from "../creator";
-import { detach } from "../dom";
+import { detach as detachNode } from "../dom";
 import type { BareMessageKey } from "../i18n/t";
 import type { KindId } from "../kinds/id";
 import type { ChipWords } from "../kinds/kind-settings";
@@ -234,7 +234,7 @@ export function createBanner(
       toggle.hidden = false;
     } else {
       quote.removeAttribute("data-tks-collapsed");
-      detach(toggle);
+      detachNode(toggle);
     }
   }
 
@@ -631,7 +631,7 @@ export function createBanner(
 
     detach() {
       setMenu(false);
-      detach(host);
+      detachNode(host);
     },
   };
 }

@@ -39,12 +39,15 @@ const JSON_PARSE_CALL = "CallExpression[callee.object.name='JSON'][callee.proper
 const JSON_PARSE = "Use parseJson from src/core/json.ts (returns unknown) instead of JSON.parse.";
 
 // Steam's store pages load Prototype.js 1.7, which replaces these built-ins in the page world.
-const ENTRIES =
-  "Prototype.js replaces Array#entries with a copy of the values: use for...of or forEach.";
+// The selectors match names only: a Map's entries() also counts, and a named callback does not.
+const ENTRIES = "Prototype.js replaces Array#entries with a copy of the values: iterate "
+  + "with for...of or forEach. The rule cannot tell an array from a Map or Set.";
 const REMOVE =
   "Prototype.js's Element#remove throws on a detached element: use detach from core/dom.";
 const ITERATOR_ARRAY = "Prototype.js's Array#map and #every pass no array argument: close over it.";
 const POSITION = "Prototype.js's String#startsWith and #endsWith ignore a position: slice first.";
+const VALUES = "Prototype.js's Object.values walks for...in and picks up inherited methods: "
+  + "use Object.entries.";
 
 /**
  * A rule that reports every node matching one of the selectors with its message.
@@ -94,6 +97,7 @@ export default {
       ]: ITERATOR_ARRAY,
       "CallExpression[callee.property.name=/^(startsWith|endsWith)$/][arguments.length>1]":
         POSITION,
+      "CallExpression[callee.object.name='Object'][callee.property.name='values']": VALUES,
     }),
   },
 };

@@ -32,11 +32,11 @@ Should the userscript header move the script to an isolated world, or should the
 Chosen option 1. The header stays as it is. The core stops relying on the replaced built-ins:
 
 - `detach` in `src/core/dom.ts` takes a node out through `parentNode.removeChild`, which Prototype.js leaves native, and does nothing for a detached node. The banner's own `remove` method is now `detach`.
-- The chain detector and the banner's notes iterate with `for...of` and `forEach`.
-- The oxlint rule `tks/no-prototype-js-collisions` fails shipped code under `src/` on a zero-argument `entries()` or `remove()`, a `map` or `every` callback that takes the array, and `startsWith` or `endsWith` with a position.
+- The chain detector and the banner's notes iterate with `for...of` and `forEach`. Prototype.js's `Object.values` walks `for...in` and returns an array's added methods; its callers use `Object.entries`.
+- The oxlint rule `tks/no-prototype-js-collisions` fails shipped code under `src/` on a zero-argument `entries()` or `remove()`, a `map` or `every` callback that takes the array, `startsWith` or `endsWith` with a position, and `Object.values`. It matches names: a Map's `entries()` counts too, and a named callback passed to `map` gets past it.
 - `fake.prototypeJs()` patches the built-ins as Prototype.js does, and `app.test.ts` runs the search page's detection and stop under it.
 
-`Object.values` and `#reverse` keep their results for our calls: plain data objects and no argument. `RegExp.escape` has no caller.
+`#reverse` keeps its result for a call without an argument, and `RegExp.escape` has no caller. `Array.from`, `#filter`, `#some` and `#find` stay native on the live store page.
 
 ### Library check (rule 12)
 
@@ -56,7 +56,7 @@ Nothing adopted. No library isolates a script from a page's patched built-ins; t
 
 ### Confirmation
 
-`app.test.ts` badges the search page and stops the app with `fake.prototypeJs()` applied; both checks fail on the code before this change. A live run of the dev bundle in the main world drew tags and stopped without an error on search, bundle, curator, app and front pages.
+`app.test.ts` badges the search page and stops the app with `fake.prototypeJs()` applied; both checks fail on the code before this change. On 2026-11-15 the live search page reported `Prototype.Version` 1.7 and a CSP whose `script-src` allows `'unsafe-inline'` and whose `connect-src` lists both Valve hosts. A diff of its built-ins against a clean frame gave the list above. The dev bundle, run in the main world, drew tags and stopped without an error on search, bundle, curator, app and front pages.
 
 ### Revisit when
 
@@ -76,12 +76,12 @@ Nothing adopted. No library isolates a script from a page's patched built-ins; t
 - Good: Steam's scripts can no longer patch what the userscript sees, as in the extension.
 - Good: the page's CSP no longer governs the userscript's requests.
 - Bad: Tampermonkey's documentation does not say whether the `GM` calls work under `@sandbox DOM`, and DOM mode is not its default.
-- Bad: Tampermonkey before 4.18 ignores `@sandbox`, so the core still needs the page-world fix.
+- Bad: Tampermonkey before 4.18 ignores `@sandbox`. The core still needs the page-world fix.
 
 ### 3. `@inject-into content` only
 
 - Good: Violentmonkey documents content mode as DOM access without the page's JavaScript objects.
-- Bad: Tampermonkey users stay in the page world, so the two managers behave differently.
+- Bad: Tampermonkey users stay in the page world, and the two managers behave differently.
 - Bad: the core still needs the page-world fix.
 
 ## More information
