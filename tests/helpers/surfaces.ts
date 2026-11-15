@@ -7,6 +7,8 @@ import developer from "../fixtures/surfaces/developer/widgets.html?raw";
 import discoveryQueue from "../fixtures/surfaces/discovery-queue/player.html?raw";
 import franchise from "../fixtures/surfaces/franchise/page.html?raw";
 import home from "../fixtures/surfaces/home/capsules.html?raw";
+import hoverCard from "../fixtures/surfaces/hover-card/classic.html?raw";
+import hoverLayer from "../fixtures/surfaces/hover-card/popover.html?raw";
 import nextFest from "../fixtures/surfaces/next-fest/feed.html?raw";
 import searchSuggestions from "../fixtures/surfaces/search-suggestions/popup.html?raw";
 import search from "../fixtures/surfaces/search/rows.html?raw";
@@ -27,6 +29,8 @@ export const SURFACES = {
   "search-suggestions": searchSuggestions,
   "dlc-rows": dlcRows,
   "discovery-queue": discoveryQueue,
+  "hover-card": hoverCard,
+  "hover-layer": hoverLayer,
 } as const;
 
 /** A store row for one app. A package row names several apps and carries a package ID. */
@@ -109,6 +113,19 @@ export function queueSlide(id: number): Element {
  */
 export function pageTransition(type: "pagehide" | "pageshow", persisted = true): Event {
   return Object.assign(new Event(type), { persisted });
+}
+
+/**
+ * Takes the React hover card out of the loaded "hover-layer" page. The function it returns mounts
+ * a fresh copy where the store mounts one on each hover, and returns that copy.
+ */
+export function detachHoverLayer(): () => Element {
+  const card = the("[popover]");
+  card.remove();
+  return () => {
+    the("[data-key='hover div']").prepend(card.cloneNode(true));
+    return the("[popover]");
+  };
 }
 
 /** The element `selector` matches, failing the test when there is none. */

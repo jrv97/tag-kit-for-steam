@@ -3,13 +3,14 @@ import type { AppId } from "../types";
 import { appIdFromHref } from "./appid";
 import {
   ANY_CANDIDATE,
-  DATA_CANDIDATE,
-  LINK_CANDIDATE,
+  CANDIDATE_SOURCES,
   namesApp,
   namingOf,
+  opensCard,
   SKIPPED,
 } from "./candidates";
 import { createHostFinder } from "./hosts";
+import { layerParent, sameLayer } from "./layers";
 import { HOST_APPID, HOST_HIDEABLE, HOST_KINDS, isInTksNode, isTksNode, TKS_NODE } from "./marks";
 import { placeHost, type Placement, PLACEMENTS } from "./placements";
 import type { CapsuleHost, CapsuleRenderer } from "./renderer";
@@ -64,7 +65,8 @@ interface ScanPlan {
 
 /**
  * Finds capsule hosts (rq6, S5) and hands them to the renderer. One `MutationObserver` on `body`
- * collects added subtrees, debounced by `DEBOUNCE_MS` up to `MAX_WAIT_MS`; each scan reads the DOM
+ * collects added subtrees, debounced by `DEBOUNCE_MS` up to `MAX_WAIT_MS`, or for the next frame
+ * when a hover card opens, which then shows its chips as it paints; each scan reads the DOM
  * first and writes after, in one animation frame. Hosts are remembered in a `WeakMap`, so a
  * rescan finds nothing new. The observer disconnects on `pagehide` and resumes on a bfcache
  * `pageshow`.
@@ -83,15 +85,19 @@ export function createScanner(options: ScannerOptions): Scanner {
 
   function onMutations(records: readonly MutationRecord[]): void {
     let added = false;
+    let card = false;
     for (const record of records) {
       for (const node of record.addedNodes) {
         if (node instanceof Element && !isTksNode(node)) {
           pending.add(node);
           added = true;
+          card ||= opensCard(node);
         }
       }
     }
-    if (added) {
+    if (card) {
+      requestFrame();
+    } else if (added) {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(requestFrame, DEBOUNCE_MS);
       maxWaitTimer ??= setTimeout(requestFrame, MAX_WAIT_MS);
@@ -125,13 +131,15 @@ export function createScanner(options: ScannerOptions): Scanner {
     onReport?.(plan.report);
   }
 
-  /** The known host that is `element` or encloses it, for `appId` or for any app. */
+  /**
+   * The known host that is `element` or encloses it inside its layer, for `appId` or for any app.
+   */
   function knownHostAround(
     element: Element,
     appId?: AppId,
     replaced: ReadonlySet<Element> = new Set(),
   ): Element | undefined {
-    for (let node: Element | null = element; node !== null; node = node.parentElement) {
+    for (let node: Element | null = element; node !== null; node = layerParent(node)) {
       const record = hosts.get(node);
       if (
         record !== undefined && !replaced.has(node)
@@ -143,10 +151,15 @@ export function createScanner(options: ScannerOptions): Scanner {
     return undefined;
   }
 
-  /** Whether `host` holds a known host of the same app, which then stays the host. */
+  /**
+   * Whether `host` holds a known host of the same app in its own layer, which then stays the host.
+   */
   function holdsKnownHost(host: Element, appId: AppId, replaced: ReadonlySet<Element>): boolean {
     for (const marked of host.querySelectorAll(`[${HOST_APPID}='${String(appId)}']`)) {
-      if (hosts.get(marked)?.appId === appId && !replaced.has(marked)) {
+      if (
+        hosts.get(marked)?.appId === appId && !replaced.has(marked)
+        && sameLayer(marked, host)
+      ) {
         return true;
       }
     }
@@ -163,11 +176,11 @@ export function createScanner(options: ScannerOptions): Scanner {
     for (const root of roots) {
       // A root added inside an app link (an image that arrives late) makes that link a candidate.
       const around = root.closest(ANY_CANDIDATE);
-      if (around !== null) {
+      if (around !== null && sameLayer(root, around)) {
         candidates.add(around);
       }
     }
-    for (const selector of [DATA_CANDIDATE, LINK_CANDIDATE]) {
+    for (const selector of CANDIDATE_SOURCES) {
       for (const root of roots) {
         for (const element of root.querySelectorAll(selector)) {
           candidates.add(element);
@@ -339,13 +352,16 @@ function liveRoots(pending: ReadonlySet<Element>): Element[] {
   return roots;
 }
 
-/** Whether a fresh host of the same app encloses `element`: the outer one is the host. */
+/**
+ * Whether a fresh host of the same app encloses `element` inside its layer: the outer one is the
+ * host.
+ */
 function enclosedByFresh(
   element: Element,
   appId: AppId,
   fresh: ReadonlyMap<Element, AppId>,
 ): boolean {
-  for (let node = element.parentElement; node !== null; node = node.parentElement) {
+  for (let node = layerParent(element); node !== null; node = layerParent(node)) {
     if (fresh.get(node) === appId) {
       return true;
     }

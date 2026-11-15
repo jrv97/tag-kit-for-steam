@@ -7,6 +7,7 @@ import { FRAME_MS, launchScanner, settle, useScanTimers } from "../../../tests/h
 import {
   APP_ROW,
   BUNDLE_ROW,
+  detachHoverLayer,
   loadPage,
   nodes,
   pageTransition,
@@ -15,7 +16,7 @@ import {
 } from "../../../tests/helpers/surfaces";
 import type { AppId } from "../types";
 import { appIdFromHref } from "./appid";
-import { LINK_CANDIDATE } from "./candidates";
+import { HOVER_CANDIDATE, LINK_CANDIDATE } from "./candidates";
 import { HOST_APPID, HOST_HIDEABLE, HOST_KINDS } from "./marks";
 import type { CapsuleHost } from "./renderer";
 import { DEBOUNCE_MS, type Scanner, type ScanReport } from "./scanner";
@@ -257,6 +258,33 @@ describe("per-surface hosts", () => {
       ).toStrictEqual(similar.map((id) => [id, String(id), id]));
     },
   );
+
+  it("classic hover card: each app block a host, chips at its end, never hidden", async () => {
+    loadPage(make.page.surface("hover-card"));
+    await startScanner();
+    expect(hostElements()).toStrictEqual([...document.querySelectorAll(HOVER_CANDIDATE)]);
+    expect(mapping()).toStrictEqual(placed(SURFACE_APPS.hoverCard, "hover-card"));
+    for (const host of found()) {
+      expect(host.anchor).toBe(host.element);
+      expect(host.element.getAttribute(HOST_HIDEABLE)).toBe("false");
+    }
+  });
+
+  it("React hover card: a host apart from its capsule's, the chips ending its info", async () => {
+    loadPage(make.page.surface("hover-layer"));
+    await startScanner();
+    const popover = the("[popover]");
+    expect(mapping()).toStrictEqual([
+      ...placed(SURFACE_APPS.hoverLayer, "hover-layer"),
+      ...placed(SURFACE_APPS.hoverLayer, "generic"),
+    ]);
+    const [card, capsule] = found();
+    expect(popover.contains(card?.element ?? null)).toBe(true);
+    expect(capsule?.element.contains(popover)).toBe(true);
+    expect(card?.anchor).toBe(the(".ReviewScore", popover).parentElement);
+    expect(card?.element.getAttribute(HOST_HIDEABLE)).toBe("false");
+    expect(capsule?.anchor).toBe(the(".CapsuleImageCtn"));
+  });
 
   it("app page: DLC rows get hosts, badge at the end of the name; own links do not", async () => {
     const base = make.fixture.app.arcRaiders;
@@ -569,6 +597,34 @@ describe("observing", () => {
     ]);
   });
 
+  it("tags a classic hover block in the frame after the store adds it", async () => {
+    loadPage(make.page.surface("hover-card"));
+    await startScanner();
+    const id = make.appId();
+    the("#global_hover_content").append(
+      ...nodes(`<div id="hover_app_${String(id)}"><h4 class="hover_title"></h4></div>`),
+    );
+    await vi.advanceTimersByTimeAsync(FRAME_MS);
+    expect(renderer.batches.at(-1)?.found.map((host) => [host.appId, host.placement.id]))
+      .toStrictEqual([[id, "hover-card"]]);
+  });
+
+  it("tags a React hover card in the frame of each mount, not its capsule's host", async () => {
+    loadPage(make.page.surface("hover-layer"));
+    const mount = detachHoverLayer();
+    await startScanner();
+    for (let hover = 0; hover < 2; hover++) {
+      const card = mount();
+      await vi.advanceTimersByTimeAsync(FRAME_MS);
+      const batch = renderer.batches.at(-1);
+      expect(batch?.changed).toStrictEqual([]);
+      expect(batch?.found.map((host) => host.placement.id)).toStrictEqual(["hover-layer"]);
+      expect(card.contains(batch?.found[0]?.element ?? null)).toBe(true);
+      expect(reports.at(-1)?.roots).toBe(1);
+      card.remove();
+    }
+  });
+
   it("keeps the badge in place when the store adds a hover popup inside the host", async () => {
     loadPage(make.page.surface("tag-hub"));
     await startScanner({ badges: true });
@@ -649,13 +705,16 @@ describe("work budget", () => {
   ] as const;
   type Limits = Readonly<Record<(typeof LIMITED)[number], number>>;
 
-  /** Per capsule on a page scan; measured 7, 6, 0, 3, 10 and 46. */
+  /**
+   * Per capsule on a page scan; measured 7, 6, 0, 3, 14 and 46. `matches` grows by one per entry
+   * in `PLACEMENTS`, which a generic capsule tries in turn.
+   */
   const PAGE_LIMITS: Limits = {
     querySelectorAll: 8,
     queried: 8,
     querySelector: 1,
     closest: 4,
-    matches: 12,
+    matches: 16,
     parentSteps: 60,
   };
 

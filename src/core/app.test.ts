@@ -9,7 +9,7 @@ import { fake } from "../../tests/helpers/fakes";
 import { getItemsRequest, itemIds, requestFlags } from "../../tests/helpers/getitems";
 import { englishI18n } from "../../tests/helpers/i18n";
 import { writeSettings } from "../../tests/helpers/settings";
-import { loadPage } from "../../tests/helpers/surfaces";
+import { detachHoverLayer, loadPage } from "../../tests/helpers/surfaces";
 import { T0 } from "../../tests/helpers/timer-clock";
 import { type App, start } from "./app";
 import type { CreatorRole } from "./creator";
@@ -25,6 +25,7 @@ import type { KindId } from "./kinds/id";
 import { parseOrder } from "./kinds/order";
 import { KIND_BY_ID } from "./kinds/registry";
 import type { Clock, SettingsSource } from "./ports";
+import { HOVER_CANDIDATE } from "./scan/candidates";
 import type { AllowScope } from "./settings/allow-data";
 import { DEFAULT_SETTINGS, encodeSettings, type Settings } from "./settings/settings";
 import { createSettingsSource } from "./settings/settings-source";
@@ -183,6 +184,43 @@ describe("start on a package page", () => {
       i18n.plural("badge_summary_games", games, { kind, tagged: "1" }),
     );
     expect(lines()).toHaveLength(1);
+    expect(http.calls).toHaveLength(1);
+  });
+});
+
+describe("store hover cards", () => {
+  const CLASSIC = make.fixture.surfaceApps.hoverCard;
+  const LAYERED = make.fixture.surfaceApps.hoverLayer;
+  const blocks = () => [...document.querySelectorAll(HOVER_CANDIDATE)];
+
+  it("ends each classic app block with every chip of its game, from one request", async () => {
+    loadPage(make.page.surface("hover-card"));
+    // With PvP on, ARC Raiders draws four chips, one past a search row's allowance.
+    const { http } = await startOnLoaded({
+      initial: storing(make.settings.kind("pvp", { enabled: true })),
+      items: CLASSIC.map((id) => make.fixture.itemAs(kindItems, ARC_RAIDERS, id)),
+    });
+    const labelsIn = (block: Element) =>
+      Array.from(block.querySelectorAll(".tks-badge-label"), (label) => label.textContent);
+    await expect.poll(() => blocks().map(labelsIn)).toStrictEqual(
+      CLASSIC.map(() => [chip("ai"), chip("pvp"), chip("eula"), chip("kernel")]),
+    );
+    expect(blocks().map((block) => block.lastElementChild?.className))
+      .toStrictEqual(CLASSIC.map(() => "tks-chips"));
+    expect(http.calls).toHaveLength(1);
+    expect(getItemsRequest(http.calls[0] ?? "").ids).toEqual(CLASSIC);
+  });
+
+  it("tags a React hover card on every mount with no request after the page's", async () => {
+    loadPage(make.page.surface("hover-layer"));
+    const mount = detachHoverLayer();
+    const { http } = await startOnLoaded({ items: LAYERED.map((id) => make.item.disclosed(id)) });
+    await drawn(http);
+    for (let hover = 0; hover < 2; hover++) {
+      const card = mount();
+      await expect.poll(() => card.querySelectorAll(".tks-badge").length).toBe(1);
+      card.remove();
+    }
     expect(http.calls).toHaveLength(1);
   });
 });

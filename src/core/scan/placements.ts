@@ -1,5 +1,5 @@
-import { OVERLAY_CHIPS, ROW_CHIPS, SUGGESTION_CHIPS } from "../kinds/order";
-import { LINK_CANDIDATE, type NestedPlacement } from "./candidates";
+import { CARD_CHIPS, OVERLAY_CHIPS, ROW_CHIPS, SUGGESTION_CHIPS } from "../kinds/order";
+import { HOVER_CANDIDATE, LINK_CANDIDATE, type NestedPlacement } from "./candidates";
 import { firstImage, imageBox } from "./image";
 
 // Where a host's badge goes, per store surface (rq6, S5; docs/design/components.mdx, sections 1,
@@ -102,6 +102,12 @@ const queueTitle: AnchorRule = (host) => {
   return label !== null && host.contains(label) ? label : undefined;
 };
 
+/** A React hover card's info block: its title link's parent, over the tags and reviews. */
+const hoverInfo: AnchorRule = (host) => imagelessLink(host)?.parentElement ?? undefined;
+
+/** A store hover card: every chip, as no pointer reaches its "+N" chip, ending its app block. */
+const CARD = { hideable: false, maxChips: CARD_CHIPS, badge: "full", slot: "end" } as const;
+
 /** The default: a compact badge over the capsule image of any host. */
 export const GENERIC: OverlayPlacement = {
   id: "generic",
@@ -115,6 +121,22 @@ export const GENERIC: OverlayPlacement = {
 
 /** Every placement, most specific first; the first whose host and anchor match wins. */
 export const PLACEMENTS: readonly Placement[] = [
+  {
+    // The classic hover card (`#global_hover`): one app block per hovered game, kept hidden
+    // when another shows. The chips end the block, under the user tags.
+    id: "hover-card",
+    host: HOVER_CANDIDATE,
+    ...CARD,
+    anchor: (host) => host,
+  },
+  {
+    // The React hover card on tag hubs and sale pages, a layer of its own. The chips end its
+    // info block.
+    id: "hover-layer",
+    host: "[popover], [popover] *",
+    ...CARD,
+    anchor: hoverInfo,
+  },
   {
     // Classic search rows: right after the title. The title line clips its overflow, so CSS
     // turns it into a flex row where the title shrinks and the badge stays whole.

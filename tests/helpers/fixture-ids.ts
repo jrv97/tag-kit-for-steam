@@ -145,6 +145,10 @@ export const SURFACE_APPS = {
   queue: appIds(4576490, 5037510, 4262460),
   /** The "Similar to games you've played" icons of the first queue slide, then of the last. */
   queueSimilar: appIds(730, 570, 440, 620),
+  /** The classic card's app blocks: the one hovered first (now hidden), then the shown one. */
+  hoverCard: appIds(4165740, 3129790),
+  /** The React hover card's game, which its capsule shows too. */
+  hoverLayer: appIds(3669620),
 } as const;
 
 /** Clan IDs that `creators.json` holds. */

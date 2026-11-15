@@ -1,13 +1,15 @@
 import type { AppId } from "../types";
-import { DATA_APPID, DATA_CANDIDATE, type Naming, uniformNaming } from "./candidates";
+import { DATA_APPID, type Naming, OWN_HOST, uniformNaming } from "./candidates";
 import { firstImage } from "./image";
+import { layerParent } from "./layers";
 import { NESTED_PLACEMENTS } from "./placements";
 
 // The host rule rq6 (S5) chose on the tag hub: the lowest image-bearing ancestor that names one
 // app, then a short climb that joins image and title blocks that are siblings. The climb never
 // grows past an element the store itself marks as an item (a `data-ds-appid`): on a package page
 // nothing else names an app, so without that stop it would climb from one included game's row to
-// the whole column around the package header and the purchase boxes.
+// the whole column around the package header and the purchase boxes. Nor does it climb out of a
+// store layer, such as a hover card mounted inside the capsule it belongs to.
 
 /** How far above a link its capsule image may sit (the link itself is level 0). */
 const MAX_IMAGE_LEVELS = 8;
@@ -24,9 +26,10 @@ export interface HostFinder {
 }
 
 /**
- * A host finder for one scan of `document`. A `data-ds-appid` element is its own host: Steam puts
- * the attribute on the capsule. A link's host is found by the rule above, and never climbs to
- * `body`; a link with no image-bearing ancestor (text links, navigation) has none.
+ * A host finder for one scan of `document`. An `OWN_HOST` element is its own host: Steam puts a
+ * `data-ds-appid` on the capsule, and the hover card's app block names its app in its id. A link's
+ * host is found by the rule above, and never climbs to `body` or out of a layer; a link with no
+ * image-bearing ancestor (text links, navigation) has none.
  */
 export function createHostFinder(document: Document): HostFinder {
   const base = document.baseURI;
@@ -51,9 +54,9 @@ export function createHostFinder(document: Document): HostFinder {
     return value;
   }
 
-  /** The parent, unless it is `body` or the root, which are never hosts. */
+  /** The parent, unless it is `body` or the root, which are never hosts, or past a layer. */
   function parentOf(element: Element): Element | undefined {
-    const parent = element.parentElement;
+    const parent = layerParent(element);
     return parent === null || parent === document.body || parent === document.documentElement
       ? undefined
       : parent;
@@ -61,7 +64,7 @@ export function createHostFinder(document: Document): HostFinder {
 
   return {
     hostOf(candidate, appId) {
-      if (candidate.matches(DATA_CANDIDATE)) {
+      if (candidate.matches(OWN_HOST)) {
         return candidate;
       }
       let host: Element | undefined = candidate;

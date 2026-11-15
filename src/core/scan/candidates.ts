@@ -1,5 +1,6 @@
 import type { AppId } from "../types";
-import { appIdFromDataAttribute, appIdFromHref } from "./appid";
+import { appIdFromDataAttribute, appIdFromHoverId, appIdFromHref, HOVER_APP_PREFIX } from "./appid";
+import { opensLayer } from "./layers";
 import { TKS_NODE } from "./marks";
 
 // Elements that name an app (rq6, S5): classic surfaces put a `data-ds-appid` on the capsule
@@ -12,6 +13,16 @@ export const DATA_APPID = "data-ds-appid";
 export const DATA_CANDIDATE = `[${DATA_APPID}]`;
 /** Links that may lead to an app page; `appIdFromHref` decides. */
 export const LINK_CANDIDATE = "a[href*='/app/']";
+/** The app block of Steam's classic hover card, `#hover_app_<id>`. It holds no app link. */
+export const HOVER_CANDIDATE = `[id^='${HOVER_APP_PREFIX}']`;
+/** Whether `element` is a hover card the pointer just opened, which a scan tags at once. */
+export function opensCard(element: Element): boolean {
+  return opensLayer(element) || appIdFromHoverId(element.id) !== undefined;
+}
+/** Elements that are their own host: the store marks each one as a single item. */
+export const OWN_HOST = `${DATA_CANDIDATE}, ${HOVER_CANDIDATE}`;
+/** What a scan lists in each added subtree, own hosts first. A new source is an entry here. */
+export const CANDIDATE_SOURCES: readonly string[] = [OWN_HOST, LINK_CANDIDATE];
 /** Links to store items that are not apps: packages, bundles and events. They name `several`. */
 const OTHER_ITEM_LINK = "a[href*='/sub/'], a[href*='/bundle/'], a[href*='/news/']";
 const OTHER_ITEM_PATH = /\/(?:sub|bundle|news)\//;
@@ -25,7 +36,7 @@ const PAGE_PARTS: readonly string[] = [
   "game_area_purchase",
   "game_area_description",
 ];
-export const ANY_CANDIDATE = [DATA_CANDIDATE, LINK_CANDIDATE, OTHER_ITEM_LINK]
+export const ANY_CANDIDATE = [...CANDIDATE_SOURCES, OTHER_ITEM_LINK]
   .concat(PAGE_PARTS.map((id) => `#${id}`))
   .join(", ");
 
@@ -83,7 +94,8 @@ export type Naming = AppId | "several" | undefined;
 /**
  * The app an element names. A `data-ds-appid` wins over the element's own `href`; a comma list
  * names several apps; a link names its app when it leads to a store app page. A link to a package,
- * bundle or event names `several`, so a capsule never grows to take in such a tile.
+ * bundle or event names `several`, so a capsule never grows to take in such a tile. A page part
+ * names the page's app; a hover block, the app in its id.
  */
 export function namingOf(element: Element, base: string): Naming {
   const data = element.getAttribute(DATA_APPID);
@@ -97,7 +109,9 @@ export function namingOf(element: Element, base: string): Naming {
     }
   }
   if (element.localName !== "a") {
-    return PAGE_PARTS.includes(element.id) ? appIdFromHref(base, base) : undefined;
+    return PAGE_PARTS.includes(element.id)
+      ? appIdFromHref(base, base)
+      : appIdFromHoverId(element.id);
   }
   const href = element.getAttribute("href");
   if (href === null) {
