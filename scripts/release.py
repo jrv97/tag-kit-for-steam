@@ -36,6 +36,7 @@ from repo import (
     package_version,
     run,
     run_status,
+    summary,
 )
 
 CHANGES = ROOT / ".changes"
@@ -59,15 +60,6 @@ def gh(*args: str, token: str | None = None) -> str:
 def gh_json(*args: str, token: str | None = None) -> object:
     parsed: object = json.loads(gh(*args, token=token))
     return parsed
-
-
-def summary(*lines: str) -> None:
-    """Print lines and add them to the job summary when running in GitHub Actions."""
-    print("\n".join(lines))
-    path = os.environ.get("GITHUB_STEP_SUMMARY")
-    if path:
-        with Path(path).open("a", encoding="utf-8") as file:
-            file.write("\n".join(lines) + "\n")
 
 
 def env(name: str) -> str:

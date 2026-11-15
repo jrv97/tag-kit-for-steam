@@ -2,6 +2,7 @@
 
 import base64
 import json
+import os
 import struct
 import subprocess
 import sys
@@ -73,6 +74,15 @@ def png_size(path: Path) -> tuple[int, int] | None:
 def fail(message: str) -> NoReturn:
     print(f"error: {message}", file=sys.stderr)
     sys.exit(1)
+
+
+def summary(*lines: str) -> None:
+    """Print lines and add them to the job summary when running in GitHub Actions."""
+    print("\n".join(lines))
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if path:
+        with Path(path).open("a", encoding="utf-8") as file:
+            file.write("\n".join(lines) + "\n")
 
 
 def run(*args: str, env: Mapping[str, str] | None = None) -> str:

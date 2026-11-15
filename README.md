@@ -192,7 +192,7 @@ Main tasks:
 - `mise run dev`: rebuild on change. In another terminal, `mise run run-gecko` (Firefox Nightly only) or `mise run run-chromium` loads the build with auto-reload.
 - `mise run e2e`: build, then drive the extension in Chromium and Firefox Nightly (`TKS_CHROMIUM_BIN`, `TKS_GECKO_BIN`) with puppeteer-core, on a fresh profile per run. It opens real windows and is not part of `ci` (ADR 0020).
 - `mise run package`: write the Chromium and Gecko zips, the userscript and its `.meta.js`, and the source archive for store reviewers to `artifacts/`, then check them.
-- `mise run canary`: before a release, check that live Steam still answers in the shape the detectors expect (five requests). It is not part of `ci`.
+- `mise run canary`: check that live Steam still answers in the shape the detectors expect and that each app page's AI heading matches the GetItems verdict (five requests). It is not part of `ci`; the `live-pages` workflow runs it daily, and it runs before a release.
 - `mise run capture-fixtures`: refresh the public test fixtures from the live store.
 - `mise run icons`: render the extension icon PNGs in `assets/icons/` from `mark-purple.svg` with headless Chromium (`TKS_CHROMIUM_BIN`).
 - `mise run change-new`: add a changelog fragment. A pull request that changes `src/` needs one, unless it carries the `no-changelog-fragment` label.

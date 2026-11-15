@@ -1,0 +1,31 @@
+# Runs the live-page check (scripts/canary.py) every day and on demand: one GetItems call and four
+# app pages, with no cookies and no key. The run fails, with the problems in its job summary, when
+# a page's AI heading disagrees with the GetItems verdict or Steam's answers change shape.
+name: live-pages
+
+on:
+  schedule:
+    - cron: "41 6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: live-pages
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: mise run canary
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          version: 2026.11.4
+      - run: mise run canary

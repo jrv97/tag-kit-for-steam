@@ -571,3 +571,22 @@ class CheckWording:
         "docs/store/assets/graphics.css:2: forbidden wording 'AI-generated content' (rule 4)",
         "docs/store/listing.mdx:1: forbidden wording 'humans' (rule 4)",
     )
+
+
+class Canary:
+    """App page markup for canary.py, with and without Steam's AI heading."""
+
+    AI_PAGE: Final = (
+        '<div id="game_area_content_descriptors"><h2>AI Generated Content Disclosure</h2></div>'
+    )
+    OTHER_PAGE: Final = (
+        '<div id="game_area_content_descriptors"><h2>Mature Content Description</h2></div>'
+    )
+    # (page, GetItems has AI notes, the two disagree)
+    HEADING_CASES: Final = (
+        (AI_PAGE, True, False),
+        (OTHER_PAGE, False, False),
+        (AI_PAGE, False, True),
+        (OTHER_PAGE, True, True),
+    )
+    WHERE: Final = "app page 1"

@@ -16,9 +16,11 @@ does while the Early Access tag is on: `is_early_access` must be a boolean and
 `release.steam_release_date` an integer when present, and some sampled app must be flagged. The DLC
 and the demo must still name their base or full game in related_items.parent_appid, with `type` 4
 for the DLC and 1 for the demo. A page comes from an app the sample shows that declaration for, and
-is checked against what GetItems says about its own app. Exits non-zero, listing what changed, when
-an answer no longer has the expected shape. Not part of `ci`: it needs the network and Steam's mood.
-Run it before a release.
+is checked against what GetItems says about its own app: the AI heading shows exactly when GetItems
+has AI notes. Exits non-zero, listing what changed, when an answer no longer has the expected shape
+or a page and GetItems disagree; in GitHub Actions the list goes to the job summary too. Not part of
+`ci`: it needs the network and Steam's mood. The live-pages workflow runs it daily, and it runs
+before a release.
 """
 
 import json
@@ -28,7 +30,7 @@ import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
 
-from repo import fail
+from repo import fail, summary
 
 GETITEMS_URL = "https://api.steampowered.com/IStoreBrowseService/GetItems/v1"
 APP_PAGE_URL = "https://store.steampowered.com/app/{appid}/?l=english"
@@ -560,17 +562,26 @@ def hook_problems(where: str, scan: PageScan, hook: str, item: dict[str, object]
     return []
 
 
+def heading_problems(where: str, scan: PageScan, *, declared: bool) -> list[str]:
+    """Where the page's AI heading and the GetItems verdict for the same app disagree."""
+    shown = HEADING in scan.headings
+    if declared and not shown:
+        return [
+            f"{where}: GetItems has AI notes, but no #game_area_content_descriptors block has"
+            f" the h2 {HEADING!r} (found {scan.headings!r})"
+        ]
+    if shown and not declared:
+        return [f"{where}: the page has the h2 {HEADING!r}, but GetItems has no AI notes"]
+    return []
+
+
 def page_problems(where: str, scan: PageScan, hook: str, item: dict[str, object]) -> list[str]:
     """What the page must show for the declarations GetItems gave for the same app."""
     facts = facts_of(item)
     problems = hook_problems(where, scan, hook, item)
     if not scan.has_app_name:
         problems.append(f"{where}: #appHubAppName is missing")
-    if "ai" in facts and HEADING not in scan.headings:
-        problems.append(
-            f"{where}: no #game_area_content_descriptors block with the h2 {HEADING!r}"
-            f" (found {scan.headings!r})"
-        )
+    problems += heading_problems(where, scan, declared="ai" in facts)
     if "eula" in facts and scan.eula_links == 0:
         problems.append(f"{where}: no link to /eula/")
     if "drm" in facts and scan.plain_notices == 0:
@@ -609,9 +620,9 @@ def main() -> None:
             continue
         problems += app_page_problems(get(APP_PAGE_URL.format(appid=appid)), appid, hook, item)
     if problems:
-        print("\n".join(problems))
+        summary("## Live-page check failed", "", *(f"- {problem}" for problem in problems))
         fail(f"{len(problems)} canary problem(s): Steam's shape may have changed")
-    print("canary: GetItems and the app pages still have the expected shape")
+    summary("canary: GetItems and the app pages still have the expected shape")
 
 
 if __name__ == "__main__":
