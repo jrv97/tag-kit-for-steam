@@ -1,5 +1,5 @@
 ---
-status: accepted, amended by ADR-0014
+status: accepted, amended by ADR-0014, amended 2026-11-15
 date: 2026-10-20
 decision-makers: Jorge Rodriguez de la Vega
 ---
@@ -82,6 +82,16 @@ Chosen option 1. The core asks GetItems for batches of unseen app IDs and falls 
 
 - Good: simplest cache.
 - Bad: shows English text where the developer wrote a translation. Rejected for the same reason as option 4.
+
+## Amendment 2026-11-15: the open app page when GetItems cannot answer
+
+On a game's own English page the extension reads the AI kind from the open document, with no request, and merges that answer with Steam's data for the game (`mergeVerdicts` in `src/core/page-verdicts.ts`). When the data is unknown for any reason (`missing`, `malformed`, `error` or `rate-limited`), the page's answer stands. A page that shows the block gives disclosed. A page that passed the store checks and shows no block gives not disclosed.
+
+This extends the fallback above to the open page. Both read the same English app page with the same parser after the same checks (an app path and an app name), and the fallback already keeps a page's not disclosed. Rule 4 holds: the unknown belongs to GetItems, and a page without the block is Steam's own answer for the game. A page that fails the checks stays unknown `gated`, and a kind the page cannot read keeps the data's verdict.
+
+The merged verdict lives in page memory only. The cache and the retry of a transient answer keep the data's own verdict. Not disclosed draws nothing, as unknown does.
+
+The option left out: only a page disclosure stands, and a quiet page with unknown data stays unknown. One page and one parser would then give two answers, one on the fetched path and another on the open page.
 
 ## More information
 
