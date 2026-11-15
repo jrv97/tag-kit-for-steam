@@ -123,7 +123,7 @@ export function createAppPageUi(
 
   function renderBanner(shown: BannerView | undefined): void {
     if (shown === undefined) {
-      banner?.remove();
+      banner?.detach();
       return;
     }
     banner ??= createBanner(doc, i18n, actions, options);

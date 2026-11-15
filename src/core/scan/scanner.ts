@@ -1,3 +1,4 @@
+import { detach } from "../dom";
 import type { AppId } from "../types";
 import { appIdFromHref } from "./appid";
 import {
@@ -263,7 +264,7 @@ export function createScanner(options: ScannerOptions): Scanner {
       element.removeAttribute(HOST_KINDS);
       element.removeAttribute(HOST_HIDEABLE);
       for (const copy of element.querySelectorAll(TKS_NODE)) {
-        copy.remove();
+        detach(copy);
       }
     }
     for (const host of plan.found) {

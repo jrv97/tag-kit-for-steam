@@ -5,6 +5,7 @@ import {
   type CreatorRole,
   toCreatorKey,
 } from "../creator";
+import { detach } from "../dom";
 import type { BareMessageKey } from "../i18n/t";
 import type { KindId } from "../kinds/id";
 import type { ChipWords } from "../kinds/kind-settings";
@@ -96,7 +97,7 @@ export interface Banner {
   /** Shows the entries, the notes and the menu. Same view: no change. */
   show(view: BannerView): void;
   /** Closes the menu and takes the banner off the page; `show` and `placeBanner` bring it back. */
-  remove(): void;
+  detach(): void;
 }
 
 const ACTIONS = ["toggle", ...MENU_ACTIONS] as const;
@@ -233,7 +234,7 @@ export function createBanner(
       toggle.hidden = false;
     } else {
       quote.removeAttribute("data-tks-collapsed");
-      toggle.remove();
+      detach(toggle);
     }
   }
 
@@ -274,9 +275,9 @@ export function createBanner(
     if (verdict.fullGame === true) {
       entry.append(element("p", "tks-banner-full-game", i18n.t(fullGameLine(verdict))));
     }
-    for (const [index, detail] of kindDetails(verdict).filter(isDeveloperText).entries()) {
+    kindDetails(verdict).filter(isDeveloperText).forEach((detail, index) => {
       appendDetail(entry, detail, `${partId(verdict.kind, "notes")}-${String(index)}`);
-    }
+    });
     return entry;
   }
 
@@ -628,9 +629,9 @@ export function createBanner(
       }
     },
 
-    remove() {
+    detach() {
       setMenu(false);
-      host.remove();
+      detach(host);
     },
   };
 }

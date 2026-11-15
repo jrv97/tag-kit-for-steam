@@ -38,6 +38,14 @@ const ERROR = "Errors carry a catalog key, new TksError(key, params), not prose 
 const JSON_PARSE_CALL = "CallExpression[callee.object.name='JSON'][callee.property.name='parse']";
 const JSON_PARSE = "Use parseJson from src/core/json.ts (returns unknown) instead of JSON.parse.";
 
+// Steam's store pages load Prototype.js 1.7, which replaces these built-ins in the page world.
+const ENTRIES =
+  "Prototype.js replaces Array#entries with a copy of the values: use for...of or forEach.";
+const REMOVE =
+  "Prototype.js's Element#remove throws on a detached element: use detach from core/dom.";
+const ITERATOR_ARRAY = "Prototype.js's Array#map and #every pass no array argument: close over it.";
+const POSITION = "Prototype.js's String#startsWith and #endsWith ignore a position: slice first.";
+
 /**
  * A rule that reports every node matching one of the selectors with its message.
  * @param {Readonly<Record<string, string>>} restrictions selector to message
@@ -75,6 +83,17 @@ export default {
     // Untrusted JSON stays unknown: JSON.parse is wrapped once, in src/core/json.ts.
     "no-json-parse": restrict({
       [JSON_PARSE_CALL]: JSON_PARSE,
+    }),
+    // Shipped code also runs in the page's own world, beside Prototype.js's built-ins.
+    "no-prototype-js-collisions": restrict({
+      "CallExpression[callee.property.name='entries'][arguments.length=0]": ENTRIES,
+      "CallExpression[callee.property.name='remove'][arguments.length=0]": REMOVE,
+      [
+        `CallExpression[callee.property.name=/^(map|every)$/]`
+        + " > :matches(ArrowFunctionExpression, FunctionExpression)[params.length>2]"
+      ]: ITERATOR_ARRAY,
+      "CallExpression[callee.property.name=/^(startsWith|endsWith)$/][arguments.length>1]":
+        POSITION,
     }),
   },
 };

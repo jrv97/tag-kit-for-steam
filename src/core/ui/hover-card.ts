@@ -1,3 +1,4 @@
+import { detach } from "../dom";
 import { dateFormat } from "../i18n/date-format";
 import type { BareMessageKey } from "../i18n/t";
 import { KIND_BY_ID } from "../kinds/registry";
@@ -580,7 +581,7 @@ export function createHoverCard(
         doc.removeEventListener(type, listener, capture);
       }
       view?.removeEventListener("pagehide", close);
-      card?.root.remove();
+      detach(card?.root);
       card = undefined;
       filled = undefined;
       quotes = [];

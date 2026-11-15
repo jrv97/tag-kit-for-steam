@@ -173,6 +173,22 @@
       "rules": {
         "tks/no-json-parse": "off"
       }
+    },
+    {
+      "files": [
+        "src/**/*.ts"
+      ],
+      "rules": {
+        "tks/no-prototype-js-collisions": "error"
+      }
+    },
+    {
+      "files": [
+        "src/**/*.test.ts"
+      ],
+      "rules": {
+        "tks/no-prototype-js-collisions": "off"
+      }
     }
   ]
 }

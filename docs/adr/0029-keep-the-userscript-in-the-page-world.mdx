@@ -1,0 +1,91 @@
+---
+status: accepted
+date: 2026-11-15
+decision-makers: Jorge Rodriguez de la Vega
+---
+
+# Keep the userscript in the page world and make the core safe there
+
+## Context and problem statement
+
+Steam's classic store pages (search, bundle, curator and others) load Prototype.js 1.7. In the page's own JavaScript world it replaces `Array#entries`, `#map`, `#every` and `#reverse`, `String#startsWith` and `#endsWith`, `Object.values` and `RegExp.escape`, and adds `Element#remove` to `HTMLElement.prototype`. Two of these broke the core there: the chain detector's `entries()` loop threw "is not iterable", and stopping the app threw when the hidden results notice was detached.
+
+The extension's content scripts run in an isolated world and never see these patches. The userscript header sets neither `@inject-into` (Violentmonkey) nor `@sandbox` (Tampermonkey). Violentmonkey's default `auto` injects into the page unless the page's CSP blocks it, and Tampermonkey's default `raw` runs in `MAIN_WORLD`. The store's CSP allows `'unsafe-inline'` scripts, so both managers run the userscript in the page world today. The dev bundle (`dist/dev/inject.js`) runs there too.
+
+Should the userscript header move the script to an isolated world, or should the core stay safe in the page world?
+
+## Decision drivers
+
+- The core must work in the page world whatever the header says: the dev bundle and older managers run there.
+- The userscript needs `GM.getValue`, `GM.setValue`, `GM.deleteValue`, `GM.listValues`, `GM.registerMenuCommand`, `GM_addStyle` and `GM_addValueChangeListener`.
+- One behavior for every manager a person may use.
+- Rule 1: requests go only to Valve hosts, without credentials.
+
+## Considered options
+
+1. Keep the managers' default world; fix the core and guard it with a lint rule (chosen).
+2. Add `@inject-into content` and `@sandbox DOM` to the header as well.
+3. Add `@inject-into content` only.
+
+## Decision outcome
+
+Chosen option 1. The header stays as it is. The core stops relying on the replaced built-ins:
+
+- `detach` in `src/core/dom.ts` takes a node out through `parentNode.removeChild`, which Prototype.js leaves native, and does nothing for a detached node. The banner's own `remove` method is now `detach`.
+- The chain detector and the banner's notes iterate with `for...of` and `forEach`.
+- The oxlint rule `tks/no-prototype-js-collisions` fails shipped code under `src/` on a zero-argument `entries()` or `remove()`, a `map` or `every` callback that takes the array, and `startsWith` or `endsWith` with a position.
+- `fake.prototypeJs()` patches the built-ins as Prototype.js does, and `app.test.ts` runs the search page's detection and stop under it.
+
+`Object.values` and `#reverse` keep their results for our calls: plain data objects and no argument. `RegExp.escape` has no caller.
+
+### Library check (rule 12)
+
+Nothing adopted. No library isolates a script from a page's patched built-ins; the fix is plain DOM and array calls.
+
+### Accepted trade-offs
+
+- The page world exposes the userscript to whatever else Steam's scripts patch later. The lint rule covers the patches seen today, and the dev bundle smoke test runs in the same world.
+- The page's CSP governs the userscript's requests. Its `connect-src` lists `api.steampowered.com` and `store.steampowered.com` today.
+
+### Consequences
+
+- Good: the userscript, the dev bundle and the extension run the same core, and the dev bundle's smoke test covers the world the userscript runs in.
+- Good: the header and its permissions stay as they are; no manager setting changes.
+- Bad: a new Prototype.js-style patch can break the userscript until the lint rule learns it.
+- Neutral: the extension gains nothing; its isolated world was never affected.
+
+### Confirmation
+
+`app.test.ts` badges the search page and stops the app with `fake.prototypeJs()` applied; both checks fail on the code before this change. A live run of the dev bundle in the main world drew tags and stopped without an error on search, bundle, curator, app and front pages.
+
+### Revisit when
+
+- Tampermonkey documents that the `GM` storage and menu calls work under `@sandbox DOM`, and a run in the Chromium dev profile confirms it.
+- The store's `connect-src` drops a Valve host the userscript requests.
+
+## Pros and cons of the options
+
+### 1. Keep the default world, fix the core (chosen)
+
+- Good: works on every manager and version, and in the dev bundle.
+- Good: no header change and no new manager behavior to verify.
+- Bad: the core has to avoid a growing list of patched built-ins.
+
+### 2. `@inject-into content` and `@sandbox DOM`
+
+- Good: Steam's scripts can no longer patch what the userscript sees, as in the extension.
+- Good: the page's CSP no longer governs the userscript's requests.
+- Bad: Tampermonkey's documentation does not say whether the `GM` calls work under `@sandbox DOM`, and DOM mode is not its default.
+- Bad: Tampermonkey before 4.18 ignores `@sandbox`, so the core still needs the page-world fix.
+
+### 3. `@inject-into content` only
+
+- Good: Violentmonkey documents content mode as DOM access without the page's JavaScript objects.
+- Bad: Tampermonkey users stay in the page world, so the two managers behave differently.
+- Bad: the core still needs the page-world fix.
+
+## More information
+
+- [Violentmonkey metadata block](https://violentmonkey.github.io/api/metadata-block/): `@inject-into`.
+- [Tampermonkey documentation](https://www.tampermonkey.net/documentation.php?locale=en&q=sandbox): `@sandbox`.
+- [ADR 0003 (content-script-only runtime)](0003-content-script-only-runtime.mdx): why the extension runs in content scripts.

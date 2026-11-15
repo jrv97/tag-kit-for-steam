@@ -1,3 +1,4 @@
+import { detach } from "../../core/dom";
 import type { FileTransfer, PickedFile } from "../../core/ports";
 
 const JSON_TYPE = "application/json";
@@ -51,7 +52,7 @@ export function createFileTransfer(container: HTMLElement): FileTransfer {
       try {
         link.click();
       } finally {
-        link.remove();
+        detach(link);
         setTimeout(() => {
           URL.revokeObjectURL(url);
         }, REVOKE_AFTER_MS);

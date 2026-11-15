@@ -1,0 +1,3 @@
+kind: Fixed
+body: On search, bundle and curator pages the userscript tags games again and stops without an error.
+time: 2026-11-15T15:56:50.9745255+01:00

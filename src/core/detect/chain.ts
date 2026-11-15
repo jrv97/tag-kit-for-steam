@@ -40,6 +40,7 @@ export function createChainDetector(
 ): Detector {
   // One settle per link, so each link's failure streak is its own.
   const settled = links.map((link) => ({ link, settle: createSettle(logger) }));
+  const last = settled.at(-1);
   return {
     async detect(ids, sink) {
       let pending: readonly AppId[] = [...new Set(ids)];
@@ -47,13 +48,12 @@ export function createChainDetector(
       const verdicts = new Map(
         pending.map((id): [AppId, KindVerdicts] => [id, UNKNOWN_KINDS.missing]),
       );
-      for (const [index, { link, settle }] of settled.entries()) {
+      for (const step of settled) {
         if (pending.length === 0) {
           break;
         }
-        const hear = sink === undefined
-          ? undefined
-          : finalOnly(sink, index === settled.length - 1);
+        const { link, settle } = step;
+        const hear = sink === undefined ? undefined : finalOnly(sink, step === last);
         // Sequential on purpose: each link sees only what the one before it could not settle.
         const next: AppId[] = [];
         for (const [id, found] of await settle(link, pending, hear)) {

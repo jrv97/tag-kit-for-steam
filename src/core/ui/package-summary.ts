@@ -1,3 +1,4 @@
+import { detach } from "../dom";
 import type { KindId } from "../kinds/id";
 import type { FacetDefinition, FacetId, TagKind } from "../kinds/kind";
 import { registryOrder } from "../kinds/order";
@@ -83,7 +84,7 @@ export function createPackageSummary(
     const lines = found === undefined ? [] : summaryLines(i18n, found.list, views, order());
     const text = lines.join("\n");
     if (text !== drawn || found === undefined) {
-      box?.remove();
+      detach(box);
       box = undefined;
       drawn = text;
     }

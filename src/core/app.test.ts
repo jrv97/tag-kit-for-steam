@@ -188,6 +188,20 @@ describe("start on a package page", () => {
 });
 
 describe("start on the search page", () => {
+  it("badges and stops in the page's own world, where Prototype.js patched built-ins", async () => {
+    const restore = fake.prototypeJs();
+    try {
+      await startOnSearch();
+      await expect.poll(() => document.querySelectorAll(".tks-badge").length).toBe(
+        DISCLOSED_BADGES,
+      );
+      expect(() => app?.stop()).not.toThrow();
+    } finally {
+      app = undefined;
+      restore();
+    }
+  });
+
   it("badges the disclosed row after one GetItems request for the page", async () => {
     const { http } = await startOnSearch();
     await expect.poll(() => document.querySelectorAll(".tks-badge").length).toBe(DISCLOSED_BADGES);

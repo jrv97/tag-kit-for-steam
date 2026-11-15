@@ -21,6 +21,7 @@ import { fakeGm, fakeWatch, faultyGm } from "./gm-fake";
 import { loggingStore } from "./logging-store";
 import { manualQueue } from "./manual-queue";
 import { memoryStore } from "./memory-store";
+import { prototypeJs } from "./prototype-js";
 import { consoleMocks, recordingLogger } from "./recording-logger";
 import { recordingRenderer } from "./recording-renderer";
 import { listener, spy } from "./spies";
@@ -115,4 +116,6 @@ export const fake = {
   clock: fixedClock,
   /** Fake timers and `Date` from `T0`, and a `Clock` on them; call `vi.useRealTimers()` after. */
   timerClock: useTimerClock,
+  /** The built-ins Prototype.js patches on Steam's store pages; call the result to restore. */
+  prototypeJs,
 } as const;
