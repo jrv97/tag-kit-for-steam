@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Final
 
 from calver import MAX_SEGMENT, Version
+from canary import HEADING
 from catalogs import Catalog, Entry, used_placeholders
 from check_bundle import (
     BACKGROUND,
@@ -574,19 +575,25 @@ class CheckWording:
 
 
 class Canary:
-    """App page markup for canary.py, with and without Steam's AI heading."""
+    """App page markup for canary.py: Steam's AI block with notes, with blank notes, or none."""
 
     AI_PAGE: Final = (
-        '<div id="game_area_content_descriptors"><h2>AI Generated Content Disclosure</h2></div>'
+        f'<div id="game_area_content_descriptors"><h2>{HEADING}</h2><p><i>Art.</i></p></div>'
+    )
+    BLANK_PAGE: Final = (
+        f'<div id="game_area_content_descriptors"><h2>{HEADING}</h2><p><i> \u200b</i></p></div>'
     )
     OTHER_PAGE: Final = (
-        '<div id="game_area_content_descriptors"><h2>Mature Content Description</h2></div>'
+        '<div id="game_area_content_descriptors"><h2>Mature Content Description</h2>'
+        "<p><i>Gore.</i></p></div>"
     )
-    # (page, GetItems has AI notes, the two disagree)
+    # (case, page, GetItems has AI notes, problems expected)
     HEADING_CASES: Final = (
-        (AI_PAGE, True, False),
-        (OTHER_PAGE, False, False),
-        (AI_PAGE, False, True),
-        (OTHER_PAGE, True, True),
+        ("both", AI_PAGE, True, 0),
+        ("neither", OTHER_PAGE, False, 0),
+        ("blank notes on the page only", BLANK_PAGE, False, 0),
+        ("page only", AI_PAGE, False, 1),
+        ("GetItems only", OTHER_PAGE, True, 1),
+        ("GetItems only, blank page notes", BLANK_PAGE, True, 1),
     )
     WHERE: Final = "app page 1"

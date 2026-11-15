@@ -16,19 +16,22 @@ does while the Early Access tag is on: `is_early_access` must be a boolean and
 `release.steam_release_date` an integer when present, and some sampled app must be flagged. The DLC
 and the demo must still name their base or full game in related_items.parent_appid, with `type` 4
 for the DLC and 1 for the demo. A page comes from an app the sample shows that declaration for, and
-is checked against what GetItems says about its own app: the AI heading shows exactly when GetItems
-has AI notes. Exits non-zero, listing what changed, when an answer no longer has the expected shape
-or a page and GetItems disagree; in GitHub Actions the list goes to the job summary too. Not part of
-`ci`: it needs the network and Steam's mood. The live-pages workflow runs it daily, and it runs
-before a release.
+is checked against what GetItems says about its own app. As in the extension, the page's AI block
+has notes exactly when GetItems has AI notes, and one fetched page's app must have them. Requests
+with no answer, a 429 or a 5xx are tried once more. Exits non-zero, listing what changed, when an
+answer no longer has the expected shape or a page and GetItems disagree; in GitHub Actions the list
+goes to the job summary too. Not part of `ci`: it needs the network and Steam's mood. The
+live-pages workflow runs it daily, and it runs before a release.
 """
 
 import json
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
+from typing import NoReturn
 
 from repo import fail, summary
 
@@ -36,7 +39,14 @@ GETITEMS_URL = "https://api.steampowered.com/IStoreBrowseService/GetItems/v1"
 APP_PAGE_URL = "https://store.steampowered.com/app/{appid}/?l=english"
 USER_AGENT = "tag-kit-for-steam-canary (+https://github.com/jrv97/tag-kit-for-steam)"
 TIMEOUT_SECONDS = 30
+RETRY_SECONDS = 10
+# The status a request gets when nothing answered; 429 and a 5xx are also worth one more try.
+NO_ANSWER = 0
+TOO_MANY_REQUESTS = 429
+SERVER_ERROR = 500
 HEADING = "AI Generated Content Disclosure"
+# The blanks the extension trims from developer notes (trimNotes in src/core/detect/notes.ts).
+BLANKS = re.compile(r"^[\s\u200b-\u200d\u2060\ufeff]+|[\s\u200b-\u200d\u2060\ufeff]+$")
 # Apps that between them declare every kind. A page hook takes the first app that shows its
 # declaration, so only the order matters.
 SAMPLE = (
@@ -109,8 +119,14 @@ class Response:
         self.body = body
 
 
-def get(url: str) -> Response:
-    """A GET with no cookies and no credentials (the default opener has no cookie jar)."""
+def report(problems: list[str]) -> NoReturn:
+    """List the problems, in the job summary too, and exit non-zero."""
+    summary("## Live-page check failed", "", *(f"- {problem}" for problem in problems))
+    fail(f"{len(problems)} problem(s): Steam's answers changed or a page disagrees with GetItems")
+
+
+def fetch(url: str) -> Response:
+    """One GET with no cookies and no credentials; status 0 and the error when nothing answered."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})  # noqa: S310
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310
@@ -120,7 +136,18 @@ def get(url: str) -> Response:
     except urllib.error.HTTPError as error:
         return Response(error.code, url, {}, "")
     except (urllib.error.URLError, TimeoutError) as error:
-        fail(f"{url}: request failed: {error}")
+        return Response(NO_ANSWER, url, {}, str(error))
+
+
+def get(url: str) -> Response:
+    """A cookie-less GET, asked once more after no answer, a 429 or a 5xx."""
+    response = fetch(url)
+    if response.status in (NO_ANSWER, TOO_MANY_REQUESTS) or response.status >= SERVER_ERROR:
+        time.sleep(RETRY_SECONDS)
+        response = fetch(url)
+    if response.status == NO_ANSWER:
+        report([f"{url}: request failed: {response.body}"])
+    return response
 
 
 def getitems_url(ids: tuple[int, ...]) -> str:
@@ -144,7 +171,7 @@ def as_object(value: object) -> dict[str, object] | None:
 
 
 def has_text(value: object) -> bool:
-    return isinstance(value, str) and bool(value.strip())
+    return isinstance(value, str) and bool(BLANKS.sub("", value))
 
 
 def type_problems(
@@ -441,12 +468,21 @@ def pick_page_app(by_id: dict[int, dict[str, object]], options: tuple[set[str], 
 
 
 class PageScan(HTMLParser):
-    """Collects `#appHubAppName`, the `h2` texts of every disclosure block and the notice hooks."""
+    """Collects `#appHubAppName`, the `h2` texts of every disclosure block and the notice hooks.
+
+    `ai_notes` is the text of the first `<i>` in a `<p>` of the block headed by `HEADING`, as the
+    extension reads it with `p > i`, or None when the page has no such block.
+    """
 
     def __init__(self) -> None:
         super().__init__()
         self.has_app_name = False
         self.headings: list[str] = []
+        self.ai_notes: str | None = None
+        self._in_ai_block = False
+        self._in_p = False
+        self._in_notes = False
+        self._notes = ""
         self.kernel_sections = 0
         self.nonkernel_notices = 0
         self.name_lines: list[str] = []
@@ -508,6 +544,10 @@ class PageScan(HTMLParser):
                 self._block_depth += 1
             elif tag == "h2":
                 self._in_h2, self._text = True, ""
+            elif tag == "p" and self._in_ai_block:
+                self._in_p = True
+            elif tag == "i" and self._in_p and self.ai_notes is None:
+                self._in_notes, self._notes = True, ""
         elif tag == "div" and "game_area_content_descriptors" in ids:
             self._block_depth = 1
 
@@ -530,10 +570,22 @@ class PageScan(HTMLParser):
         if self._in_h2 and tag == "h2":
             self._in_h2 = False
             self.headings.append(self._text.strip())
+            self._in_ai_block = self._text.strip() == HEADING
         elif self._block_depth and tag == "div":
             self._block_depth -= 1
+            self._in_ai_block = self._in_ai_block and self._block_depth > 0
+        self._end_notes(tag)
+
+    def _end_notes(self, tag: str) -> None:
+        if tag == "i" and self._in_notes:
+            self._in_notes = False
+            self.ai_notes = self._notes
+        elif tag == "p":
+            self._in_p = False
 
     def handle_data(self, data: str) -> None:
+        if self._in_notes:
+            self._notes += data
         if self._in_script:
             self._script += data
         if self._in_h2:
@@ -563,16 +615,15 @@ def hook_problems(where: str, scan: PageScan, hook: str, item: dict[str, object]
 
 
 def heading_problems(where: str, scan: PageScan, *, declared: bool) -> list[str]:
-    """Where the page's AI heading and the GetItems verdict for the same app disagree."""
-    shown = HEADING in scan.headings
-    if declared and not shown:
+    """Where the page's AI block and the GetItems verdict for the same app disagree."""
+    if has_text(scan.ai_notes) == declared:
+        return []
+    if declared:
         return [
-            f"{where}: GetItems has AI notes, but no #game_area_content_descriptors block has"
-            f" the h2 {HEADING!r} (found {scan.headings!r})"
+            f"{where}: GetItems has AI notes, but no #game_area_content_descriptors block with"
+            f" the h2 {HEADING!r} has notes in `p > i` (found {scan.headings!r})"
         ]
-    if shown and not declared:
-        return [f"{where}: the page has the h2 {HEADING!r}, but GetItems has no AI notes"]
-    return []
+    return [f"{where}: the page's {HEADING!r} block has notes, but GetItems has none"]
 
 
 def page_problems(where: str, scan: PageScan, hook: str, item: dict[str, object]) -> list[str]:
@@ -612,16 +663,19 @@ def main() -> None:
     problems, by_id = parse_items(get(getitems_url((*SAMPLE, *children))))
     problems += getitems_problems(by_id)
     problems += child_problems(by_id)
+    declared_pages = 0
     for hook, options in PAGE_HOOKS:
         appid = pick_page_app(by_id, options)
         item = by_id.get(appid) if appid is not None else None
         if appid is None or item is None:
             problems.append(f"app page ({hook}): no app in the sample shows its declaration")
             continue
+        declared_pages += "ai" in facts_of(item)
         problems += app_page_problems(get(APP_PAGE_URL.format(appid=appid)), appid, hook, item)
+    if not declared_pages:
+        problems.append("app pages: no page's app has AI notes, so no page was checked for them")
     if problems:
-        summary("## Live-page check failed", "", *(f"- {problem}" for problem in problems))
-        fail(f"{len(problems)} canary problem(s): Steam's shape may have changed")
+        report(problems)
     summary("canary: GetItems and the app pages still have the expected shape")
 
 

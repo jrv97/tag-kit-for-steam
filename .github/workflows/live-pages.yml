@@ -1,6 +1,5 @@
-# Runs the live-page check (scripts/canary.py) every day and on demand: one GetItems call and four
-# app pages, with no cookies and no key. The run fails, with the problems in its job summary, when
-# a page's AI heading disagrees with the GetItems verdict or Steam's answers change shape.
+# Runs the live-page check (scripts/canary.py) every day and on demand, with no cookies and no key.
+# A failed run lists the problems in its job summary.
 name: live-pages
 
 on:
@@ -28,4 +27,5 @@ jobs:
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           version: 2026.11.4
+          install_args: python
       - run: mise run canary
