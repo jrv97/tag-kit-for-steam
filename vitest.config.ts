@@ -1,7 +1,7 @@
 import { configDefaults, defineConfig } from "vitest/config";
 
-/** Wall-clock budgets; they run apart from the unit tests so no other file shares the CPU. */
-const PERF = "src/**/*.perf.test.ts";
+/** Wall-clock budgets: after the unit tests, one file at a time, so no test shares the CPU. */
+const PERF = "**/*.perf.test.ts";
 
 export default defineConfig({
   test: {

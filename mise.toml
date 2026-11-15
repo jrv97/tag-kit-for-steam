@@ -279,7 +279,9 @@ description = "Everything a push must pass"
 run = [
   { task = "check-branch" },
   { task = "fmt-check" },
-  { tasks = ["lint", "typecheck", "test", "release:test"] },
+  { tasks = ["lint", "typecheck", "release:test"] },
+  # Alone, so the scan-time budgets in its perf project share the CPU with no other task.
+  { task = "test" },
   { task = "check" },
 ]
 

@@ -1,4 +1,5 @@
 import { DATA_CANDIDATE } from "../../src/core/scan/candidates";
+import type { AppId } from "../../src/core/types";
 import dlcRows from "../fixtures/app-page/1808500-ai-only.html?raw";
 import bundle from "../fixtures/surfaces/bundle/items.html?raw";
 import curator from "../fixtures/surfaces/curator/reviews.html?raw";
@@ -67,7 +68,7 @@ export function searchRow(id: number): HTMLElement {
 }
 
 /** A React sale grid of captured tag hub capsules, one for each app in `ids`. */
-export function capsuleGrid(ids: readonly number[]): string {
+export function capsuleGrid(ids: readonly AppId[]): string {
   const page = new DOMParser().parseFromString(tagHub, "text/html");
   // The wrapper of the first capsule.
   const capsule = the("._3r4Ny9tQdQZc50XDM5B2q2", page);

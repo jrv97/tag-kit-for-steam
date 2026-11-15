@@ -1,16 +1,17 @@
 // @vitest-environment-options {"url":"https://store.steampowered.com/search/?term=roguelike"}
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { make } from "../../../tests/helpers/factory";
-import { fake } from "../../../tests/helpers/fakes";
+import {
+  launchScanner,
+  settle,
+  type StartedScanner,
+  useScanTimers,
+} from "../../../tests/helpers/scanner";
 import { loadPage, setBody, the } from "../../../tests/helpers/surfaces";
-import { createScanner, DEBOUNCE_MS, type Scanner, type ScanReport } from "./scanner";
 
-// Wall-clock scan budgets. The `perf` project in vitest.config.ts runs this file alone, after the
-// unit tests, so other test files do not share the CPU. The DOM call counts in scanner.test.ts are
-// the machine-independent bound; these catch a slow selector or DOM call that the counts miss.
+// Wall-clock scan budgets in happy-dom. The perf project in vitest.config.ts runs this file alone,
+// after the unit tests. The renderer only records batches, so badge drawing is not timed.
 
-/** One animation frame under fake timers. */
-const FRAME_MS = 16;
 /** Untimed runs first, so the JIT and happy-dom's caches warm up. */
 const WARMUP_RUNS = 3;
 /** Timed runs; their median ignores a run that a busy runner slows down. */
@@ -20,98 +21,82 @@ const GRID_IDS = make.appIds(200);
 const GRID = make.page.capsuleGrid(GRID_IDS);
 const APPENDED_IDS = make.appIds(50);
 
-let started: Scanner[] = [];
-let reports: ScanReport[] = [];
-
-beforeEach(() => {
-  vi.useFakeTimers({
-    toFake: ["setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame"],
-  });
-});
+beforeEach(useScanTimers);
 
 afterEach(() => {
-  stopAll();
   vi.useRealTimers();
 });
 
-/** Starts a scanner on the current page and lets its first page scan run. */
-async function startScanner(): Promise<void> {
-  const scanner = createScanner({
-    document,
-    renderer: fake.renderer(),
-    onReport: (report) => reports.push(report),
-  });
-  started.push(scanner);
-  scanner.start();
-  await vi.advanceTimersByTimeAsync(FRAME_MS);
-}
-
-/** Lets a debounced scan run after the last mutation. */
-async function settle(): Promise<void> {
-  await vi.advanceTimersByTimeAsync(DEBOUNCE_MS + FRAME_MS);
-}
-
-function stopAll(): void {
-  for (const scanner of started) {
-    scanner.stop();
-  }
-  started = [];
-}
-
-/** A scan to time: `prepare` builds a fresh page, `scan` is the part timed. */
+/** A scan to time: `prepare` builds a fresh page and returns the step to time. */
 interface TimedScan {
   readonly name: string;
-  readonly prepare: () => Promise<void>;
-  readonly scan: () => Promise<void>;
-  /** Hosts the timed scan must report, so a scan that finds nothing cannot pass. */
+  readonly prepare: () => Promise<() => Promise<StartedScanner>>;
+  /** Hosts every run must report, so a scan that finds nothing cannot pass. */
   readonly found: number;
-  /** About five times the median measured on a laptop with other jobs running, for CI. */
+  /** About five times the slowest median a laptop showed with other jobs running. */
   readonly budgetMs: number;
 }
 
 const TIMED_SCANS: readonly TimedScan[] = [
   {
-    // Median measured 75 to 160 ms.
+    // A laptop's median: 75 ms alone, 160 ms beside other jobs.
     name: "a page scan of 200 capsules",
     prepare: () => {
       setBody(GRID);
-      return Promise.resolve();
+      return Promise.resolve(() => launchScanner());
     },
-    scan: startScanner,
     found: GRID_IDS.length,
-    budgetMs: 500,
+    budgetMs: 800,
   },
   {
-    // Median measured 2 to 6 ms.
+    // A laptop's median: 2 ms alone, 6 ms beside other jobs. The fake clock's steps count too.
     name: "a scan of 50 appended search rows",
     prepare: async () => {
       loadPage(make.page.surface("search"));
-      await startScanner();
-      the("#search_resultsRows").append(...APPENDED_IDS.map((id) => make.page.searchRow(id)));
+      const started = await launchScanner();
+      const container = the("#search_resultsRows");
+      for (const id of APPENDED_IDS) {
+        container.append(make.page.searchRow(id));
+      }
+      return async () => {
+        await settle();
+        return started;
+      };
     },
-    scan: settle,
     found: APPENDED_IDS.length,
     budgetMs: 30,
   },
 ];
 
-/** The median wall-clock time of `timed.scan` over the timed runs, after the warm-up runs. */
-async function medianScanMs(timed: TimedScan): Promise<number> {
+/** The timed runs' times and every run's last report count. */
+interface Timing {
+  readonly times: readonly number[];
+  readonly found: readonly (number | undefined)[];
+}
+
+async function timeScans(timed: TimedScan): Promise<Timing> {
   const times: number[] = [];
+  const found: (number | undefined)[] = [];
   for (let run = 0; run < WARMUP_RUNS + TIMED_RUNS; run += 1) {
-    reports = [];
-    await timed.prepare();
+    const scan = await timed.prepare();
     const start = performance.now();
-    await timed.scan();
+    const { scanner, reports } = await scan();
     times.push(performance.now() - start);
-    stopAll();
+    scanner.stop();
+    found.push(reports.at(-1)?.found);
   }
-  const sorted = times.slice(WARMUP_RUNS).toSorted((a, b) => a - b);
+  return { times: times.slice(WARMUP_RUNS), found };
+}
+
+function median(values: readonly number[]): number {
+  const sorted = values.toSorted((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)] ?? Number.POSITIVE_INFINITY;
 }
 
 it.each(TIMED_SCANS)("keeps $name within its time budget", async (timed) => {
-  const median = await medianScanMs(timed);
-  expect(reports.at(-1)?.found).toBe(timed.found);
-  expect(median).toBeLessThanOrEqual(timed.budgetMs);
+  const { times, found } = await timeScans(timed);
+  expect(new Set(found)).toStrictEqual(new Set([timed.found]));
+  expect(median(times), times.map((time) => time.toFixed(1)).join(" ")).toBeLessThanOrEqual(
+    timed.budgetMs,
+  );
 });
