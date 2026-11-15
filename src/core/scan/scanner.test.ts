@@ -2,7 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { countDomWork, type DomWork } from "../../../tests/helpers/dom-work";
 import { make } from "../../../tests/helpers/factory";
-import { fake } from "../../../tests/helpers/fakes";
+import type { RecordingRenderer } from "../../../tests/helpers/recording-renderer";
+import { FRAME_MS, launchScanner, settle, useScanTimers } from "../../../tests/helpers/scanner";
 import {
   APP_ROW,
   BUNDLE_ROW,
@@ -17,21 +18,17 @@ import { appIdFromHref } from "./appid";
 import { LINK_CANDIDATE } from "./candidates";
 import { HOST_APPID, HOST_HIDEABLE, HOST_KINDS } from "./marks";
 import type { CapsuleHost } from "./renderer";
-import { createScanner, DEBOUNCE_MS, type Scanner, type ScanReport } from "./scanner";
+import { DEBOUNCE_MS, type Scanner, type ScanReport } from "./scanner";
 
 const SEARCH_URL = "https://store.steampowered.com/search/?term=roguelike";
-/** One animation frame under fake timers. */
-const FRAME_MS = 16;
 const SURFACE_APPS = make.fixture.surfaceApps;
 
-let renderer: ReturnType<typeof fake.renderer>;
-let reports: ScanReport[];
+let renderer: RecordingRenderer;
+let reports: readonly ScanReport[];
 let scanner: Scanner;
 
 beforeEach(() => {
-  vi.useFakeTimers({
-    toFake: ["setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame"],
-  });
+  useScanTimers();
   history.replaceState(null, "", SEARCH_URL);
 });
 
@@ -42,11 +39,7 @@ afterEach(() => {
 
 /** Starts a scanner on the current page and lets its first page scan run. */
 async function startScanner(options: { readonly badges?: boolean; } = {}): Promise<void> {
-  renderer = fake.renderer(options);
-  reports = [];
-  scanner = createScanner({ document, renderer, onReport: (report) => reports.push(report) });
-  scanner.start();
-  await vi.advanceTimersByTimeAsync(FRAME_MS);
+  ({ renderer, reports, scanner } = await launchScanner(options));
 }
 
 /** Opens `markup` at `path` and starts a scanner on it. */
@@ -54,11 +47,6 @@ async function startOn(path: string, markup: string): Promise<void> {
   history.replaceState(null, "", path);
   setBody(markup);
   await startScanner();
-}
-
-/** Lets a debounced scan run after the last mutation. */
-async function settle(): Promise<void> {
-  await vi.advanceTimersByTimeAsync(DEBOUNCE_MS + FRAME_MS);
 }
 
 function found(): readonly CapsuleHost[] {
@@ -647,10 +635,9 @@ describe("observing", () => {
 });
 
 describe("work budget", () => {
-  // Scan cost as counted DOM calls, which do not depend on the machine running the tests. Each
-  // limit is per scanned capsule, a little above what the scanner does today, so a change that
-  // makes the scan superlinear or re-reads old content fails here. The real time budget (under
-  // 4 ms per mutation batch) is the manual sale-page profile in the checklist.
+  // Scan cost as counted DOM calls, which no machine changes. Each limit is per capsule, a little
+  // above today's count, so a superlinear scan or a reread of old content fails here.
+  // scanner.perf.test.ts holds the wall-clock budgets.
 
   const LIMITED = [
     "querySelectorAll",
@@ -691,23 +678,9 @@ describe("work budget", () => {
     }
   }
 
-  /** A React sale grid of tag hub capsules, one for each app in `ids`. */
-  function capsuleGrid(ids: readonly AppId[]): string {
-    const page = new DOMParser().parseFromString(make.page.surface("tag-hub"), "text/html");
-    // The wrapper of the first capsule.
-    const capsule = the("._3r4Ny9tQdQZc50XDM5B2q2", page);
-    const copies = ids.map((id) => {
-      for (const link of capsule.querySelectorAll("a")) {
-        link.setAttribute("href", `https://store.steampowered.com/app/${String(id)}/X`);
-      }
-      return capsule.outerHTML;
-    });
-    return `<div class="SaleSectionContainer">${copies.join("")}</div>`;
-  }
-
   it("scans a 200-capsule page with bounded DOM work, in one frame", async () => {
     const ids = make.appIds(200);
-    setBody(capsuleGrid(ids));
+    setBody(make.page.capsuleGrid(ids));
     const work = countDomWork();
     await startScanner();
     expect(found()).toHaveLength(ids.length);

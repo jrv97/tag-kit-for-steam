@@ -82,7 +82,7 @@ Rows are the store surfaces from the surface map in `docs/research/steam-ai-disc
 
 ## Performance profile
 
-Run once per release, in Chrome with the extension, on a current seasonal sale page, logged out.
+Run once per release, in Chrome with the extension, on a current seasonal sale page, logged out. `mise run test` holds coarser scan-time budgets in happy-dom (`src/core/scan/scanner.perf.test.ts`) that catch a large slowdown between releases; this profile is the real-browser budget.
 
 | Check                                                                                                                                       | Budget                                                                         | Result |
 | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------ |
