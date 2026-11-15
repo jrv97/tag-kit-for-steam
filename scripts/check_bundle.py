@@ -19,7 +19,7 @@
   key or plural base that a string literal of its code names is in its inlined catalogs, and every
   message there is named, so a missing key fails here and never falls back to the raw key on a
   store page. scripts/gen_catalogs.py writes each entry's catalogs by the same reading.
-- Size budgets: content.js at most 239 KiB, options.js at most 260 KiB and the userscript at most
+- Size budgets: content.js at most 245 KiB, options.js at most 260 KiB and the userscript at most
   430 KiB, unminified (rule 13). Each is the measured size plus a few percent of headroom; raise one
   only with a measurement. A message costs bytes only in the bundles that read it, and an added
   locale costs about 5 KB in content.js, 9 KB in options.js and 12 KB in the userscript. Measured
@@ -75,7 +75,11 @@
   (from 411,764): the two cards and the parts they share with Backup, seven Lucide icons and 31
   messages in two locales. Their budgets rise to 260 and 430 KiB, the size plus 2.6 and 2.5
   percent. Measured when the toolbar icon began to dim outside the store (ADR 0027): announce.js
-  953 B and background.js 978 B; neither carries valibot. Their budgets are 1 KiB each.
+  953 B and background.js 978 B; neither carries valibot. Their budgets are 1 KiB each. Measured
+  when failed lookups got reported (ADR 0028): content.js 245,779 B (from 240,502: the failed
+  marks, the notice's failed sentence and its plural message in two locales, and the recheck
+  through the surfaces, the tracker and the port). Its budget rises to 245 KiB, the size plus 2.1
+  percent.
 - The STEAM_API_KEY value, when set, appears nowhere in dist/ or artifacts/ (rule 16).
 - The dev injection bundle is never packaged into artifacts/, and when artifacts/ exists it holds
   exactly the five release artifacts, with a manifest at the root of each extension zip. The source
@@ -113,7 +117,7 @@ from repo import (
 
 KIB = 1024
 BUDGETS = {
-    **{DIST / target / "content.js": 239 * KIB for target in EXTENSION_TARGETS},
+    **{DIST / target / "content.js": 245 * KIB for target in EXTENSION_TARGETS},
     **{DIST / target / "options.js": 260 * KIB for target in EXTENSION_TARGETS},
     **{DIST / target / "announce.js": 1 * KIB for target in EXTENSION_TARGETS},
     **{DIST / target / "background.js": 1 * KIB for target in EXTENSION_TARGETS},
