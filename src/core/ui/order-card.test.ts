@@ -10,6 +10,7 @@ import { OVERLAY_CHIPS, parseOrder, ROW_CHIPS, SUGGESTION_CHIPS } from "../kinds
 import { KIND_BY_ID } from "../kinds/registry";
 import { parseSettings } from "../settings/settings";
 import { createSettingsSource } from "../settings/settings-source";
+import { FIELD_ERROR } from "./element";
 import { keyDescription, keyText } from "./kind-keys";
 
 const i18n = englishI18n();
@@ -342,7 +343,7 @@ describe("the Tag order card", () => {
     store.break();
     handle("ai").click();
     await vi.waitFor(() => {
-      expect(root.querySelector<HTMLElement>(".tks-order-list ~ .tks-field-error")?.hidden).toBe(
+      expect(root.querySelector<HTMLElement>(`.tks-order-list ~ .${FIELD_ERROR}`)?.hidden).toBe(
         false,
       );
     });

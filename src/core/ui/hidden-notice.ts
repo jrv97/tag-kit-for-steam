@@ -2,7 +2,8 @@ import { KINDS } from "../kinds/registry";
 import type { MessageCatalog } from "../ports";
 import { HOST_HIDEABLE, HOST_KINDS } from "../scan/marks";
 import { findList, LIST_PLACEMENTS, placeAbove } from "../scan/placements";
-import { announce, POLITE } from "./announce";
+import { announce, liveRegion } from "./announce";
+import { createElement, plainButton } from "./element";
 import { filterAttribute } from "./kind-attributes";
 
 /**
@@ -95,19 +96,13 @@ export function createHiddenNotice(options: HiddenNoticeOptions): HiddenNotice {
     }
   });
 
-  const box = doc.createElement("div");
-  box.className = NOTICE_CLASS;
+  const box = createElement(doc, "div", NOTICE_CLASS);
   box.hidden = true;
-  const text = doc.createElement("span");
-  text.className = "tks-list-notice-text";
+  const text = createElement(doc, "span", "tks-list-notice-text");
   text.id = TEXT_ID;
-  const button = doc.createElement("button");
-  button.type = "button";
-  button.className = "tks-list-notice-button";
+  const button = plainButton(doc, "tks-list-notice-button");
   button.setAttribute("aria-describedby", TEXT_ID);
-  const live = doc.createElement("span");
-  live.className = "tks-vh";
-  live.setAttribute("aria-live", POLITE);
+  const live = liveRegion(doc, "span");
   box.append(text, button, live);
 
   /** The list the count was last drawn for; another one ends the reveal. */

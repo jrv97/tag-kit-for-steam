@@ -1,4 +1,11 @@
-import { createElement, plainButton, PRIMARY_VARIANT, VARIANT_ATTRIBUTE } from "./element";
+import {
+  createElement,
+  errorLine,
+  FIELD_ERROR,
+  PRIMARY_VARIANT,
+  secondaryButton,
+  VARIANT_ATTRIBUTE,
+} from "./element";
 import { withIcon } from "./icon";
 import type { LucideName } from "./lucide";
 
@@ -28,9 +35,9 @@ export function actionOf<A extends string>(
 /** A secondary button with its text, and with a Lucide icon before it when given. */
 export function cardButton(doc: Document, text: string, icon?: LucideName): HTMLButtonElement {
   if (icon === undefined) {
-    return plainButton(doc, "tks-button", text);
+    return secondaryButton(doc, text);
   }
-  return withIcon(plainButton(doc, "tks-button"), icon, text);
+  return withIcon(secondaryButton(doc), icon, text);
 }
 
 /** A wrapping row of buttons; `end` puts it on the right, as the store's dialogs do. */
@@ -112,10 +119,8 @@ export interface CardReport {
 
 export function createCardReport(doc: Document, announce: (text: string) => void): CardReport {
   const status = createElement(doc, "p", "tks-card-status");
-  const error = createElement(doc, "p", "tks-field-error");
-  error.setAttribute("role", "alert");
+  const error = errorLine(doc, FIELD_ERROR);
   status.hidden = true;
-  error.hidden = true;
 
   function show(node: HTMLElement, text: string | undefined): void {
     node.hidden = text === undefined;

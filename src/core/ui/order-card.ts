@@ -3,7 +3,7 @@ import { KIND_IDS, type KindId } from "../kinds/id";
 import { OVERLAY_CHIPS, ROW_CHIPS, sameOrder, SUGGESTION_CHIPS } from "../kinds/order";
 import { KIND_BY_ID } from "../kinds/registry";
 import type { MessageCatalog } from "../ports";
-import { createElement, quietButton } from "./element";
+import { createElement, plainButton, quietButton } from "./element";
 import { parseIcon } from "./icon";
 import { keyDescription, keyText } from "./kind-keys";
 import { dropIndex, heldIndex, type Reorder, reorder } from "./reorder";
@@ -132,8 +132,7 @@ export function createOrderCard(doc: Document, deps: OrderCardDeps): OrderCard {
   const grip = parseIcon(doc, GRIP_SVG);
   const rows = new Map<KindId, Row>();
   for (const id of KIND_IDS) {
-    const handle = createElement(doc, "button", "tks-order-handle");
-    handle.type = "button";
+    const handle = plainButton(doc, "tks-order-handle");
     handle.setAttribute(ORDER_ATTRIBUTE, id);
     handle.setAttribute("aria-describedby", how.id);
     if (grip !== undefined) {

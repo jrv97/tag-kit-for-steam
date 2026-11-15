@@ -8,7 +8,7 @@ import {
   toAllowScope,
 } from "../settings/allow-data";
 import type { ScopedList } from "../settings/allow-list";
-import { createElement, elementFactory, quietButton } from "./element";
+import { elementFactory, errorLine, FIELD_ERROR, quietButton } from "./element";
 
 /** What marks a "Stop ignoring" button, with the key of the item it restores. */
 export const RESTORE_ATTRIBUTE = "data-tks-restore";
@@ -70,12 +70,6 @@ export interface AllowSource {
   clear(): Promise<void>;
 }
 
-function errorLine(doc: Document, text: string): HTMLElement {
-  const error = createElement(doc, "p", "tks-field-error", text);
-  error.setAttribute("role", "alert");
-  return error;
-}
-
 /** The source of one list, drawn from its spec. */
 export function createAllowSource<Key extends string | number>(
   spec: AllowSpec<Key>,
@@ -101,9 +95,7 @@ export function createAllowSource<Key extends string | number>(
       "aria-label",
       i18n.t("options_allow_restore_label", { name: entry.name, scope: scopeName(of) }),
     );
-    const error = errorLine(doc, i18n.t(spec.saveError));
-    error.hidden = true;
-    node.append(text, stop, error);
+    node.append(text, stop, errorLine(doc, FIELD_ERROR, i18n.t(spec.saveError)));
     return node;
   }
 
@@ -143,7 +135,11 @@ export function createAllowSource<Key extends string | number>(
       return node;
     },
 
-    loadError: () => errorLine(doc, i18n.t(spec.loadError)),
+    loadError() {
+      const error = errorLine(doc, FIELD_ERROR, i18n.t(spec.loadError));
+      error.hidden = false;
+      return error;
+    },
 
     async restore(button) {
       const key = spec.parseKey(button.getAttribute(RESTORE_ATTRIBUTE) ?? "");
@@ -156,7 +152,7 @@ export function createAllowSource<Key extends string | number>(
       try {
         await spec.list.remove(of, key);
       } catch {
-        const error = row?.querySelector<HTMLElement>(".tks-field-error");
+        const error = row?.querySelector<HTMLElement>(`.${FIELD_ERROR}`);
         if (error !== null && error !== undefined) {
           error.hidden = false;
         }

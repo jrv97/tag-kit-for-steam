@@ -37,12 +37,12 @@ import {
   RESTORE_ATTRIBUTE,
   SCOPE_ATTRIBUTE,
 } from "./allow-view";
-import { announce, POLITE } from "./announce";
+import { announce, liveRegion } from "./announce";
 import { createBackupCard } from "./backup-card";
 import { ownText } from "./badge";
 import { type ActionCard, cardButton } from "./card-parts";
 import { createChipFields } from "./chip-fields";
-import { elementFactory, quietButton } from "./element";
+import { elementFactory, errorLine, FIELD_ERROR, quietButton } from "./element";
 import { facetChoiceKey } from "./facet-choices";
 import { createFeedbackFooter } from "./feedback-footer";
 import { parseIcon } from "./icon";
@@ -300,10 +300,7 @@ export async function mountSettingsForm(
   const element = elementFactory(doc);
 
   function fieldError(): HTMLElement {
-    const error = element("p", "tks-field-error", i18n.t("error_settings_save"));
-    error.setAttribute("role", "alert");
-    error.hidden = true;
-    return error;
+    return errorLine(doc, FIELD_ERROR, i18n.t("error_settings_save"));
   }
 
   /** The title of a card; focus lands on it after a restore, so it takes focus but is no stop. */
@@ -514,10 +511,8 @@ export async function mountSettingsForm(
     const entry = element("div", "tks-color-entry");
     entry.append(picker, input, reset);
     const help = element("span", "tks-field-help", i18n.t("options_color_help_short"));
-    const invalid = element("p", "tks-field-error", i18n.t("options_color_invalid"));
+    const invalid = errorLine(doc, FIELD_ERROR, i18n.t("options_color_invalid"));
     invalid.id = `${input.id}-invalid`;
-    invalid.setAttribute("role", "alert");
-    invalid.hidden = true;
     input.setAttribute("aria-describedby", [colorHelp.id, invalid.id].join(" "));
     const error = fieldError();
     errors.set(errorKey("color", kind.id), error);
@@ -652,9 +647,7 @@ export async function mountSettingsForm(
     return { of, section, title: heading, body };
   }
 
-  const loadError = element("p", "tks-field-error", i18n.t("error_settings_load"));
-  loadError.setAttribute("role", "alert");
-  loadError.hidden = true;
+  const loadError = errorLine(doc, FIELD_ERROR, i18n.t("error_settings_load"));
 
   // Games, developers and publishers you ignored: each list read once, drawn in every scope
   const allowContext = { doc, i18n, dates, prefix, scopeName };
@@ -693,8 +686,7 @@ export async function mountSettingsForm(
       group: { after: GENERAL_TAB, caption: i18n.t("options_tabs_group_tags") },
     });
   const scopes = new Map<AllowScope, ScopeCard>();
-  const live = element("div", "tks-vh");
-  live.setAttribute("aria-live", POLITE);
+  const live = liveRegion(doc, "div");
   // The popup's rows follow the same order as the tabs
   const rows = element("div", "tks-kind-rows");
   const rowOf = new Map<KindId, HTMLElement>();

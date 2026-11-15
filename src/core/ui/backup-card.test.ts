@@ -9,6 +9,7 @@ import { createIgnoreLists } from "../ignored";
 import type { PickedFile } from "../ports";
 import { DEFAULT_SETTINGS, parseSettings } from "../settings/settings";
 import { createSettingsSource } from "../settings/settings-source";
+import { FIELD_ERROR } from "./element";
 import { mountSettingsForm } from "./settings-form";
 import { createUiState } from "./ui-state";
 
@@ -122,7 +123,7 @@ describe("the Backup card", () => {
     const card = await setup();
     fail(card);
     await card.click("options_backup_download");
-    expect(card.shown(".tks-field-error")).toBe(i18n.t("error_backup_create"));
+    expect(card.shown(`.${FIELD_ERROR}`)).toBe(i18n.t("error_backup_create"));
   });
 });
 
@@ -168,7 +169,7 @@ describe("picking a backup file", () => {
   )("names a file that is %s, and opens no check", async (_case, file, key) => {
     const { pick, shown } = await setup();
     await pick(file);
-    expect(shown(".tks-field-error")).toBe(i18n.t(key, { name }));
+    expect(shown(`.${FIELD_ERROR}`)).toBe(i18n.t(key, { name }));
     expect(shown(".tks-confirm-title")).toBeUndefined();
   });
 
@@ -226,7 +227,7 @@ describe("confirming a restore", () => {
     await pick(backupFile());
     store.break();
     await click("options_backup_confirm");
-    expect(shown(".tks-field-error")).toBe(i18n.t("error_backup_restore"));
+    expect(shown(`.${FIELD_ERROR}`)).toBe(i18n.t("error_backup_restore"));
     expect(shown(".tks-confirm-title")).toBeDefined();
   });
 });

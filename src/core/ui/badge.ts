@@ -6,6 +6,7 @@ import { registryOrder } from "../kinds/order";
 import { KIND_BY_ID } from "../kinds/registry";
 import { type AnyDisclosed, sameVerdicts } from "../kinds/verdicts";
 import type { MessageCatalog } from "../ports";
+import { createElement } from "./element";
 import type { BadgeSlot, CompactSize, HostRenderer } from "./host";
 import type { CardTriggers } from "./hover-card";
 import { KIND_ATTRIBUTE } from "./kind-attributes";
@@ -68,19 +69,13 @@ export function createChipElement(
   labelClass: string,
   kind?: KindId,
 ): HTMLElement {
-  const chip = doc.createElement("span");
-  chip.className = className;
+  const chip = createElement(doc, "span", className);
   if (kind !== undefined) {
     chip.setAttribute(KIND_ATTRIBUTE, kind);
   }
-  const label = doc.createElement("span");
-  label.className = labelClass;
+  const label = createElement(doc, "span", labelClass, text.label);
   label.setAttribute("aria-hidden", TRUE);
-  label.textContent = text.label;
-  const name = doc.createElement("span");
-  name.className = "tks-vh";
-  name.textContent = text.name;
-  chip.append(label, name);
+  chip.append(label, createElement(doc, "span", "tks-vh", text.name));
   return chip;
 }
 
@@ -102,8 +97,7 @@ export function createChip(
 
 /** The `span.tks-chips` that holds chips of one size, so a row or a section places them as one. */
 export function createChipGroup(doc: Document, size: BadgeSlot["kind"]): HTMLElement {
-  const group = doc.createElement("span");
-  group.className = "tks-chips";
+  const group = createElement(doc, "span", "tks-chips");
   group.setAttribute("data-tks-chips", size);
   return group;
 }

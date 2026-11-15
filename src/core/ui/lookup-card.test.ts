@@ -7,6 +7,7 @@ import { encodeVerdicts } from "../cache/stored";
 import type { BareMessageKey } from "../i18n/t";
 import type { JsonValue } from "../json";
 import { META_KEY, SETTINGS_KEY, verdictKey } from "../storage-keys";
+import { FIELD_ERROR } from "./element";
 
 const i18n = englishI18n();
 
@@ -105,7 +106,7 @@ describe("the stored lookups card", () => {
     const { store, text, click } = await setup();
     store.break();
     await click("options_lookups_clear");
-    expect(text(".tks-field-error")).toBe(i18n.t("error_lookups_clear"));
+    expect(text(`.${FIELD_ERROR}`)).toBe(i18n.t("error_lookups_clear"));
     expect(text(".tks-card-status")).toBeUndefined();
   });
 
