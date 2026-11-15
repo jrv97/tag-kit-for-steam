@@ -18,8 +18,8 @@
   runs in the isolated world, and without the `scripting` permission no code can register or
   inject a script into the page (rules 2 and 3).
 - No bundle runs code from a string: eval, Function or a string timer (rule 2). No URL outside the
-  two Valve hosts, except the feedback links of the settings footer as whole string literals in
-  options.js and the userscript.
+  two Valve hosts, except the feedback links of the settings footer and the release notes prefix
+  of the popup, as whole string literals in options.js and the userscript.
 - No bundle writes a cookie through `document.cookie` or `cookieStore` (rule 1).
 - The extension bundles build no <script>, parsed markup or inline handler, which would run outside
   their isolated code. The userscript and the dev bundle run in the page world by design (ADR 0029).
@@ -92,7 +92,6 @@ SETTINGS_LINKS = tuple(
     for link in (
         f"{ISSUES_URL}/new?template=bug_report.yml",
         f"{ISSUES_URL}/new?template=feature_request.yml",
-        "https://forms.gle/Fo652zzyFWUQn2qK9",
         f"{REPO_URL}/releases/tag/",
     )
 )

@@ -485,12 +485,7 @@ class CheckBundle:
         (CONTENT, SETTINGS_LINKS[0], True, (GITHUB,)),
         (BACKGROUND_JS, SETTINGS_LINKS[0], True, (GITHUB,)),
         (OPTIONS, SETTINGS_LINKS[-1].replace('/"', '/evil"'), True, (GITHUB,)),
-        (
-            OPTIONS,
-            SETTINGS_LINKS[2].replace('"', "", 1),
-            True,
-            ("URL to a host outside the allowlist: forms.gle",),
-        ),
+        (OPTIONS, '"see ' + SETTINGS_LINKS[0][1:], True, (GITHUB,)),
         (
             CONTENT,
             userscript_header(),

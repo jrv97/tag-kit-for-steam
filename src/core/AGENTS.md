@@ -10,7 +10,7 @@ The platform-free heart of Tag Kit for Steam: detection, cache, scanning, placem
 - No `eval`, `new Function` or dynamic remote code. No direct `JSON.parse`: use `parseJson(text): unknown` from `json.ts`.
 - No user-visible or logged string literals, and no catalog text in tests. Code holds `MessageKey`s and tests take expected text from `t(key, params)`; copy lives in `src/locales/` (rule 9, i18n from day 1), and `scripts/check_i18n.py` fails on a literal that repeats it. Allowed literals: identifiers, selectors, URLs, storage keys, CSS class names, detection constants such as the heading `AI Generated Content Disclosure`.
 - No `any`, no type assertions other than `as const`, no non-null assertions, no `@ts-ignore`, `@ts-expect-error` or `@ts-nocheck` (rule 10, strict static typing). Untrusted input is `unknown` until a valibot schema turns it into a typed value.
-- Valve hosts only, always `credentials: "omit"` (rule 1, privacy). Core never builds a request to another host.
+- Valve hosts only, always `credentials: "omit"` and `referrerPolicy: "no-referrer"` (rule 1, privacy). Core never builds a request to another host.
 
 ## Ports
 
