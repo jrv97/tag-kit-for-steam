@@ -228,6 +228,8 @@ export interface ListPlacement {
   readonly list: string;
   /** A store element above the list; when the page has it, the block goes right after it. */
   readonly after?: string;
+  /** A direct child of the list; the block goes right before it instead of before the list. */
+  readonly before?: string;
 }
 
 /** Every list surface with a notice, most specific first; the first in the page wins. */
@@ -248,19 +250,22 @@ export const SUMMARY_PLACEMENTS: readonly ListPlacement[] = [
     list: ".package_landing_page_item_list",
     after: "#package_header_container",
   },
-  // A bundle page (`/bundle/<id>/`): under the purchase box, above "Items included in this
-  // bundle". Its rows sit loose in the column, which a package page's column shares too.
+  // A bundle page (`/bundle/<id>/`): above "Items included in this bundle", under the purchase
+  // box. The rows have no wrapper, so the list is their column, a class package pages share.
   {
     id: "bundle-items",
     list: ".leftcol:has(> .bundle_package_item)",
-    after: "#game_area_purchase_top",
+    before: "h2",
   },
 ];
 
-/** A list surface in the page, and the store element above it that our block follows, if any. */
+/** A list surface in the page, and where our block goes in it. */
 export interface FoundList {
   readonly list: Element;
+  /** The store element our block follows, if any. */
   readonly after: Element | null;
+  /** The element our block precedes when there is no `after`: the list or one of its children. */
+  readonly before: Element;
 }
 
 /** The first of `placements` whose list is in the page, or undefined. Reads only. */
@@ -272,7 +277,10 @@ export function findList(
     const list = doc.querySelector(placement.list);
     if (list !== null) {
       const after = placement.after === undefined ? null : doc.querySelector(placement.after);
-      return { list, after };
+      const child = placement.before === undefined
+        ? null
+        : list.querySelector(`:scope > ${placement.before}`);
+      return { list, after, before: child ?? list };
     }
   }
   return undefined;
@@ -280,10 +288,10 @@ export function findList(
 
 /** Puts `block` where its list surface wants it, and writes nothing when it is there already. */
 export function placeAbove(found: FoundList, block: Element): void {
-  const { list, after } = found;
+  const { after, before } = found;
   if (after === null) {
-    if (list.previousElementSibling !== block) {
-      list.before(block);
+    if (before.previousElementSibling !== block) {
+      before.before(block);
     }
   } else if (after.nextElementSibling !== block) {
     after.after(block);

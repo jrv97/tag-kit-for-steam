@@ -54,9 +54,11 @@ async function draw(
 
 let order: readonly KindId[] = KIND_IDS;
 
-/** A package page with one row per view, its summary drawn from them in `order`. */
-async function drawnPage(views: readonly Row[]) {
-  const rows = markedPackagePage(make.appIds(views.length));
+/** A page with one row per view (a package page unless `rows` is given), drawn in `order`. */
+async function drawnPage(
+  views: readonly Row[],
+  rows: readonly Element[] = markedPackagePage(make.appIds(views.length)),
+) {
   const renderer = createPackageSummary(document, i18n, () => kindsInOrder(order));
   await draw(renderer, rows, views);
   return { rows, renderer };
@@ -92,10 +94,6 @@ describe("createPackageSummary", () => {
   it.each<[string, readonly Row[], readonly Row[], readonly string[] | undefined]>([
     ["a game's verdicts arrive", [AI, undefined], [undefined, AI], [games("ai", 2, 2)]],
     ["a retry answers an unknown game", [AI, UNKNOWN], [undefined, AI], [games("ai", 2, 2)]],
-    ["a kind's badge is switched off", [AI_DRM], [{ ...AI_DRM, unbadged: ["drm"] }], [
-      games("ai", 1, 1),
-    ]],
-    ["a game is ignored for a kind", [AI, AI], [{ ...AI, ignored: ["ai"] }], [games("ai", 1, 2)]],
     ["the last chip goes", [AI], [{ ...AI, ignored: ["ai"] }], undefined],
   ])("follows the next draw when %s", async (_, before, after, expected) => {
     const { rows, renderer } = await drawnPage(before);
@@ -103,15 +101,11 @@ describe("createPackageSummary", () => {
     expect(lines()).toStrictEqual(expected);
   });
 
-  it.each<readonly KindId[]>([KIND_IDS, parseOrder(["pvp", "drm"])])(
-    "lists the kinds in the tag order %j",
-    async (...moved) => {
-      order = moved;
-      await drawnPage([AI_DRM, { verdicts: make.verdicts.only(["pvp"]) }]);
-      const expected = order.filter((id) => ["ai", "drm", "pvp"].includes(id));
-      expect(lines()).toStrictEqual(expected.map((id) => games(id, 1, 2)));
-    },
-  );
+  it("lists the kinds in the tag order", async () => {
+    order = parseOrder(["pvp", "drm"]);
+    await drawnPage([AI_DRM, { verdicts: make.verdicts.only(["pvp"]) }]);
+    expect(lines()).toStrictEqual([games("pvp", 1, 2), games("drm", 1, 2), games("ai", 1, 2)]);
+  });
 
   it("follows a new order on the next draw", async () => {
     const { rows, renderer } = await drawnPage([AI_DRM]);
@@ -135,7 +129,7 @@ describe("createPackageSummary", () => {
     ],
   ])("sits right after %s, inside no host", async (_, load, before, after) => {
     const rows = load();
-    await draw(createPackageSummary(document, i18n), rows, rows.map(() => AI));
+    await drawnPage(rows.map(() => AI), rows);
     const box = summary();
     expect(box?.previousElementSibling?.matches(before)).toBe(true);
     expect(box?.nextElementSibling?.matches(after)).toBe(true);

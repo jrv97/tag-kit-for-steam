@@ -1,6 +1,7 @@
+import { DATA_APPID, DATA_CANDIDATE } from "../../src/core/scan/candidates";
 import { HOST_APPID } from "../../src/core/scan/marks";
 import { setBody } from "./dom";
-import { loadPage, SURFACES } from "./surfaces";
+import { BUNDLE_ROW, loadPage, SURFACES } from "./surfaces";
 
 /** The package ID of the page `packagePage` stands for. */
 export const PACKAGE_PATH = "/sub/1756458/";
@@ -51,7 +52,7 @@ export function packagePage(ids: readonly number[]): string {
  */
 export function markedPackagePage(ids: readonly number[]): readonly Element[] {
   setBody(packagePage(ids));
-  return markRows("[data-ds-appid]");
+  return markRows(DATA_CANDIDATE);
 }
 
 /**
@@ -59,14 +60,15 @@ export function markedPackagePage(ids: readonly number[]): readonly Element[] {
  * host, and returns the rows in page order. The package row names two apps and gets no host.
  */
 export function markedBundlePage(): readonly Element[] {
+  // `make.page.surface` is out of reach: the factory imports this module.
   loadPage(SURFACES.bundle);
-  return markRows(".bundle_package_item [data-ds-appid]:not([data-ds-packageid])");
+  return markRows(BUNDLE_ROW);
 }
 
 function markRows(selector: string): readonly Element[] {
   const rows = [...document.querySelectorAll(selector)];
   for (const row of rows) {
-    row.setAttribute(HOST_APPID, row.getAttribute("data-ds-appid") ?? "");
+    row.setAttribute(HOST_APPID, row.getAttribute(DATA_APPID) ?? "");
   }
   return rows;
 }
