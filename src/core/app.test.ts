@@ -14,7 +14,7 @@ import { T0 } from "../../tests/helpers/timer-clock";
 import { type App, start } from "./app";
 import type { CreatorRole } from "./creator";
 import { API_BREAKER_KEY, DEFAULT_BACKOFF } from "./detect/breaker";
-import { RETRY_DELAY_MS } from "./detect/retry";
+import { MAX_RETRIES, RETRY_DELAY_MS } from "./detect/retry";
 import { DEFAULT_SPACING_MS } from "./detect/throttle";
 import { dateFormat } from "./i18n/date-format";
 import { SHIPPED_CATALOGS } from "./i18n/shipped";
@@ -266,6 +266,29 @@ describe("start on the search page", () => {
     expect(document.querySelectorAll("[data-tks-kinds]")).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(1000);
     expect(http.calls).toHaveLength(1);
+    await expect.poll(() => SEARCH_IDS.map(marks)).toEqual(SEARCH_IDS.map(() => "ai"));
+  });
+
+  it("holds a recheck until Steam's pause ends, then asks once for every failed row", async () => {
+    const server = fake.swappingRoute(
+      make.item.route(SEARCH_ITEMS, { status: 429 }),
+      make.item.route(SEARCH_IDS.map((id) => make.item.disclosed(id))),
+    );
+    const { http } = await startOnSearch({ route: server.route, clock: fake.timerClock() });
+    await expect.poll(() => http.calls.length).toBe(1);
+    await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS * MAX_RETRIES);
+    await expect.poll(() => app?.progress.snapshot().failed).toBe(SEARCH_IDS.length);
+    const refused = http.calls.length;
+
+    server.swap();
+    app?.recheck();
+    await vi.advanceTimersByTimeAsync(DEFAULT_BACKOFF.baseMs - 1);
+    expect(http.calls).toHaveLength(refused);
+    expect(app?.progress.snapshot().answered).toBe(0);
+    expect(app?.progress.snapshot().pausedUntil).toBeGreaterThan(Date.now());
+    await vi.advanceTimersByTimeAsync(DEFAULT_BACKOFF.jitterMs + 1);
+    const asked = http.calls.slice(refused).map((url) => getItemsRequest(url).ids);
+    expect(asked).toStrictEqual([SEARCH_IDS]);
     await expect.poll(() => SEARCH_IDS.map(marks)).toEqual(SEARCH_IDS.map(() => "ai"));
   });
 

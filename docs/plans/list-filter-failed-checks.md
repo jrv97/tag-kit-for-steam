@@ -63,3 +63,4 @@ Built as planned, with these changes after the review round:
 - The strip's done line names the failed games (`options_progress_done_failed`), Spanish reads "Reintentar", and Check again has a 24px hit area on its 16px line. When it hides under focus, focus moves to the bar, outside the live status.
 - The notice puts the failed sentence first, so the bar ends on its button, and moves focus to the bar when the button hides under it.
 - `ProgressSource` has a contract suite that runs over `followProgress`, `tabProgress` and the fake.
+- A smoke test found that Check again during the GetItems pause sent nothing: the breaker withheld the batch and the games failed again at once. `App.recheck` now holds the lookups until the pause ends, on one timer, so the strip shows the countdown and then asks. The button stays on offer during the pause.

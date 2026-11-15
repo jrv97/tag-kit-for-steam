@@ -9,6 +9,7 @@ import { createChainDetector } from "./detect/chain";
 import { createDedupingDetector } from "./detect/dedupe";
 import { createFullGameDetector } from "./detect/full-game";
 import { createGetItemsDetector } from "./detect/getitems";
+import { timeout } from "./detect/retry";
 import { createThrottledHttp } from "./detect/throttle";
 import type { Catalogs } from "./i18n/catalog";
 import {
@@ -32,7 +33,7 @@ import { KINDS } from "./kinds/registry";
 import { coversSections, requestSections, type Section } from "./kinds/sections";
 import { type ConsoleSink, createLogger, type Logger } from "./log";
 import type { Clock, Http, KeyValueStore, SettingsSource, Unsubscribe } from "./ports";
-import { createLoadProgress, type PageProgress } from "./progress";
+import { createLoadProgress, type PageProgress, type Recheck } from "./progress";
 import { appIdFromHref } from "./scan/appid";
 import { createScanner } from "./scan/scanner";
 import { readSettingsOrDefault } from "./settings/read";
@@ -72,7 +73,7 @@ export interface AppDeps {
 /**
  * A running app on one store page. Its progress tells the toolbar popup and the userscript dialog
  * how far the page's tags have loaded, and `recheck` asks the capsules and the app page again
- * about the games whose lookup failed.
+ * about the games whose lookup failed, once the GetItems pause ends.
  */
 export interface App extends PageProgress {
   /** Stops scanning and listening; what is drawn stays. */
@@ -215,6 +216,22 @@ export async function start(deps: AppDeps): Promise<App> {
   scanner.start();
   notice.start();
 
+  /** Rechecks waiting out the GetItems pause, and the cancel of the one timer for all of them. */
+  const held: Recheck[] = [];
+  let cancelHeld: (() => void) | undefined;
+  /** Looks the held rechecks up once the pause ends. A pause that grew meanwhile waits again. */
+  function lookUpUnpaused(): void {
+    cancelHeld = undefined;
+    const until = detectors.apiBreaker.pausedUntil();
+    if (until !== undefined) {
+      cancelHeld = timeout(lookUpUnpaused, until - clock.now());
+      return;
+    }
+    for (const each of held.splice(0)) {
+      each.lookUp();
+    }
+  }
+
   let appPage: AppPage | undefined;
   const unsubscribe: Unsubscribe = deps.settings.subscribe((value) => {
     const before = settings;
@@ -264,13 +281,16 @@ export async function start(deps: AppDeps): Promise<App> {
       progress.recheck(due.flatMap((each) => each.games));
       if (due.length > 0) {
         void forgetQuietly(detectors.cache, due.flatMap((each) => each.forget), logger).then(() => {
-          for (const each of due) {
-            each.lookUp();
+          held.push(...due);
+          if (cancelHeld === undefined) {
+            lookUpUnpaused();
           }
         });
       }
     },
     stop() {
+      cancelHeld?.();
+      held.length = 0;
       scanner.stop();
       capsules.stop();
       notice.stop();

@@ -1,4 +1,4 @@
-import type { Delay } from "../detect/retry";
+import { type Delay, timeout } from "../detect/retry";
 import type { MessageCatalog } from "../ports";
 import type { LoadProgress, ProgressSource } from "../progress";
 import { createElement, quietButton } from "./element";
@@ -38,13 +38,6 @@ const STATE_ATTRIBUTE = "data-tks-load";
 /** Fills the bar to its share, from 0 to 1. */
 const SHARE_PROPERTY = "--tks-load-share";
 const MS_PER_SECOND = 1000;
-
-function timeout(callback: () => void, ms: number): () => void {
-  const id = setTimeout(callback, ms);
-  return () => {
-    clearTimeout(id);
-  };
-}
 
 /** The parts of a view with nothing to count. */
 const NOTHING = { seconds: "", count: "", answered: 0, total: 0, recheck: false } as const;
