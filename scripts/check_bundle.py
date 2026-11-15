@@ -13,13 +13,16 @@
   @supportURL and @icon (the 48 px icon as a data URI); every `GM` name in the bundle has an
   @grant and every @grant is used; valibot's license block is in the body; no userscript header
   in any other bundle.
-- Manifests declare no web_accessible_resources, so no page can load or probe an extension file;
-  every content script runs in the isolated world (rules 2 and 3).
-- No eval( or new Function in any bundle (rule 2); no URL outside the two Valve hosts, except the
-  three feedback links of the settings footer, which options.js and the userscript may carry.
+- Manifests declare only the top-level keys they use today, so web_accessible_resources,
+  externally_connectable or a content_security_policy needs an ADR first. Every content script
+  runs in the isolated world, and without the `scripting` permission no code can register or
+  inject a script into the page (rules 2 and 3).
+- No bundle runs code from a string: eval, Function or a string timer (rule 2). No URL outside the
+  two Valve hosts, except the feedback links of the settings footer as whole string literals in
+  options.js and the userscript.
 - No bundle writes a cookie through `document.cookie` or `cookieStore` (rule 1).
-- The extension bundles create no <script> element, which would run code in the page world. The
-  userscript and the dev bundle run in the page world by design (ADR 0029).
+- The extension bundles build no <script>, parsed markup or inline handler, which would run outside
+  their isolated code. The userscript and the dev bundle run in the page world by design (ADR 0029).
 - Catalogs: each shipped bundle carries exactly the messages its code reads (decision 58). Every
   key or plural base that a string literal of its code names is in its inlined catalogs, and every
   message there is named, so a missing key fails here and never falls back to the raw key on a
@@ -27,7 +30,8 @@
 - Size budgets, unminified (rule 13): content.js 250 KiB, options.js 260 KiB, announce.js and
   background.js 1 KiB each, and the userscript 440 KiB. Each is a measured size plus 2 to 3
   percent of headroom. Raise one only with a measurement, and give it in the pull request.
-- The STEAM_API_KEY value, when set, appears nowhere in dist/ or artifacts/ (rule 16).
+- The STEAM_API_KEY value, when set, appears nowhere in dist/ or artifacts/, zip members
+  included (rule 16).
 - The dev injection bundle is never packaged into artifacts/, and when artifacts/ exists it holds
   exactly the five release artifacts, with a manifest at the root of each extension zip. The source
   archive holds no dist/, artifacts/ or node_modules/, and from docs/ only the design tokens.
@@ -37,7 +41,7 @@ import os
 import re
 import zipfile
 from html.parser import HTMLParser
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from bundle_keys import carried_keys, message_names, name_of, read_names
 from catalogs import DEFAULT_LOCALE, load, plural_bases
@@ -81,27 +85,49 @@ STORE_MATCH = ["https://store.steampowered.com/*"]
 RELEASE_BASE = f"{REPO_URL}/releases/latest/download"
 ALLOWED_HOSTS = {"api.steampowered.com", "store.steampowered.com"}
 # The links of the settings (src/core/feedback-links.ts): plain links a person opens in a tab,
-# never requested. Only these exact strings, and only in the bundles that show the settings. The
-# release notes prefix counts only as a whole string literal, closing quote included.
-SETTINGS_LINKS = (
-    f"{ISSUES_URL}/new?template=bug_report.yml",
-    f"{ISSUES_URL}/new?template=feature_request.yml",
-    "https://forms.gle/Fo652zzyFWUQn2qK9",
-    f'"{REPO_URL}/releases/tag/"',
+# never requested. Only these whole string literals, quotes included, and only in the bundles that
+# show the settings.
+SETTINGS_LINKS = tuple(
+    f'"{link}"'
+    for link in (
+        f"{ISSUES_URL}/new?template=bug_report.yml",
+        f"{ISSUES_URL}/new?template=feature_request.yml",
+        "https://forms.gle/Fo652zzyFWUQn2qK9",
+        f"{REPO_URL}/releases/tag/",
+    )
 )
+SETTINGS_BUNDLES = {"options.js", f"{SLUG}.user.js"}
 HEADER_START = "// ==UserScript=="
 HEADER_END = "// ==/UserScript=="
-REMOTE_CODE = re.compile(r"\beval\s*\(|\bnew\s+Function\b")
-COOKIE_WRITE = re.compile(r"\bdocument\.cookie\s*\+?=(?!=)|\bcookieStore\.(?:set|delete)\b")
-SCRIPT_ELEMENT = re.compile(r"\bcreateElement\(\s*([\"'`])(?i:script)\1")
-# Manifest keys that grant more than storage or expose extension files to pages (rules 2 and 3).
-FORBIDDEN_KEYS = (
-    "host_permissions",
-    "optional_host_permissions",
-    "optional_permissions",
-    "web_accessible_resources",
+REMOTE_CODE = re.compile(r"\beval\b|\bFunction\s*\(|\bset(?:Timeout|Interval)\(\s*[\"'`]")
+COOKIE_WRITE = re.compile(
+    r"\bdocument\s*(?:\.\s*cookie|\[\s*[\"'`]cookie[\"'`]\s*\])\s*(?:\+|\|\||\?\?|&&)?=(?!=)"
+    r"|\bcookieStore\s*\??\.\s*(?:set|delete)\b"
 )
-URL = re.compile(r"https?://([A-Za-z0-9.-]+)")
+# Ways for an extension bundle to run code or markup outside its own isolated code.
+PAGE_CODE = re.compile(
+    r"\bcreateElement(?:NS)?\([^)]*?[\"'`](?i:script)[\"'`]|\bcreateContextualFragment\b"
+    r"|\binsertAdjacentHTML\b|\b(?:inner|outer)HTML\s*=(?!=)|\bsrcdoc\b"
+    r"|\bsetAttribute\(\s*[\"'`]on"
+)
+# The top-level keys a manifest may declare. Any other, such as web_accessible_resources, a host
+# permission or a content_security_policy, needs an ADR first (rules 2 and 3).
+MANIFEST_KEYS = {
+    "action",
+    "background",
+    "content_scripts",
+    "default_locale",
+    "description",
+    "icons",
+    "manifest_version",
+    "name",
+    "options_ui",
+    "permissions",
+    "short_name",
+    "version",
+}
+GECKO_SETTINGS = "browser_specific_settings"
+URL = re.compile(r"(?:https?|wss?)://([A-Za-z0-9.-]+)")
 GM_NAME = re.compile(r"\bGM(?:\.[A-Za-z_]\w*|_[A-Za-z]\w*)")
 HEADER_FIELD = re.compile(r"^//\s+(@[\w:-]+)[ \t]*(.*?)\s*$", re.MULTILINE)
 MSG = re.compile(r"__MSG_([A-Za-z0-9_@]+)__")
@@ -173,13 +199,17 @@ def page_problems(path: Path, catalog: dict[str, object]) -> list[str]:
     return problems
 
 
+def manifest_where(target: str) -> str:
+    return f"dist/{target}/manifest.json"
+
+
 def packaged_problems(
     target: str, manifest: dict[str, object], catalog: dict[str, object]
 ) -> list[str]:
     """The files the manifest names exist, and its pages carry no copy."""
     root = DIST / target
     problems: list[str] = []
-    for name in sorted(set(manifest_files(manifest, f"dist/{target}/manifest.json"))):
+    for name in sorted(set(manifest_files(manifest, manifest_where(target)))):
         if not (root / name).is_file():
             problems.append(f"dist/{target}/manifest.json: names {name}, which is missing")
         elif name.endswith(".html"):
@@ -189,7 +219,7 @@ def packaged_problems(
 
 def icon_problems(target: str, manifest: dict[str, object]) -> list[str]:
     """Each icon the manifest declares by size is a PNG of exactly that size."""
-    where = f"dist/{target}/manifest.json"
+    where = manifest_where(target)
     action = json_object(manifest.get("action", {}), where)
     declared = [manifest.get("icons", {}), action.get("default_icon", {})]
     problems: list[str] = []
@@ -222,11 +252,11 @@ def notices_problems(where: str, path: Path) -> list[str]:
 
 def manifest_shape_problems(target: str, manifest: dict[str, object]) -> list[str]:
     """The keys a manifest may declare and the exact values the rules allow (rules 2 and 3)."""
-    where = f"dist/{target}/manifest.json"
-    problems: list[str] = []
+    where = manifest_where(target)
+    allowed = MANIFEST_KEYS | ({GECKO_SETTINGS} if target == "gecko" else set())
+    problems = [f"{where}: {key} is not allowed" for key in sorted(manifest.keys() - allowed)]
     if manifest.get("permissions") != ["storage"]:
         problems.append(f'{where}: permissions must be exactly ["storage"]')
-    problems += [f"{where}: {key} is not allowed" for key in FORBIDDEN_KEYS if key in manifest]
     if manifest.get("background") != BACKGROUND[target]:
         problems.append(f"{where}: background must be exactly {BACKGROUND[target]}")
     if json_object(manifest.get("action", {}), where).get("default_icon") != OFF_ICONS:
@@ -241,15 +271,14 @@ def manifest_shape_problems(target: str, manifest: dict[str, object]) -> list[st
                 problems.append(f"{where}: content script matches must be {STORE_MATCH}")
             if entry.get("world", "ISOLATED") != "ISOLATED":
                 problems.append(f"{where}: content scripts must run in the isolated world")
-    has_gecko = "browser_specific_settings" in manifest
-    if has_gecko != (target == "gecko"):
-        problems.append(f"{where}: browser_specific_settings belongs in the Gecko build only")
+    if target == "gecko" and GECKO_SETTINGS not in manifest:
+        problems.append(f"{where}: {GECKO_SETTINGS} is missing")
     return problems
 
 
 def manifest_problems(target: str) -> list[str]:
     root = DIST / target
-    where = f"dist/{target}/manifest.json"
+    where = manifest_where(target)
     manifest = json_object(read_json(root / "manifest.json"), where)
     problems = manifest_shape_problems(target, manifest)
     locale = json_string(manifest.get("default_locale"), f"{where} default_locale")
@@ -318,8 +347,8 @@ def notice_problems(where: str, body: str) -> list[str]:
 
 
 def script_problems(where: str, text: str, isolated: bool) -> list[str]:
-    """A bundle's problems. An isolated bundle must not reach the page world (ADR 0029)."""
-    name = where.rsplit("/", 1)[-1]
+    """A bundle's problems: its userscript header, then its code."""
+    name = PurePosixPath(where).name
     problems: list[str] = []
     header, body = split_header(text)
     if name.endswith((".user.js", ".meta.js")):
@@ -340,15 +369,17 @@ def script_problems(where: str, text: str, isolated: bool) -> list[str]:
 
 
 def code_problems(where: str, body: str, isolated: bool) -> list[str]:
-    """Remote code, cookie writes, a way into the page world and hosts in a bundle's code."""
+    """Remote code, cookie writes and hosts in a bundle's code. An isolated bundle (the extension's)
+    also builds no script, markup or inline handler; the userscript and the dev bundle run in the
+    page world by design (ADR 0029)."""
     problems: list[str] = []
     if REMOTE_CODE.search(body):
-        problems.append(f"{where}: eval( or new Function found")
+        problems.append(f"{where}: runs code from a string")
     if COOKIE_WRITE.search(body):
         problems.append(f"{where}: writes a cookie")
-    if isolated and SCRIPT_ELEMENT.search(body):
-        problems.append(f"{where}: creates a <script> element, which runs in the page world")
-    if not where.endswith("/content.js"):
+    if isolated and PAGE_CODE.search(body):
+        problems.append(f"{where}: builds a <script>, markup or an inline handler")
+    if PurePosixPath(where).name in SETTINGS_BUNDLES:
         for link in SETTINGS_LINKS:
             body = body.replace(link, "")
     for host in sorted(set(URL.findall(body)) - ALLOWED_HOSTS):
@@ -377,6 +408,14 @@ def catalog_problems(paths: list[Path]) -> list[str]:
     return problems
 
 
+def holds(path: Path, needle: bytes) -> bool:
+    """Whether a file holds the bytes; a zip archive is read member by member."""
+    if path.suffix == ".zip":
+        with zipfile.ZipFile(path) as archive:
+            return any(needle in archive.read(name) for name in archive.namelist())
+    return needle in path.read_bytes()
+
+
 def secret_problems(roots: list[Path]) -> list[str]:
     secret = os.environ.get("STEAM_API_KEY", "")
     if len(secret) < 8:
@@ -386,7 +425,7 @@ def secret_problems(roots: list[Path]) -> list[str]:
         f"{path}: contains the STEAM_API_KEY value"
         for root in roots
         for path in sorted(root.rglob("*"))
-        if path.is_file() and needle in path.read_bytes()
+        if path.is_file() and holds(path, needle)
     ]
 
 

@@ -1,7 +1,7 @@
 """Read Chrome messages.json catalogs: entries, placeholders and plural forms.
 
-Shared by gen_i18n_keys.py and check_i18n.py, so both read catalogs the same way as the core
-runtime (src/core/i18n/catalog.ts).
+Shared by gen_i18n_keys.py, check_i18n.py and check_wording.py, so they read catalogs the same
+way as the core runtime (src/core/i18n/catalog.ts).
 """
 
 import re
@@ -11,6 +11,9 @@ from pathlib import Path
 from repo import json_object, json_string, read_json
 
 DEFAULT_LOCALE = "en"
+# The folders of the shipped and the test-only catalogs, relative to the repo root.
+SHIPPED_DIR = "src/locales"
+TEST_DIR = "tests/locales"
 PLURAL_CATEGORIES = ("zero", "one", "two", "few", "many", "other")
 PLACEHOLDER = re.compile(r"\$([A-Za-z0-9_@]+)\$")
 

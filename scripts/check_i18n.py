@@ -36,6 +36,8 @@ from pathlib import Path
 
 from catalogs import (
     DEFAULT_LOCALE,
+    SHIPPED_DIR,
+    TEST_DIR,
     Catalog,
     load,
     plural_base,
@@ -46,8 +48,8 @@ from catalogs import (
 from repo import ROOT, fail
 from ts_literals import string_literals
 
-SHIPPED = ROOT / "src" / "locales"
-TEST_CATALOGS = ROOT / "tests" / "locales"
+SHIPPED = ROOT / SHIPPED_DIR
+TEST_CATALOGS = ROOT / TEST_DIR
 PREFIXES = (
     "badge_",
     "banner_",

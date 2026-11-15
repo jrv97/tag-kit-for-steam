@@ -4,7 +4,9 @@ One namespace per script under test. Tables pair inputs with expected results.
 """
 
 import json
+import zipfile
 from datetime import date
+from pathlib import Path
 from typing import Final
 
 from calver import MAX_SEGMENT, Version
@@ -325,12 +327,25 @@ class Notes:
     CUT_LINE_END: Final = "c...\n"
 
 
-def userscript_header(*extra: str) -> str:
+def write_tree(root: Path, files: dict[str, str]) -> None:
+    """Writes each file under the root; a `.zip` name becomes a deflated archive of one member."""
+    for name, text in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.suffix == ".zip":
+            with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("member.txt", text)
+        else:
+            path.write_text(text, encoding="utf-8")
+
+
+def userscript_header(*extra: str, noframes: bool = True) -> str:
     """A userscript header whose fixed fields all pass, with these lines added."""
     fields = [
         f"// {key} {value}" for key, values in fixed_header_fields().items() for value in values
     ]
-    return "\n".join([HEADER_START, *fields, "// @noframes", *extra, HEADER_END]) + "\n"
+    frames = ["// @noframes"] if noframes else []
+    return "\n".join([HEADER_START, *fields, *frames, *extra, HEADER_END]) + "\n"
 
 
 def catalog_json(**messages: str) -> str:
@@ -348,6 +363,7 @@ class CheckBundle:
 
     CONTENT: Final = "dist/chromium/content.js"
     OPTIONS: Final = "dist/gecko/options.js"
+    BACKGROUND_JS: Final = "dist/chromium/background.js"
     DEV: Final = "dist/dev/inject.js"
     USERSCRIPT_META: Final = f"dist/userscript/{SLUG}.meta.js"
     STORE_SCRIPT: Final[dict[str, object]] = {"matches": STORE_MATCH, "js": ["content.js"]}
@@ -364,31 +380,35 @@ class CheckBundle:
 
     @classmethod
     def manifest(cls, target: str, overrides: dict[str, object]) -> dict[str, object]:
-        """A manifest that passes every shape rule for its target, with these keys replaced."""
-        return {**cls.SHARED, **cls.OWN[target], **overrides}
+        """A manifest that passes every shape rule for its target; a None override drops a key."""
+        merged = {**cls.SHARED, **cls.OWN[target], **overrides}
+        return {key: value for key, value in merged.items() if value is not None}
 
-    # (target, overrides, problems after the manifest path): every forbidden key, the content
-    # script's world and matches, the background script, the action icon and the Gecko settings.
+    # (target, overrides, problems after the manifest path): keys outside the allowlist in sorted
+    # order, the permissions, the content script's world and matches, the background script, the
+    # action icon and the Gecko settings both ways.
     MANIFESTS: Final[tuple[tuple[str, dict[str, object], tuple[str, ...]], ...]] = (
         ("chromium", {}, ()),
         ("gecko", {}, ()),
         (
             "chromium",
+            {
+                "web_accessible_resources": [{"resources": ["icons/*"], "matches": STORE_MATCH}],
+                "host_permissions": STORE_MATCH,
+                "externally_connectable": {"matches": STORE_MATCH},
+                "content_security_policy": {},
+            },
+            (
+                "content_security_policy is not allowed",
+                "externally_connectable is not allowed",
+                "host_permissions is not allowed",
+                "web_accessible_resources is not allowed",
+            ),
+        ),
+        (
+            "gecko",
             {"permissions": ["storage", "tabs"]},
             ('permissions must be exactly ["storage"]',),
-        ),
-        ("gecko", {"permissions": []}, ('permissions must be exactly ["storage"]',)),
-        ("chromium", {"host_permissions": STORE_MATCH}, ("host_permissions is not allowed",)),
-        (
-            "gecko",
-            {"optional_host_permissions": STORE_MATCH},
-            ("optional_host_permissions is not allowed",),
-        ),
-        ("chromium", {"optional_permissions": ["tabs"]}, ("optional_permissions is not allowed",)),
-        (
-            "gecko",
-            {"web_accessible_resources": [{"resources": ["icons/*"], "matches": STORE_MATCH}]},
-            ("web_accessible_resources is not allowed",),
         ),
         (
             "chromium",
@@ -411,42 +431,66 @@ class CheckBundle:
         (
             "chromium",
             {"browser_specific_settings": {}},
-            ("browser_specific_settings belongs in the Gecko build only",),
+            ("browser_specific_settings is not allowed",),
         ),
+        ("gecko", {"browser_specific_settings": None}, ("browser_specific_settings is missing",)),
     )
 
     STORE_FETCH: Final = (
         'fetch("https://api.steampowered.com/IStoreBrowseService/GetItems/v1");'
         'fetch("https://store.steampowered.com/app/1");'
     )
-    SCRIPT_ELEMENT: Final = 'document.createElement("script");'
-    COOKIE_WRITTEN: Final = "writes a cookie"
-    PAGE_WORLD: Final = "creates a <script> element, which runs in the page world"
-    REMOTE_CODE: Final = "eval( or new Function found"
+    COOKIE: Final = "writes a cookie"
+    PAGE_CODE: Final = "builds a <script>, markup or an inline handler"
+    REMOTE_CODE: Final = "runs code from a string"
+    GITHUB: Final = "URL to a host outside the allowlist: github.com"
 
-    # (bundle path, text, isolated, problems after the path): remote code, hosts and the settings
-    # links, cookie writes, script elements in and out of the page world, and userscript headers.
+    # (bundle path, text, isolated, problems after the path): each form of remote code, cookie
+    # write and page code, hosts and the settings links, and userscript headers.
     SCRIPTS: Final[tuple[tuple[str, str, bool, tuple[str, ...]], ...]] = (
         (CONTENT, STORE_FETCH, True, ()),
         (CONTENT, "eval(code);", True, (REMOTE_CODE,)),
+        (CONTENT, "(0, eval)(code);", True, (REMOTE_CODE,)),
         (CONTENT, "new Function(code);", True, (REMOTE_CODE,)),
+        (CONTENT, "Function(code)();", True, (REMOTE_CODE,)),
+        (DEV, 'setTimeout("run()", 1);', False, (REMOTE_CODE,)),
+        (CONTENT, "setTimeout(run, 1); isFunction(x); evaluate(x);", True, ()),
+        (CONTENT, 'document.cookie = "a=1";', True, (COOKIE,)),
+        (OPTIONS, 'document.cookie+="a=1";', True, (COOKIE,)),
+        (CONTENT, 'document["cookie"] ??= "a=1";', True, (COOKIE,)),
+        (DEV, 'cookieStore.set("a", "1");', False, (COOKIE,)),
+        (CONTENT, "cookieStore?.delete(name);", True, (COOKIE,)),
+        (CONTENT, "const jar = document.cookie; if (document.cookie == jar) {}", True, ()),
+        (CONTENT, 'document.createElement("script");', True, (PAGE_CODE,)),
+        (OPTIONS, "document.createElementNS(ns, 'SCRIPT');", True, (PAGE_CODE,)),
+        (CONTENT, "range.createContextualFragment(html);", True, (PAGE_CODE,)),
+        (CONTENT, 'node.insertAdjacentHTML("beforeend", html);', True, (PAGE_CODE,)),
+        (CONTENT, "node.innerHTML = html;", True, (PAGE_CODE,)),
+        (CONTENT, 'node.setAttribute("onclick", code);', True, (PAGE_CODE,)),
+        (DEV, 'document.createElement("script"); node.innerHTML = html;', False, ()),
+        (CONTENT, 'document.createElement("div"); const html = node.innerHTML;', True, ()),
         (
             CONTENT,
             'fetch("https://example.com/x");',
             True,
             ("URL to a host outside the allowlist: example.com",),
         ),
-        (CONTENT, SETTINGS_LINKS[0], True, ("URL to a host outside the allowlist: github.com",)),
-        (OPTIONS, SETTINGS_LINKS[0], True, ()),
-        (CONTENT, 'document.cookie = "a=1";', True, (COOKIE_WRITTEN,)),
-        (OPTIONS, 'document.cookie+="a=1";', True, (COOKIE_WRITTEN,)),
-        (DEV, 'cookieStore.set("a", "1");', False, (COOKIE_WRITTEN,)),
-        (CONTENT, "cookieStore.delete(name);", True, (COOKIE_WRITTEN,)),
-        (CONTENT, "const jar = document.cookie; if (document.cookie == jar) {}", True, ()),
-        (CONTENT, SCRIPT_ELEMENT, True, (PAGE_WORLD,)),
-        (OPTIONS, "document.createElement('SCRIPT');", True, (PAGE_WORLD,)),
-        (DEV, SCRIPT_ELEMENT, False, ()),
-        (CONTENT, 'document.createElement("div");', True, ()),
+        (
+            CONTENT,
+            'new WebSocket("wss://example.com");',
+            True,
+            ("URL to a host outside the allowlist: example.com",),
+        ),
+        (OPTIONS, "".join(SETTINGS_LINKS), True, ()),
+        (CONTENT, SETTINGS_LINKS[0], True, (GITHUB,)),
+        (BACKGROUND_JS, SETTINGS_LINKS[0], True, (GITHUB,)),
+        (OPTIONS, SETTINGS_LINKS[-1].replace('/"', '/evil"'), True, (GITHUB,)),
+        (
+            OPTIONS,
+            SETTINGS_LINKS[2].replace('"', "", 1),
+            True,
+            ("URL to a host outside the allowlist: forms.gle",),
+        ),
         (
             CONTENT,
             userscript_header(),
@@ -461,33 +505,39 @@ class CheckBundle:
             False,
             ("@connect is not allowed",),
         ),
+        (
+            USERSCRIPT_META,
+            userscript_header("// @match https://example.com/*"),
+            False,
+            (f"@match must be {STORE_MATCH}",),
+        ),
+        (USERSCRIPT_META, userscript_header(noframes=False), False, ("@noframes is missing",)),
     )
 
     PLANTED_KEY: Final = "fake-steam-api-key-0123"
-    # (STEAM_API_KEY value, files by path, the files that hold it): an unset or short value checks
-    # nothing, and every file under a root is read as bytes.
+    # (STEAM_API_KEY value, files by path, the files that hold it, in path order): a value under 8
+    # characters checks nothing, and a zip archive is searched member by member.
     SECRETS: Final[tuple[tuple[str, dict[str, str], tuple[str, ...]], ...]] = (
-        ("", {"content.js": PLANTED_KEY}, ()),
-        ("short", {"content.js": "short"}, ()),
+        ("1234567", {"content.js": "1234567"}, ()),
+        ("12345678", {"content.js": "x12345678x"}, ("content.js",)),
         (
             PLANTED_KEY,
-            {"content.js": f"key={PLANTED_KEY}", "gecko/options.js": "nothing"},
-            ("content.js",),
+            {
+                "content.js": PLANTED_KEY,
+                "gecko/options.js": "nothing",
+                "gecko/source.zip": PLANTED_KEY,
+            },
+            ("content.js", "gecko/source.zip"),
         ),
-        (
-            PLANTED_KEY,
-            {"content.js": "nothing", "gecko/source.zip": PLANTED_KEY},
-            ("gecko/source.zip",),
-        ),
-        (PLANTED_KEY, {"content.js": "nothing"}, ()),
     )
 
 
 class CheckWording:
     """Phrases and repo files for the wording guard of check_wording.py."""
 
-    # (text, forbidden phrases found): each phrase in any case, Steam's heading and the names of
-    # other projects as quoted words, and longer words that only start with a phrase.
+    # (text, forbidden phrases found): each phrase in any case and both languages; Steam's AI
+    # headings and the names of other projects pass, a claim before a heading does not, and a
+    # phrase inside a longer word is no phrase.
     HITS: Final[tuple[tuple[str, list[str]], ...]] = (
         ("This game uses AI.", ["uses AI"]),
         ("AI-free!", ["AI-free"]),
@@ -499,28 +549,30 @@ class CheckWording:
         ("It has AI-generated content", ["AI-generated content"]),
         ("ai generated content", ["ai generated content"]),
         ("AI Generated Content Disclosure", []),
+        ("No AI Generated Content Disclosure", ["No AI"]),
         ("AI Generated Content Filter for Steam and Slop-Inator", []),
-        ("cleaning, sloppy, humane, nominal", []),
-        ("Developers report their AI use themselves.", []),
+        ("cleaning, sloppy, humane, piano AI", []),
+        ("Este juego usa IA, sin IA", ["usa IA", "sin IA"]),
+        ("Libre de IA y limpio, hecho por humanos", ["Libre de IA", "limpio", "humanos"]),
+        ("Tiene contenido generado por IA", ["contenido generado por IA"]),
+        ("Informaci\u00f3n sobre contenido generado por IA", []),
     )
 
-    # Files under a repo root: the catalogs, README.md and the store copy are scanned; a store
-    # image, other docs and catalog descriptions are not.
+    # Files under a repo root: the catalogs, README.md and the store copy's text files are
+    # scanned; a binary store file, other docs and catalog descriptions are not.
     FILES: Final[dict[str, str]] = {
         "src/locales/en/messages.json": catalog_json(kind_ai_chip="AI", kind_ai_line="No AI here"),
         "tests/locales/xx/messages.json": catalog_json(banner_undo="It uses AI"),
         "README.md": "# Tag Kit\nA clean store.\n",
         "docs/store/listing.mdx": "Made by humans.\n",
-        "docs/store/assets/tile.html": (
-            "<p>AI Generated Content Disclosure</p>\n<p>AI-generated content</p>\n"
-        ),
-        "docs/store/assets/tile.png": "slop",
+        "docs/store/assets/graphics.css": ".chip { color: red; }\n/* AI-generated content */\n",
+        "docs/store/assets/tile.png": "\0slop",
         "docs/adr/0001-example.mdx": "slop",
     }
     PROBLEMS: Final = (
         "src/locales/en/messages.json: kind_ai_line: forbidden wording 'No AI' (rule 4)",
         "tests/locales/xx/messages.json: banner_undo: forbidden wording 'uses AI' (rule 4)",
         "README.md:2: forbidden wording 'clean' (rule 4)",
-        "docs/store/assets/tile.html:2: forbidden wording 'AI-generated content' (rule 4)",
+        "docs/store/assets/graphics.css:2: forbidden wording 'AI-generated content' (rule 4)",
         "docs/store/listing.mdx:1: forbidden wording 'humans' (rule 4)",
     )

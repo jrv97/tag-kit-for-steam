@@ -229,7 +229,7 @@ run = "changie new"
 # Release (ADR 0005; logic in scripts/calver.py and scripts/release.py)
 
 [tasks."release:test"]
-description = "Run the unit tests of the release scripts"
+description = "Run the unit tests of the release and check scripts"
 run = "python -m unittest discover --start-directory scripts --pattern test_*.py"
 
 [tasks."release:train"]

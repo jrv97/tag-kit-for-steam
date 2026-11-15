@@ -6,8 +6,13 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from check_bundle import manifest_shape_problems, script_problems, secret_problems
-from testdata import CheckBundle
+from check_bundle import (
+    manifest_shape_problems,
+    manifest_where,
+    script_problems,
+    secret_problems,
+)
+from testdata import CheckBundle, write_tree
 
 
 class ManifestTest(unittest.TestCase):
@@ -15,14 +20,14 @@ class ManifestTest(unittest.TestCase):
         for target, overrides, expected in CheckBundle.MANIFESTS:
             with self.subTest(target=target, overrides=overrides):
                 manifest = CheckBundle.manifest(target, overrides)
-                where = f"dist/{target}/manifest.json"
+                where = manifest_where(target)
                 self.assertEqual(
                     manifest_shape_problems(target, manifest), [f"{where}: {p}" for p in expected]
                 )
 
 
 class ScriptTest(unittest.TestCase):
-    def test_reports_remote_code_hosts_cookies_page_world_and_headers(self) -> None:
+    def test_reports_remote_code_cookies_page_code_hosts_and_headers(self) -> None:
         for where, text, isolated, expected in CheckBundle.SCRIPTS:
             with self.subTest(where=where, text=text, isolated=isolated):
                 self.assertEqual(
@@ -39,9 +44,7 @@ class SecretTest(unittest.TestCase):
                 mock.patch.dict(os.environ, {"STEAM_API_KEY": secret}),
             ):
                 root = Path(folder)
-                for name, text in files.items():
-                    (root / name).parent.mkdir(parents=True, exist_ok=True)
-                    (root / name).write_text(text, encoding="utf-8")
+                write_tree(root, files)
                 self.assertEqual(
                     secret_problems([root]),
                     [f"{root / name}: contains the STEAM_API_KEY value" for name in holders],
