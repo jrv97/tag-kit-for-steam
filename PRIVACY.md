@@ -8,6 +8,7 @@ Tag Kit for Steam collects nothing. It has no analytics, no telemetry, no accoun
 - Your settings: whether badges and the banner are on, the list filter mode (off, dim or hide), the language, and a debug flag.
 - Your lists of games, developers and publishers you chose to ignore (app ID or Steam's name and group ID, name and date).
 - A small internal record used to back off if Steam is limiting requests.
+- The version of the extension the toolbar popup last opened on, so it shows its intro once and says once that it updated.
 - The ID of the browser tab where you opened All Settings from the toolbar button: a number, never the page's address. Go back uses it to return to that tab.
 
 If you use Download backup, your settings and those lists are also saved to a JSON file through your browser's own download, and Restore reads a file you pick. Neither sends the file anywhere, and the lookup results are not in it.

@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import { CREATOR_ROLES, type CreatorKey, type CreatorRole, toCreatorKey } from "../creator";
+import { releaseNotesUrl } from "../feedback-links";
 import { dateFormat } from "../i18n/date-format";
 import type { BareMessageKey } from "../i18n/t";
 import type { IgnoreLists } from "../ignored";
@@ -42,7 +43,7 @@ import { createBackupCard } from "./backup-card";
 import { ownText } from "./badge";
 import { type ActionCard, cardButton } from "./card-parts";
 import { createChipFields } from "./chip-fields";
-import { elementFactory, errorLine, FIELD_ERROR, quietButton } from "./element";
+import { elementFactory, errorLine, FIELD_ERROR, newTabLink, quietButton } from "./element";
 import { facetChoiceKey } from "./facet-choices";
 import { createFeedbackFooter } from "./feedback-footer";
 import { parseIcon } from "./icon";
@@ -52,6 +53,7 @@ import { keyDescription, keyText } from "./kind-keys";
 import { createLoadStrip } from "./load-strip";
 import { createLookupCard } from "./lookup-card";
 import { createOrderCard, type OrderCard } from "./order-card";
+import type { ReleaseNotice } from "./release-notice";
 import { createResetCard } from "./reset-card";
 import { adoptStyles, SETTINGS_CSS, TOKENS_CSS } from "./styles";
 import { GENERAL_TAB, TAB_IDS, tabHash, type TabId, tabsInOrder, toTabId } from "./tab-id";
@@ -70,6 +72,8 @@ interface SettingsHeader {
   readonly version: string;
   /** The icon shown at 32px: `icon-48.png` on the page, `icon-32.png` in the popup. */
   readonly iconUrl?: string;
+  /** Said once in the popup: the intro under the header, or the update line for the version. */
+  readonly notice?: ReleaseNotice;
 }
 
 export interface SettingsFormDeps {
@@ -136,9 +140,6 @@ export interface SettingsForm {
 
 const STORE_APP_URL = "https://store.steampowered.com/app/";
 
-/** Link target and relation tokens, not copy. */
-const NEW_TAB = "_blank";
-const NO_OPENER = "noopener";
 /** ARIA tokens, not copy. */
 const TRUE = "true";
 const TAB_ROLE = "tab";
@@ -319,7 +320,8 @@ export async function mountSettingsForm(
     return section;
   }
 
-  function header(info: SettingsHeader): HTMLElement {
+  /** The header, then the intro on a popup's first open. */
+  function header(info: SettingsHeader): HTMLElement[] {
     const node = element("header", "tks-options-header");
     if (info.iconUrl !== undefined) {
       const icon = element("img");
@@ -330,10 +332,7 @@ export async function mountSettingsForm(
       node.append(icon);
     }
     const text = element("div");
-    text.append(
-      element("h1", "tks-options-title", i18n.t("ext_name")),
-      element("div", "tks-options-version", i18n.t("options_version", { version: info.version })),
-    );
+    text.append(element("h1", "tks-options-title", i18n.t("ext_name")), versionLine(info));
     node.append(text);
     if (deps.allSettingsUrl !== undefined) {
       node.append(gear(deps.allSettingsUrl));
@@ -342,15 +341,35 @@ export async function mountSettingsForm(
       goBackButton = cardButton(doc, i18n.t("options_go_back"), "undo-2");
       node.append(goBackButton);
     }
-    return node;
+    return info.notice === "intro"
+      ? [node, element("p", "tks-intro", i18n.t("options_intro"))]
+      : [node];
+  }
+
+  /** The version, or once after an update the version it updated to and a link to its notes. */
+  function versionLine({ version, notice }: SettingsHeader): HTMLElement {
+    if (notice !== "updated") {
+      return element("div", "tks-options-version", i18n.t("options_version", { version }));
+    }
+    const updated = element(
+      "span",
+      "tks-options-updated",
+      i18n.t("options_version_updated", {
+        version,
+      }),
+    );
+    updated.id = `${prefix}updated`;
+    const notes = newTabLink(doc, "", releaseNotesUrl(version), i18n.t("options_whats_new"));
+    notes.setAttribute("aria-describedby", updated.id);
+    const line = element("div", "tks-options-version");
+    // The gap spaces them on screen; the space keeps copied text apart.
+    line.append(updated, " ", notes);
+    return line;
   }
 
   /** The popup's way to every setting: a gear link. */
   function gear(url: string): HTMLElement {
-    const link = element("a", "tks-gear");
-    link.href = url;
-    link.target = NEW_TAB;
-    link.rel = NO_OPENER;
+    const link = newTabLink(doc, "tks-gear", url);
     link.setAttribute(OPEN_SETTINGS_ATTRIBUTE, "");
     link.title = i18n.t("options_all_settings");
     link.setAttribute("aria-label", link.title);
@@ -605,11 +624,12 @@ export async function mountSettingsForm(
   /** A popup row: the tag's name, a link to its tab, then its list filter and master switch. */
   function kindRow(kind: TagKind): HTMLElement {
     const row = element("div", "tks-kind-row");
-    const link = element("a", "tks-kind-link");
+    const link = newTabLink(
+      doc,
+      "tks-kind-link",
+      `${deps.allSettingsUrl ?? ""}${tabHash(kind.id)}`,
+    );
     link.id = `${prefix}${kind.id}-name`;
-    link.href = `${deps.allSettingsUrl ?? ""}${tabHash(kind.id)}`;
-    link.target = NEW_TAB;
-    link.rel = NO_OPENER;
     link.setAttribute(OPEN_TAB_ATTRIBUTE, kind.id);
     link.append(...kindName(kind, "tks-tab-label"));
     const filterName = element("span", "tks-vh", i18n.t("options_filter_label"));
@@ -848,7 +868,7 @@ export async function mountSettingsForm(
   const strip = deps.progress === undefined
     ? undefined
     : createLoadStrip(doc, i18n, deps.progress, { idPrefix: prefix });
-  const top: HTMLElement[] = deps.header === undefined ? [] : [header(deps.header)];
+  const top: HTMLElement[] = deps.header === undefined ? [] : header(deps.header);
   if (strip !== undefined) {
     top.push(strip.element);
   }

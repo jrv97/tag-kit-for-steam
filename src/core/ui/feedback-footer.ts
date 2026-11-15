@@ -1,11 +1,7 @@
 import { FEEDBACK_LINKS } from "../feedback-links";
 import type { MessageCatalog } from "../ports";
-import { createElement } from "./element";
+import { createElement, newTabLink } from "./element";
 import { withIcon } from "./icon";
-
-/** Link target and relation tokens, not copy. */
-const NEW_TAB = "_blank";
-const NO_OPENER = "noopener noreferrer";
 
 /**
  * The feedback links at the bottom of the settings: a bar that stays in view while the tabs
@@ -17,10 +13,7 @@ export function createFeedbackFooter(doc: Document, i18n: MessageCatalog): HTMLE
   const footer = createElement(doc, "nav", "tks-feedback");
   footer.setAttribute("aria-label", i18n.t("options_feedback_label"));
   for (const { url, icon, label } of FEEDBACK_LINKS) {
-    const link = createElement(doc, "a", "tks-feedback-link");
-    link.href = url;
-    link.target = NEW_TAB;
-    link.rel = NO_OPENER;
+    const link = newTabLink(doc, "tks-feedback-link", url);
     footer.append(withIcon(link, icon, i18n.t(label)));
   }
   return footer;

@@ -43,6 +43,20 @@ export function plainButton(doc: Document, className: string, text?: string): HT
   return button;
 }
 
+/** A link that opens in a new tab with no opener or referrer, with its text when given. */
+export function newTabLink(
+  doc: Document,
+  className: string,
+  url: string,
+  text?: string,
+): HTMLAnchorElement {
+  const link = createElement(doc, "a", className, text);
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  return link;
+}
+
 /** A hidden `p` with `role="alert"` for a failure to show, with its text when given. */
 export function errorLine(doc: Document, className: string, text?: string): HTMLParagraphElement {
   const line = createElement(doc, "p", className, text);

@@ -11,6 +11,7 @@ import {
 } from "../../../tests/helpers/settings";
 import { headingOf as heading, mountForm } from "../../../tests/helpers/settings-form";
 import { CREATOR_ROLES, type CreatorRole } from "../creator";
+import { releaseNotesUrl } from "../feedback-links";
 import { SHIPPED_CATALOGS } from "../i18n/shipped";
 import { type BareMessageKey, createI18n } from "../i18n/t";
 import { createIgnoreLists } from "../ignored";
@@ -877,6 +878,40 @@ describe("the page around the tabs", () => {
     expect(gear?.textContent).toBe("");
     expect(root.querySelector(".tks-options-footer a")).toBeNull();
     expect(header?.querySelector("button")).toBeNull();
+  });
+
+  const noticeVersion = make.text.version();
+  it.each(
+    [
+      [
+        "intro",
+        {
+          intro: i18n.t("options_intro"),
+          updated: undefined,
+          whatsNew: undefined,
+          href: undefined,
+        },
+      ],
+      [
+        "updated",
+        {
+          intro: undefined,
+          updated: i18n.t("options_version_updated", { version: noticeVersion }),
+          whatsNew: i18n.t("options_whats_new"),
+          href: releaseNotesUrl(noticeVersion),
+        },
+      ],
+    ] as const,
+  )("draws the %s notice with the popup's header", async (notice, shown) => {
+    const { root } = await mountForm({ ...POPUP, header: { version: noticeVersion, notice } });
+    const link = root.querySelector(".tks-options-version a");
+    const describedBy = link?.getAttribute("aria-describedby");
+    expect({
+      intro: root.querySelector(".tks-options-header + .tks-intro")?.textContent,
+      updated: root.querySelector(`[id="${String(describedBy)}"]`)?.textContent,
+      whatsNew: link?.textContent,
+      href: link?.getAttribute("href"),
+    }).toEqual(shown);
   });
 
   it("keeps the gear small: one path of fewer than 400 bytes", async () => {

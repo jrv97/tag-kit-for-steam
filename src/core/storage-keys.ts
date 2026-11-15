@@ -1,9 +1,10 @@
 import type { CreatorRole } from "./creator";
 import { type AppId, toAppId } from "./types";
 
-// Settings and the ignore list use layout `v2`, with one entry per tag kind, and so does the small
-// record of the settings tab last shown. The verdict cache, its meta record and the breaker
-// keep `v1`. `CACHE_SCHEMA` versions the cache; the breaker owns `v1:breaker`.
+// Settings and the ignore list use layout `v2`, with one entry per tag kind, and so do the small
+// records of the settings tab last shown and the release the popup last opened on. The verdict
+// cache, its meta record and the breaker keep `v1`. `CACHE_SCHEMA` versions the cache; the
+// breaker owns `v1:breaker`.
 
 /**
  * Bump to discard every cached verdict on the next start (and only verdicts). Version 2 stores
@@ -27,6 +28,8 @@ export const CREATOR_ALLOW_KEYS: Readonly<Record<CreatorRole, string>> = {
 };
 /** The settings tab last shown; interface state, not a setting, and left out of a backup. */
 export const UI_STATE_KEY = "v2:ui";
+/** The release the toolbar popup last opened on, a version string; left out of a backup too. */
+export const RELEASE_KEY = "v2:release";
 /** The store tab the settings page was opened from, in `storage.session` only. */
 export const ORIGIN_KEY = "v2:origin";
 export const META_KEY = "v1:meta";
