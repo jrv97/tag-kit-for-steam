@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { progressSourceContract } from "../../tests/contracts/progress-source.contract";
 import { make } from "../../tests/helpers/factory";
 import { fake } from "../../tests/helpers/fakes";
@@ -98,7 +98,7 @@ describe("createLoadProgress", () => {
   it("tells each listener once per microtask, only when the progress changed", async () => {
     const ids = make.appIds(2);
     const progress = createLoadProgress(() => undefined);
-    const listener = vi.fn();
+    const listener = fake.listener();
     const unsubscribe = progress.subscribe(listener);
     progress.asked(ids);
     for (const id of ids) {

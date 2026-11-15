@@ -23,6 +23,7 @@ import { manualQueue } from "./manual-queue";
 import { memoryStore } from "./memory-store";
 import { consoleMocks, recordingLogger } from "./recording-logger";
 import { recordingRenderer } from "./recording-renderer";
+import { listener, spy } from "./spies";
 import { noFaults } from "./storage-faults";
 import { useTimerClock } from "./timer-clock";
 
@@ -106,6 +107,10 @@ export const fake = {
   cardTriggers: recordingTriggers,
   /** Banner actions whose promises a test settles by hand; a resolve shows the next view. */
   bannerActions: manualBannerActions,
+  /** A callback that records its calls and runs `answer`, or returns nothing without one. */
+  spy,
+  /** A listener of one value that records each value it hears. */
+  listener,
   /** A `Clock` that stands still at `t` until a test moves it. */
   clock: fixedClock,
   /** Fake timers and `Date` from `T0`, and a `Clock` on them; call `vi.useRealTimers()` after. */

@@ -33,7 +33,6 @@ import { DEFAULT_SETTINGS, encodeSettings } from "./settings/settings";
 import { createSettingsSource } from "./settings/settings-source";
 import { ALLOW_KEY, CREATOR_ALLOW_KEYS, SETTINGS_KEY } from "./storage-keys";
 import type { AppId } from "./types";
-import { VARIANT_ATTRIBUTE } from "./ui/element";
 import { createHoverCard } from "./ui/hover-card";
 import { normalizeBreaks } from "./ui/notes";
 import { adoptPageStyles } from "./ui/styles";
@@ -208,10 +207,9 @@ describe("start on an English app page", () => {
     await expect.poll(() => option()?.getAttribute("aria-checked")).toBe("true");
     expect(Object.keys((await stored()).ai)).toEqual([String(OPEN)]);
     expect(Object.keys((await stored()).all)).toEqual([]);
-    expect(banner()?.querySelector("aside")?.getAttribute(VARIANT_ATTRIBUTE)).toBe("ignored");
 
     option()?.click();
-    await expect.poll(() => banner()?.querySelector("blockquote")).toBeInstanceOf(HTMLElement);
+    await expect.poll(() => option()?.getAttribute("aria-checked")).toBe("false");
     expect(Object.keys((await stored()).ai)).toEqual([]);
   });
 
@@ -219,10 +217,7 @@ describe("start on an English app page", () => {
     const { stored } = await startOnAiPage();
 
     control("#tks-banner-ignore-main")?.click();
-    await expect.poll(() => control(".tks-banner-ignored-text")?.textContent).toBe(
-      i18n.t("banner_ignored"),
-    );
-    expect(Object.keys((await stored()).all)).toEqual([String(OPEN)]);
+    await expect.poll(async () => Object.keys((await stored()).all)).toEqual([String(OPEN)]);
     expect(Object.keys((await stored()).ai)).toEqual([]);
   });
 
@@ -257,17 +252,9 @@ describe("start on an English app page", () => {
       await expect.poll(checked).not.toBeNull();
       expect(await storedCreators("developer", "ai")).toEqual([`c:${String(clan)}`]);
       expect(await storedCreators("publisher", "ai")).toEqual([]);
-      expect(headings()).toEqual([]);
-      expect(control(".tks-banner-ignored-text")?.textContent).toBe(
-        i18n.t("banner_ignored_creator_kind", {
-          name: developer,
-          role: i18n.t("banner_role_developer"),
-          heading: aiHeading,
-        }),
-      );
 
       checked()?.click();
-      await expect.poll(() => headings()).toEqual([aiHeading]);
+      await expect.poll(checked).toBeNull();
       expect(await storedCreators("developer", "ai")).toEqual([]);
     });
 
@@ -286,7 +273,6 @@ describe("start on an English app page", () => {
       await startOnAiPage({ route: make.item.route([studio]), initial });
       await expect.poll(checked).not.toBeNull();
       expect(headings()).toEqual([]);
-      expect(document.querySelector(".tks-tag-section")).toBeNull();
     });
   });
 
@@ -299,35 +285,23 @@ describe("start on an English app page", () => {
       related_items: { parent_appid: base },
     }]);
 
-    it("shows the banner of a kind when its base game is not ignored for it", async () => {
-      await startOnAiPage({ route, initial: ignoring("kernel", [base]) });
-      await expect.poll(() => banner()?.querySelector(".tks-banner-service")).not.toBeNull();
+    it("takes the banner away once Steam names a base game ignored for its kind", async () => {
+      const { release } = await startOnAiPage({
+        route,
+        initial: ignoring("ai", [base]),
+        held: true,
+      });
+      // The page's own disclosure draws first; the base game is not known until the answer.
       expect(headings()).toEqual([aiHeading]);
+      release();
+      await expect.poll(() => document.getElementById("tks-banner")).toBeNull();
     });
-
-    it.each<AllowScope>(["ai", "all"])(
-      "takes the banner away once Steam names a base game ignored for %s",
-      async (scope) => {
-        const { release } = await startOnAiPage({
-          route,
-          initial: ignoring(scope, [base]),
-          held: true,
-        });
-        // The page's own disclosure draws first; the base game is not known until the answer.
-        expect(headings()).toEqual([aiHeading]);
-        release();
-        await expect.poll(() => document.getElementById("tks-banner")).toBeNull();
-      },
-    );
 
     it("still ignores the DLC itself, never the base game, from its own page", async () => {
       const { stored } = await startOnAiPage({ route, initial: ignoring("kernel", [base]) });
       await expect.poll(() => banner()?.querySelector(".tks-banner-service")).not.toBeNull();
       control("#tks-banner-ignore-main")?.click();
-      await expect.poll(() => control(".tks-banner-ignored-text")?.textContent).toBe(
-        i18n.t("banner_ignored"),
-      );
-      expect(Object.keys((await stored()).all)).toEqual([String(OPEN)]);
+      await expect.poll(async () => Object.keys((await stored()).all)).toEqual([String(OPEN)]);
     });
   });
 

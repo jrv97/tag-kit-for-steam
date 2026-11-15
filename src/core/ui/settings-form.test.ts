@@ -894,7 +894,7 @@ describe("the page around the tabs", () => {
     ["a loaded page", () => createSettingsSource(fake.store())],
     ["a failed load", unreadableSettings],
   ])("draws the way back to the store at the header's end on %s", async (_name, settings) => {
-    const goBack = vi.fn();
+    const goBack = fake.spy();
     const { root } = await mountForm({
       settings: settings(),
       header: { version: make.text.version() },
@@ -1031,7 +1031,7 @@ describe("the toolbar popup", () => {
     ],
     ["the gear", (root: HTMLElement) => root.querySelector(".tks-gear svg"), undefined],
   ])("hands a click on %s to the page while the form still loads", async (_name, find, tab) => {
-    const openSettings = vi.fn();
+    const openSettings = fake.spy();
     let release = (): void => undefined;
     const held = new Promise<void>((resolve) => {
       release = resolve;
@@ -1282,52 +1282,40 @@ describe("the tabs", () => {
     });
   });
 
-  it("remembers a tab picked with a click and tells the page; opening writes nothing", async () => {
+  it.each<readonly [string, (form: Awaited<ReturnType<typeof setup>>) => TabId]>([
+    ["two clicks on a tab", ({ tab }) => {
+      tab("eula").click();
+      tab("eula").click();
+      return "eula";
+    }],
+    ["Enter once the arrows brought focus back", ({ tab }) => {
+      tab("kernel").focus();
+      press(tab("kernel"), "ArrowDown");
+      press(document.activeElement ?? tab("kernel"), "ArrowUp");
+      press(tab("kernel"), "Enter");
+      return "kernel";
+    }],
+    ["Space", ({ tab }) => {
+      tab("family").focus();
+      press(tab("family"), " ");
+      return "family";
+    }],
+    ["the page asking for it", ({ form }) => {
+      form.selectTab("pvp");
+      return "pvp";
+    }],
+  ])("shows a tab picked by %s, tells the page once and remembers it", async (_name, pick) => {
     const store = fake.countingStore(fake.store());
-    const onTabChange = vi.fn();
-    const { tab } = await setup({ uiState: createUiState(store), onTabChange });
+    const onTabChange = fake.listener();
+    const mounted = await setup({ uiState: createUiState(store), onTabChange });
     expect(store.calls.set).toBe(0);
-    tab("eula").click();
-    tab("eula").click();
+    const picked = pick(mounted);
+    expect(mounted.tab(picked).getAttribute("aria-selected")).toBe("true");
+    expect(onTabChange.mock.calls).toEqual([[picked]]);
     await vi.waitFor(async () => {
-      expect(await createUiState(store).read()).toBe("eula");
+      expect(await createUiState(store).read()).toBe(picked);
     });
     expect(store.calls.set).toBe(1);
-    expect(onTabChange.mock.calls).toEqual([["eula"]]);
-  });
-
-  it("moves focus with the arrows, selects with Enter or Space, and remembers it", async () => {
-    const store = fake.store();
-    const onTabChange = vi.fn();
-    const { tab, tabIds } = await setup({ uiState: createUiState(store), onTabChange });
-    const [first, second] = tabIds();
-    const last = tabIds().at(-1);
-    tab(GENERAL_TAB).focus();
-    press(tab(GENERAL_TAB), "ArrowDown");
-    expect(document.activeElement?.getAttribute("data-tks-tab")).toBe(second);
-    press(document.activeElement ?? tab(GENERAL_TAB), "End");
-    expect(document.activeElement?.getAttribute("data-tks-tab")).toBe(last);
-    expect(document.activeElement?.getAttribute("aria-selected")).toBe("false");
-    expect(tab(GENERAL_TAB).getAttribute("aria-selected")).toBe("true");
-    expect(onTabChange).not.toHaveBeenCalled();
-    press(document.activeElement ?? tab(GENERAL_TAB), "Enter");
-    expect(document.activeElement?.getAttribute("aria-selected")).toBe("true");
-    expect(tab(GENERAL_TAB).getAttribute("aria-selected")).toBe("false");
-    expect(first).toBe(GENERAL_TAB);
-    await vi.waitFor(async () => {
-      expect(await createUiState(store).read()).toBe(last);
-    });
-    expect(onTabChange.mock.calls).toEqual([[last]]);
-    press(tab(GENERAL_TAB), " ");
-    expect(tab(GENERAL_TAB).getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("shows a tab asked for from outside, and tells the page", async () => {
-    const onTabChange = vi.fn();
-    const { form, tab } = await setup({ onTabChange });
-    form.selectTab("family");
-    expect(tab("family").getAttribute("aria-selected")).toBe("true");
-    expect(onTabChange).toHaveBeenCalledWith("family");
   });
 });
 

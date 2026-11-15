@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { CreatorsSpec } from "../../tests/helpers/creators";
 import { make } from "../../tests/helpers/factory";
 import { fake } from "../../tests/helpers/fakes";
+import { englishI18n } from "../../tests/helpers/i18n";
 import type { IgnoredSpec } from "../../tests/helpers/ignored";
 import {
   createIgnoreLists,
@@ -14,6 +15,8 @@ import type { KindId } from "./kinds/id";
 import type { Relations } from "./kinds/verdicts";
 import { ALLOW_ALL } from "./settings/allow-data";
 import type { AppId } from "./types";
+
+const i18n = englishI18n();
 
 /** Empty ignore lists over a store in memory. */
 function emptyLists(): IgnoreLists {
@@ -37,7 +40,7 @@ describe("loadIgnored", () => {
     await lists.games.add(ALLOW_ALL, all, make.text.name());
     await lists.creators.developer.add("ai", clan, make.text.creator());
     await lists.creators.publisher.add(ALLOW_ALL, name, make.text.creator());
-    const ignored = await loadIgnored(lists, { error: vi.fn() });
+    const ignored = await loadIgnored(lists, fake.logger().logger);
     expect([...ignored.games.drm]).toEqual([drm]);
     expect([...ignored.games[ALLOW_ALL]]).toEqual([all]);
     expect([...ignored.games.ai]).toEqual([]);
@@ -74,13 +77,13 @@ describe("loadIgnored", () => {
     kept,
   ) => {
     const problem = new Error();
-    const logger = { error: vi.fn() };
+    const { logger, sink } = fake.logger();
     const lists = emptyLists();
     await lists.games.add("ai", make.appId(), make.text.name());
     await lists.creators.developer.add("ai", creatorKeys().clan, make.text.creator());
     await lists.creators.publisher.add("ai", creatorKeys().clan, make.text.creator());
     const ignored = await loadIgnored(breakList(lists, problem), logger);
-    expect(logger.error).toHaveBeenCalledWith(problem);
+    expect(sink.error).toHaveBeenCalledWith("[tks]", i18n.t("error_unexpected"), problem);
     expect([broken(ignored), kept(ignored), ignored.creators.publisher.ai.size]).toEqual([0, 1, 1]);
   });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { make } from "../../../tests/helpers/factory";
 import { fake } from "../../../tests/helpers/fakes";
 import { writeSettings } from "../../../tests/helpers/settings";
@@ -38,7 +38,7 @@ function remoteEvents() {
 describe("a subscriber that throws", () => {
   it("does not reject a patch that was saved, and the others still hear it", async () => {
     const source = createSettingsSource(fake.store());
-    const heard = vi.fn();
+    const heard = fake.listener();
     source.subscribe(() => {
       throw new Error();
     });
@@ -52,7 +52,7 @@ describe("a subscriber that throws", () => {
   it("does not stop a change from another tab reaching the others", () => {
     const events = remoteEvents();
     const source = createSettingsSource(fake.store(), events.remote);
-    const heard = vi.fn();
+    const heard = fake.listener();
     source.subscribe(() => {
       throw new Error();
     });
@@ -188,7 +188,7 @@ describe("createSettingsSource", () => {
 
   it("tells subscribers about this context's writes, once per change", async () => {
     const source = createSettingsSource(fake.store());
-    const listener = vi.fn<(value: unknown) => void>();
+    const listener = fake.listener();
     source.subscribe(listener);
     await writeSettings(source, DIMMED);
     await writeSettings(source, DIMMED);
@@ -200,7 +200,7 @@ describe("createSettingsSource", () => {
 
   it("stops telling a subscriber that unsubscribed, even if it unsubscribes twice", async () => {
     const source = createSettingsSource(fake.store());
-    const listener = vi.fn<(value: unknown) => void>();
+    const listener = fake.listener();
     const stop = source.subscribe(listener);
     stop();
     stop();
@@ -211,7 +211,7 @@ describe("createSettingsSource", () => {
   it("forwards the other tabs' changes unvalidated", () => {
     const events = remoteEvents();
     const source = createSettingsSource(fake.store(), events.remote);
-    const listener = vi.fn<(value: unknown) => void>();
+    const listener = fake.listener();
     source.subscribe(listener);
     const changes = [encodeSettings(DIMMED), ...make.raw.junk()];
     for (const change of changes) {
@@ -223,7 +223,7 @@ describe("createSettingsSource", () => {
   it("does not tell twice when the platform echoes this context's own write", async () => {
     const events = remoteEvents();
     const source = createSettingsSource(fake.store(), events.remote);
-    const listener = vi.fn<(value: unknown) => void>();
+    const listener = fake.listener();
     source.subscribe(listener);
     await writeSettings(source, DIMMED);
     events.fire(await source.read());
@@ -234,14 +234,14 @@ describe("createSettingsSource", () => {
     const events = remoteEvents();
     const source = createSettingsSource(fake.store(), events.remote);
     expect(events.subscribers()).toBe(0);
-    const stopA = source.subscribe(vi.fn());
-    const stopB = source.subscribe(vi.fn());
+    const stopA = source.subscribe(fake.listener());
+    const stopB = source.subscribe(fake.listener());
     expect(events.subscribers()).toBe(1);
     stopA();
     expect(events.subscribers()).toBe(1);
     stopB();
     expect(events.subscribers()).toBe(0);
-    source.subscribe(vi.fn());
+    source.subscribe(fake.listener());
     expect(events.subscribers()).toBe(1);
   });
 });

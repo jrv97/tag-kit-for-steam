@@ -1,7 +1,8 @@
-import { type Mock, vi } from "vitest";
+import type { Mock } from "vitest";
 import { createI18n } from "../../src/core/i18n/t";
 import { createLogger, type Logger } from "../../src/core/log";
 import en from "../../src/locales/en/messages.json";
+import { spy } from "./spies";
 
 /** One console method, as `ConsoleSink` takes it. */
 type ConsoleMethod = (...data: readonly unknown[]) => void;
@@ -23,10 +24,10 @@ export interface RecordingLogger {
 /** Fresh console mocks, for code that takes a console sink. */
 export function consoleMocks(): ConsoleMocks {
   return {
-    error: vi.fn<ConsoleMethod>(),
-    warn: vi.fn<ConsoleMethod>(),
-    info: vi.fn<ConsoleMethod>(),
-    debug: vi.fn<ConsoleMethod>(),
+    error: spy<ConsoleMethod>(),
+    warn: spy<ConsoleMethod>(),
+    info: spy<ConsoleMethod>(),
+    debug: spy<ConsoleMethod>(),
   };
 }
 

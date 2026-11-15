@@ -1,5 +1,6 @@
-import { type Mock, vi } from "vitest";
+import type { Mock } from "vitest";
 import type { Banner, BannerActions, BannerView } from "../../src/core/ui/banner";
+import { spy } from "./spies";
 
 /** One action call the test settles by hand. */
 interface PendingAction {
@@ -42,10 +43,10 @@ export function manualBannerActions(): ManualBannerActions {
         },
       });
     });
-  const ignore = vi.fn<BannerActions["ignore"]>(settle);
-  const restore = vi.fn<BannerActions["restore"]>(settle);
-  const ignoreCreator = vi.fn<BannerActions["ignoreCreator"]>(settle);
-  const restoreCreator = vi.fn<BannerActions["restoreCreator"]>(settle);
+  const ignore = spy<BannerActions["ignore"]>(settle);
+  const restore = spy<BannerActions["restore"]>(settle);
+  const ignoreCreator = spy<BannerActions["ignoreCreator"]>(settle);
+  const restoreCreator = spy<BannerActions["restoreCreator"]>(settle);
   const actions: BannerActions = { ignore, restore, ignoreCreator, restoreCreator };
   return {
     actions,
