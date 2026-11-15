@@ -649,8 +649,9 @@ describe("observing", () => {
 describe("work budget", () => {
   // Scan cost as counted DOM calls, which do not depend on the machine running the tests. Each
   // limit is per scanned capsule, a little above what the scanner does today, so a change that
-  // makes the scan superlinear or re-reads old content fails here. The real time budget (under
-  // 4 ms per mutation batch) is the manual sale-page profile in the checklist.
+  // makes the scan superlinear or re-reads old content fails here. scanner.perf.test.ts holds the
+  // wall-clock budgets; the browser target (under 4 ms per mutation batch) is the manual sale-page
+  // profile in the checklist.
 
   const LIMITED = [
     "querySelectorAll",
@@ -691,23 +692,9 @@ describe("work budget", () => {
     }
   }
 
-  /** A React sale grid of tag hub capsules, one for each app in `ids`. */
-  function capsuleGrid(ids: readonly AppId[]): string {
-    const page = new DOMParser().parseFromString(make.page.surface("tag-hub"), "text/html");
-    // The wrapper of the first capsule.
-    const capsule = the("._3r4Ny9tQdQZc50XDM5B2q2", page);
-    const copies = ids.map((id) => {
-      for (const link of capsule.querySelectorAll("a")) {
-        link.setAttribute("href", `https://store.steampowered.com/app/${String(id)}/X`);
-      }
-      return capsule.outerHTML;
-    });
-    return `<div class="SaleSectionContainer">${copies.join("")}</div>`;
-  }
-
   it("scans a 200-capsule page with bounded DOM work, in one frame", async () => {
     const ids = make.appIds(200);
-    setBody(capsuleGrid(ids));
+    setBody(make.page.capsuleGrid(ids));
     const work = countDomWork();
     await startScanner();
     expect(found()).toHaveLength(ids.length);
