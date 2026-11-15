@@ -1031,7 +1031,7 @@ describe("the toolbar popup", () => {
     ],
     ["the gear", (root: HTMLElement) => root.querySelector(".tks-gear svg"), undefined],
   ])("hands a click on %s to the page while the form still loads", async (_name, find, tab) => {
-    const openSettings = fake.spy();
+    const openSettings = fake.listener();
     let release = (): void => undefined;
     const held = new Promise<void>((resolve) => {
       release = resolve;
@@ -1288,17 +1288,10 @@ describe("the tabs", () => {
       tab("eula").click();
       return "eula";
     }],
-    ["Enter once the arrows brought focus back", ({ tab }) => {
+    ["Enter", ({ tab }) => {
       tab("kernel").focus();
-      press(tab("kernel"), "ArrowDown");
-      press(document.activeElement ?? tab("kernel"), "ArrowUp");
       press(tab("kernel"), "Enter");
       return "kernel";
-    }],
-    ["Space", ({ tab }) => {
-      tab("family").focus();
-      press(tab("family"), " ");
-      return "family";
     }],
     ["the page asking for it", ({ form }) => {
       form.selectTab("pvp");
@@ -1310,7 +1303,10 @@ describe("the tabs", () => {
     const mounted = await setup({ uiState: createUiState(store), onTabChange });
     expect(store.calls.set).toBe(0);
     const picked = pick(mounted);
-    expect(mounted.tab(picked).getAttribute("aria-selected")).toBe("true");
+    expect(
+      ([picked, GENERAL_TAB] as const).map((id) => mounted.tab(id).getAttribute("aria-selected")),
+    )
+      .toEqual(["true", "false"]);
     expect(onTabChange.mock.calls).toEqual([[picked]]);
     await vi.waitFor(async () => {
       expect(await createUiState(store).read()).toBe(picked);

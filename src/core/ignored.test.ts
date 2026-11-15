@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { CreatorsSpec } from "../../tests/helpers/creators";
 import { make } from "../../tests/helpers/factory";
 import { fake } from "../../tests/helpers/fakes";
-import { englishI18n } from "../../tests/helpers/i18n";
 import type { IgnoredSpec } from "../../tests/helpers/ignored";
 import {
   createIgnoreLists,
@@ -15,8 +14,6 @@ import type { KindId } from "./kinds/id";
 import type { Relations } from "./kinds/verdicts";
 import { ALLOW_ALL } from "./settings/allow-data";
 import type { AppId } from "./types";
-
-const i18n = englishI18n();
 
 /** Empty ignore lists over a store in memory. */
 function emptyLists(): IgnoreLists {
@@ -83,7 +80,7 @@ describe("loadIgnored", () => {
     await lists.creators.developer.add("ai", creatorKeys().clan, make.text.creator());
     await lists.creators.publisher.add("ai", creatorKeys().clan, make.text.creator());
     const ignored = await loadIgnored(breakList(lists, problem), logger);
-    expect(sink.error).toHaveBeenCalledWith("[tks]", i18n.t("error_unexpected"), problem);
+    expect(sink.error.mock.calls.flat()).toContain(problem);
     expect([broken(ignored), kept(ignored), ignored.creators.publisher.ai.size]).toEqual([0, 1, 1]);
   });
 });

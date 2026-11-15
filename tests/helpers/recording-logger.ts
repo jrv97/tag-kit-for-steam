@@ -1,7 +1,6 @@
 import type { Mock } from "vitest";
-import { createI18n } from "../../src/core/i18n/t";
 import { createLogger, type Logger } from "../../src/core/log";
-import en from "../../src/locales/en/messages.json";
+import { englishI18n } from "./i18n";
 import { spy } from "./spies";
 
 /** One console method, as `ConsoleSink` takes it. */
@@ -34,5 +33,5 @@ export function consoleMocks(): ConsoleMocks {
 /** A real logger over the English catalog, writing to mocks instead of the console. */
 export function recordingLogger(): RecordingLogger {
   const sink = consoleMocks();
-  return { logger: createLogger(createI18n({ en }, "en"), sink, true), sink };
+  return { logger: createLogger(englishI18n(), sink, true), sink };
 }

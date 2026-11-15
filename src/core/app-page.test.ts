@@ -219,6 +219,7 @@ describe("start on an English app page", () => {
     control("#tks-banner-ignore-main")?.click();
     await expect.poll(async () => Object.keys((await stored()).all)).toEqual([String(OPEN)]);
     expect(Object.keys((await stored()).ai)).toEqual([]);
+    await expect.poll(headings).toEqual([]);
   });
 
   describe("with a developer and a publisher", () => {

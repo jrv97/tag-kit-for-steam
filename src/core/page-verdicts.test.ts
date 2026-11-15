@@ -71,17 +71,19 @@ describe("mergeVerdicts", () => {
     expect(disagree).not.toHaveBeenCalled();
   });
 
-  it("keeps the page's disclosure when Steam's data could not answer", () => {
-    const page = DISCLOSING;
-    expect(mergeVerdicts(page, UNKNOWN_KINDS.error, none).ai).toBe(page.ai);
-  });
-
-  it.each(["missing", "malformed", "error", "rate-limited"] as const)(
-    "keeps the page's not disclosed when Steam's data is unknown %s, without a report",
-    (reason) => {
+  it.each(
+    [
+      ["disclosure", DISCLOSING, "error"],
+      ["not disclosed", QUIET, "missing"],
+      ["not disclosed", QUIET, "malformed"],
+      ["not disclosed", QUIET, "error"],
+      ["not disclosed", QUIET, "rate-limited"],
+    ] as const,
+  )(
+    "keeps the page's %s when Steam's data is unknown %s, without a report",
+    (_name, page, reason) => {
       const disagree = fake.spy();
-      const merged = mergeVerdicts(QUIET, UNKNOWN_KINDS[reason], disagree);
-      expect(merged.ai).toBe(make.verdict.notDisclosed("html"));
+      expect(mergeVerdicts(page, UNKNOWN_KINDS[reason], disagree).ai).toBe(page.ai);
       expect(disagree).not.toHaveBeenCalled();
     },
   );

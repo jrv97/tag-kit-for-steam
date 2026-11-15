@@ -9,6 +9,6 @@ export function spy<F extends Callback = () => void>(answer?: F): Mock<F> {
 }
 
 /** A listener of one value that records each value it hears. */
-export function listener<T = unknown>(): Mock<(value: T) => void> {
-  return spy<(value: T) => void>();
+export function listener(): Mock<(value: unknown) => void> {
+  return spy<(value: unknown) => void>();
 }
