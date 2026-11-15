@@ -9,10 +9,11 @@ import {
   pageDetector,
   partialDetector,
   rejectingDetector,
+  turnDetector,
 } from "./fake-detector";
 import { fakeFileTransfer, fakeFileTransferHarness } from "./fake-file-transfer";
 import { fakeFetch, fakeHttp, heldHttp, swappingRoute, timedHttp, withheldHttp } from "./fake-http";
-import { fakeProgressSource, fakeTabPort } from "./fake-progress";
+import { fakePageProgress, fakeProgressSource, fakeTabPort } from "./fake-progress";
 import { fakeSender, fakeStorePage, fakeTabIcon, fakeTabMessages } from "./fake-store-tab";
 import { fakeTabs } from "./fake-tabs";
 import { fixedClock } from "./fixed-clock";
@@ -47,6 +48,8 @@ export const fake = {
   changes: fakeChanges,
   /** A load progress source that a test sends progress through. */
   progressSource: fakeProgressSource,
+  /** A running page's progress that a test sends by hand, counting its rechecks. */
+  pageProgress: fakePageProgress,
   /** One end of a progress port that a test drives as the other end. */
   tabPort: fakeTabPort,
   /** The tab calls, answering IDs such as `make.tabs()` and rejecting the calls in `fails`. */
@@ -69,6 +72,8 @@ export const fake = {
   faults: noFaults,
   /** A `Detector` answering each ID with `verdictsFor(id)`, recording calls. */
   detector: fakeDetector,
+  /** A `Detector` answering each call with the next of a list of answers, recording calls. */
+  turnDetector,
   /** A `Detector` whose every call rejects. */
   rejectingDetector,
   /** A `Detector` that answers only the IDs a map holds and leaves the rest out. */

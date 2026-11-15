@@ -10,7 +10,7 @@ import { KIND_BY_ID, KINDS } from "../kinds/registry";
 import { type KindVerdicts, UNKNOWN_KINDS } from "../kinds/verdicts";
 import type { UnknownReason, Verdict } from "../types";
 import {
-  hasFailed,
+  failedForGood,
   isFailed,
   isFresh,
   isStoredReason,
@@ -108,13 +108,15 @@ describe("isFailed", () => {
   });
 });
 
-describe("hasFailed", () => {
-  it.each<readonly [string, KindVerdicts, boolean]>([
-    ["one malformed kind among answers", { ...FULL, pvp: make.verdict.unknown("malformed") }, true],
-    ["every kind answered", FULL, false],
-    ["only answers Steam gave", make.verdicts.uniform("missing"), false],
-  ])("%s: %s", (_name, verdicts, failed) => {
-    expect(hasFailed(verdicts)).toBe(failed);
+describe("failedForGood", () => {
+  const MALFORMED_PVP = { ...FULL, pvp: make.verdict.unknown("malformed") };
+  it.each<readonly [string, KindVerdicts, boolean, boolean]>([
+    ["one malformed kind among answers", MALFORMED_PVP, false, true],
+    ["one malformed kind with a lookup ahead", MALFORMED_PVP, true, false],
+    ["every kind answered", FULL, false, false],
+    ["only answers Steam gave", make.verdicts.uniform("missing"), false, false],
+  ])("%s: %s", (_name, verdicts, pending, failed) => {
+    expect(failedForGood(verdicts, pending)).toBe(failed);
   });
 });
 

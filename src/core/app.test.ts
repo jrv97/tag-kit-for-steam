@@ -229,7 +229,7 @@ describe("start on the search page", () => {
     expect(await store.get([SETTINGS_KEY])).toStrictEqual(stored);
   });
 
-  it("reports a row whose lookup failed and tags it after one request to check again", async () => {
+  it("reports a row whose lookup failed and tags it after one request for two checks", async () => {
     const id = searchId(0);
     const broken = make.item.details({ vetted: true, content_survey_ai_notes: 5 }, {}, id);
     const server = fake.swappingRoute(
@@ -245,6 +245,7 @@ describe("start on the search page", () => {
     await expect.poll(() => failed()?.textContent).toBe(i18n.plural("notice_list_failed", 1));
 
     server.swap();
+    app?.recheck();
     app?.recheck();
     await vi.advanceTimersByTimeAsync(DEFAULT_SPACING_MS);
     await expect.poll(() => marks(id)).toBe("ai");

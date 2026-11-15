@@ -1,4 +1,4 @@
-import type { LoadProgress, ProgressSource } from "../../src/core/progress";
+import type { LoadProgress, PageProgress, ProgressSource } from "../../src/core/progress";
 import type { PortMessage, TabPort } from "../../src/platform/extension/progress-port";
 
 export interface FakeProgressSource extends ProgressSource {
@@ -10,12 +10,14 @@ export interface FakeProgressSource extends ProgressSource {
   readonly rechecks: number;
 }
 
-/** A `ProgressSource` a test drives by hand. */
+/** A `ProgressSource` a test drives by hand; a recheck reaches the page the last send told of. */
 export function fakeProgressSource(): FakeProgressSource {
   const listeners = new Set<(progress: LoadProgress | undefined) => void>();
+  let page = false;
   let rechecks = 0;
   return {
     send(progress) {
+      page = progress !== undefined;
       for (const listener of listeners) {
         listener(progress);
       }
@@ -27,7 +29,9 @@ export function fakeProgressSource(): FakeProgressSource {
       return rechecks;
     },
     recheck() {
-      rechecks += 1;
+      if (page) {
+        rechecks += 1;
+      }
     },
     subscribe(listener) {
       const own = (progress: LoadProgress | undefined): void => {
@@ -37,6 +41,43 @@ export function fakeProgressSource(): FakeProgressSource {
       return () => {
         listeners.delete(own);
       };
+    },
+  };
+}
+
+export interface FakePageProgress extends PageProgress {
+  /** Tells the page's listeners a new progress, which the next snapshot returns. */
+  send(progress: LoadProgress): void;
+  /** How many times the page was asked to look up its failed games again. */
+  readonly rechecks: number;
+}
+
+/** A running page whose progress a test sends by hand, starting from `progress`. */
+export function fakePageProgress(progress: LoadProgress): FakePageProgress {
+  const listeners = new Set<(progress: LoadProgress) => void>();
+  let now = progress;
+  let rechecks = 0;
+  return {
+    progress: {
+      snapshot: () => now,
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+    },
+    send(next) {
+      now = next;
+      for (const listener of listeners) {
+        listener(next);
+      }
+    },
+    get rechecks() {
+      return rechecks;
+    },
+    recheck() {
+      rechecks += 1;
     },
   };
 }

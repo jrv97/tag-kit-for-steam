@@ -6,7 +6,7 @@ import type { AiVerdict } from "../kinds/ai";
 import { KIND_BY_ID } from "../kinds/registry";
 import { type KindVerdicts, withRelations } from "../kinds/verdicts";
 import type { AppId } from "../types";
-import { cachedDetector } from "./cached-detector";
+import { cachedDetector, forgetQuietly } from "./cached-detector";
 import { createVerdictCache } from "./verdict-cache";
 
 /** Answers each ID with its AI verdict in `table`, not disclosed by default. */
@@ -107,5 +107,15 @@ describe("cachedDetector", () => {
     expect(got.get(disclosed)).toStrictEqual(make.verdicts({ ai: make.verdict.disclosed("ai") }));
     expect(got.get(other)).toStrictEqual(make.verdicts({ ai: make.verdict.notDisclosed() }));
     expect(sink.error).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("forgetQuietly", () => {
+  it("logs a drop that broken storage rejects, and resolves", async () => {
+    const store = fake.countingStore(fake.store());
+    store.breakWrites();
+    const { logger, sink } = fake.logger();
+    await forgetQuietly(createVerdictCache(store, fake.clock(make.time())), [make.appId()], logger);
+    expect(sink.error).toHaveBeenCalledOnce();
   });
 });

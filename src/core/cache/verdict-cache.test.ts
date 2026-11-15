@@ -125,19 +125,27 @@ describe("VerdictCache", () => {
     const { cache, store } = setup();
     expect(await cache.lookup([])).toStrictEqual(new Map());
     await cache.save(new Map());
-    await cache.forget([]);
+    await cache.forgetFailed([]);
     expect(store.calls).toStrictEqual({ get: 0, set: 0, remove: 0, keys: 0 });
   });
 
-  it("forgets apps in memory and in storage with one call, and keeps the others", async () => {
+  it("forgets failed answers in memory and storage in one call, and keeps the rest", async () => {
     const { cache, another, store } = setup();
-    const [first, second, kept] = [make.appId(), make.appId(), make.appId()];
-    const verdicts = ai(make.verdict.unknown("malformed"));
-    await cache.save(new Map([[first, verdicts], [second, verdicts], [kept, verdicts]]));
-    await cache.forget([first, second]);
-    expect(store.calls.remove).toBe(1);
+    const [first, second, answered, kept] = [
+      make.appId(),
+      make.appId(),
+      make.appId(),
+      make.appId(),
+    ];
+    const failed = ai(make.verdict.unknown("malformed"));
+    await cache.save(
+      new Map([[first, failed], [second, failed], [answered, notDisclosed()], [kept, failed]]),
+    );
+    await cache.forgetFailed([first, second, answered]);
+    expect(store.removes).toStrictEqual([[verdictKey(first), verdictKey(second)]]);
     for (const tab of [cache, another()]) {
-      expect([...(await tab.lookup([first, second, kept])).keys()]).toStrictEqual([kept]);
+      const found = await tab.lookup([first, second, answered, kept]);
+      expect([...found.keys()]).toStrictEqual([answered, kept]);
     }
   });
 

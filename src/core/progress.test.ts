@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import { progressSourceContract } from "../../tests/contracts/progress-source.contract";
 import { make } from "../../tests/helpers/factory";
+import { fake } from "../../tests/helpers/fakes";
 import type { KindVerdicts } from "./kinds/verdicts";
-import { createLoadProgress, followProgress, type LoadProgress } from "./progress";
+import {
+  createLoadProgress,
+  followProgress,
+  type LoadProgress,
+  type PageProgress,
+} from "./progress";
 
 const KNOWN = make.verdicts.full();
 const LIMITED = make.verdicts.uniform("rate-limited");
@@ -67,6 +74,16 @@ describe("createLoadProgress", () => {
     expect(progress.snapshot()).toStrictEqual(expected);
   });
 
+  it("asks again for the failed games it rechecks, and stops counting the others as failed", () => {
+    const [kept, left] = [make.appId(), make.appId()];
+    const progress = createLoadProgress(() => undefined);
+    progress.asked([kept, left]);
+    progress.answered(kept, LIMITED, false);
+    progress.answered(left, LIMITED, false);
+    progress.recheck([kept]);
+    expect(progress.snapshot()).toStrictEqual({ total: 2, answered: 1, unknown: 1, failed: 0 });
+  });
+
   it("carries the breaker's pause while it runs", () => {
     const until = make.time();
     expect(createLoadProgress(() => until).snapshot()).toStrictEqual({
@@ -102,39 +119,20 @@ describe("createLoadProgress", () => {
   });
 });
 
-describe("followProgress", () => {
-  it("hears a running app's progress now and as it changes", async () => {
-    const progress = createLoadProgress(() => undefined);
-    const heard: (LoadProgress | undefined)[] = [];
-    const page = { progress, recheck: vi.fn() };
-    followProgress(Promise.resolve(page)).subscribe((each) => heard.push(each));
-    await Promise.resolve();
-    progress.asked(make.appIds(1));
-    await Promise.resolve();
-    expect(heard).toStrictEqual([
-      { total: 0, answered: 0, unknown: 0, failed: 0 },
-      { total: 1, answered: 0, unknown: 0, failed: 0 },
-    ]);
+progressSourceContract("followProgress", () => {
+  const page = fake.pageProgress(make.progress());
+  let start = (_running: PageProgress | undefined): void => undefined;
+  const running = new Promise<PageProgress | undefined>((resolve) => {
+    start = resolve;
   });
-
-  it("passes a recheck on to the running app", async () => {
-    const page = { progress: createLoadProgress(() => undefined), recheck: vi.fn() };
-    followProgress(Promise.resolve(page)).recheck();
-    await Promise.resolve();
-    expect(page.recheck).toHaveBeenCalledOnce();
-  });
-
-  it.each<
-    readonly [string, (unsubscribe: () => void) => void, readonly (LoadProgress | undefined)[]]
-  >([
-    ["hears no store page from an app that did not start", () => undefined, [undefined]],
-    ["hears nothing once unsubscribed before the app starts", (unsubscribe) => {
-      unsubscribe();
-    }, []],
-  ])("%s", async (_name, then, expected) => {
-    const heard: (LoadProgress | undefined)[] = [];
-    then(followProgress(Promise.resolve(undefined)).subscribe((each) => heard.push(each)));
-    await Promise.resolve();
-    expect(heard).toStrictEqual(expected);
-  });
+  return {
+    source: followProgress(running),
+    open: (open) => {
+      start(open ? page : undefined);
+    },
+    send: (progress) => {
+      page.send(progress);
+    },
+    rechecks: () => page.rechecks,
+  };
 });

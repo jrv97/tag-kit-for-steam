@@ -29,6 +29,14 @@ export function fakeDetector(verdictsFor: (id: AppId) => KindVerdicts): FakeDete
   };
 }
 
+/** A `fakeDetector` that answers each call with the next of `answers`, and the last after them. */
+export function turnDetector(answers: readonly [KindVerdicts, ...KindVerdicts[]]): FakeDetector {
+  const detector = fakeDetector(() =>
+    answers[Math.min(detector.calls.length, answers.length) - 1] ?? answers[0]
+  );
+  return detector;
+}
+
 /** A `Detector` whose every call rejects with `problem`, like a link that throws. */
 export function rejectingDetector(problem = new Error()): Detector {
   return { detect: () => Promise.reject(problem) };

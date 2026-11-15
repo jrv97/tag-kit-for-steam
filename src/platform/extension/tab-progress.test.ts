@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { progressSourceContract } from "../../../tests/contracts/progress-source.contract";
 import { make } from "../../../tests/helpers/factory";
 import type { FakeTabPort } from "../../../tests/helpers/fake-progress";
 import { fake } from "../../../tests/helpers/fakes";
@@ -13,6 +14,24 @@ function settled(): Promise<void> {
   });
 }
 
+progressSourceContract("tabProgress", () => {
+  const port = fake.tabPort();
+  let reach = (_port: TabPort | undefined): void => undefined;
+  const connected = new Promise<TabPort | undefined>((resolve) => {
+    reach = resolve;
+  });
+  return {
+    source: tabProgress(() => connected),
+    open: (page) => {
+      reach(page ? port : undefined);
+    },
+    send: (progress) => {
+      port.receive(progress);
+    },
+    rechecks: () => port.posted.filter((message) => message === RECHECK_MESSAGE).length,
+  };
+});
+
 describe("tabProgress", () => {
   const SENT = make.progress();
   const PAUSED = make.progress({ pausedUntil: make.time() });
@@ -26,7 +45,6 @@ describe("tabProgress", () => {
       readonly (LoadProgress | undefined)[],
     ]
   >([
-    ["no active tab", () => Promise.resolve(undefined), () => undefined, [undefined]],
     ["a failed connection", () => Promise.reject(new Error()), () => undefined, [undefined]],
     ["a tab with no content script", reach, (port) => {
       port.drop();
@@ -51,9 +69,6 @@ describe("tabProgress", () => {
     [make.progress({ total: -1, answered: -1 }), []],
     [make.progress({ answered: 0.5 }), []],
     [make.progress({ total: 2, answered: 1, failed: 2 }), []],
-    [make.progress({ total: 2, answered: 2, failed: 1 }), [
-      make.progress({ total: 2, answered: 2, failed: 1 }),
-    ]],
     [SENT, [SENT]],
     [PAUSED, [PAUSED]],
   ])("reads %j as %j", async (message, expected) => {
@@ -63,17 +78,6 @@ describe("tabProgress", () => {
     await settled();
     port.receive(message);
     expect(heard).toStrictEqual(expected);
-  });
-
-  it("posts a recheck on the open port only", async () => {
-    const port = fake.tabPort();
-    const progress = tabProgress(() => reach(port));
-    const unsubscribe = progress.subscribe(() => undefined);
-    await settled();
-    progress.recheck();
-    unsubscribe();
-    progress.recheck();
-    expect(port.posted).toStrictEqual([RECHECK_MESSAGE]);
   });
 
   it("closes the port when the strip stops listening", async () => {

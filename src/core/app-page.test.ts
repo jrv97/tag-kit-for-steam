@@ -15,7 +15,7 @@ import { readKey } from "../../tests/helpers/store-read";
 import { loadPage } from "../../tests/helpers/surfaces";
 import { T0 } from "../../tests/helpers/timer-clock";
 import { type App, start } from "./app";
-import { startAppPage } from "./app-page";
+import { type AppPage, startAppPage } from "./app-page";
 import type { CreatorRole } from "./creator";
 import { API_BREAKER_KEY, DEFAULT_BACKOFF } from "./detect/breaker";
 import { GETITEMS_URL } from "./detect/getitems";
@@ -26,12 +26,13 @@ import { createIgnoreLists } from "./ignored";
 import type { JsonValue } from "./json";
 import type { KindSettings } from "./kinds/kind-settings";
 import type { KindVerdicts } from "./kinds/verdicts";
-import type { Clock, Http } from "./ports";
+import type { Clock, Detector, Http } from "./ports";
 import { createLoadProgress } from "./progress";
 import type { AllowScope } from "./settings/allow-data";
 import { DEFAULT_SETTINGS, encodeSettings } from "./settings/settings";
 import { createSettingsSource } from "./settings/settings-source";
 import { ALLOW_KEY, CREATOR_ALLOW_KEYS, SETTINGS_KEY } from "./storage-keys";
+import type { AppId } from "./types";
 import { VARIANT_ATTRIBUTE } from "./ui/element";
 import { createHoverCard } from "./ui/hover-card";
 import { normalizeBreaks } from "./ui/notes";
@@ -387,13 +388,14 @@ describe("start on an English app page", () => {
 });
 
 describe("startAppPage", () => {
-  it("counts its game as unknown and logs it when the lookup fails", async () => {
+  /** The open page over `detector`, with retry rounds a test runs by hand. */
+  function startOver(detector: Detector) {
     loadPage(make.page.app("5072580-ai-first.html"));
     const { logger, sink } = fake.logger();
     const progress = createLoadProgress(() => undefined);
     const page = startAppPage(document, OPEN, i18n, {
       language: "english",
-      detectors: { getItems: fake.rejectingDetector(), detector: fake.rejectingDetector() },
+      detectors: { getItems: fake.rejectingDetector(), detector },
       live: undefined,
       ignored: make.ignored(),
       lists: createIgnoreLists(fake.store(), fake.clock(make.time())),
@@ -403,10 +405,78 @@ describe("startAppPage", () => {
       card: createHoverCard(document, i18n),
       logger,
       progress,
+      delay: fake.queue().delay,
     });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    return { page, progress, sink };
+  }
+  const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const MALFORMED = make.verdicts.uniform("malformed");
+  const GAME = make.appId();
+
+  it("counts its game as unknown and logs it when the lookup fails", async () => {
+    const { page, progress, sink } = startOver(fake.rejectingDetector());
+    await settled();
     page.stop();
     expect(progress.snapshot()).toStrictEqual({ total: 1, answered: 1, unknown: 1, failed: 1 });
     expect(sink.error).toHaveBeenCalledOnce();
+  });
+
+  it.each<
+    readonly [
+      string,
+      KindVerdicts,
+      (page: AppPage) => void,
+      { games?: readonly AppId[]; forget?: readonly AppId[]; },
+    ]
+  >([
+    ["a lookup that failed for good: the game", MALFORMED, () => undefined, {
+      games: [OPEN],
+      forget: [OPEN],
+    }],
+    [
+      "a demo's failed lookup: with its full game",
+      {
+        ...MALFORMED,
+        demo: true,
+        parent: GAME,
+      },
+      () => undefined,
+      { games: [OPEN], forget: [OPEN, GAME] },
+    ],
+    [
+      "a lookup with a retry round ahead: nothing",
+      make.verdicts.uniform("error"),
+      () => undefined,
+      {},
+    ],
+    ["an answer: nothing", make.verdicts.full(), () => undefined, {}],
+    ["a stopped page: nothing", MALFORMED, (page) => {
+      page.stop();
+    }, {}],
+    ["a game taken by a recheck before: nothing", MALFORMED, (page) => {
+      page.recheck();
+    }, {}],
+  ])("takes to recheck %s", async (_name, answer, arrange, expected) => {
+    const { page } = startOver(fake.turnDetector([answer]));
+    await settled();
+    arrange(page);
+    const taken = page.recheck();
+    page.stop();
+    expect({ games: taken?.games, forget: taken?.forget }).toStrictEqual({
+      games: undefined,
+      forget: undefined,
+      ...expected,
+    });
+  });
+
+  it("looks its game up once more for a taken recheck", async () => {
+    const detector = fake.turnDetector([MALFORMED, make.verdicts.full()]);
+    const { page, progress } = startOver(detector);
+    await settled();
+    page.recheck()?.lookUp();
+    await settled();
+    page.stop();
+    expect(detector.calls).toHaveLength(2);
+    expect(progress.snapshot()).toStrictEqual({ total: 1, answered: 1, unknown: 0, failed: 0 });
   });
 });

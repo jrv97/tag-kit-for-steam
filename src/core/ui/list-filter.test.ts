@@ -71,9 +71,9 @@ describe("createHostKindsRenderer", () => {
     ["the kinds whose lookup failed", {
       verdicts: make.verdicts({ ai: ERROR, drm: make.verdict.unknown("malformed") }),
     }, "ai drm"],
-    ["no kind while a retry round is ahead", {
+    ["no kind while a lookup or retry round is ahead", {
       verdicts: make.verdicts.uniform("rate-limited"),
-      retrying: true,
+      pending: true,
     }, null],
     ["no kind the game is ignored for", {
       verdicts: make.verdicts({ ai: ERROR, drm: ERROR }),

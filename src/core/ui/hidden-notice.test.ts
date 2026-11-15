@@ -46,10 +46,10 @@ const shown = () => {
   return element !== null && !element.hasAttribute("hidden");
 };
 const line = () => box()?.querySelector(".tks-list-notice-text")?.textContent;
-/** The failed sentence's text, or undefined while it is hidden. */
+/** The failed sentence's text, or undefined while it or the bar is hidden. */
 const failedLine = () => {
   const element = box()?.querySelector(".tks-list-notice-failed");
-  return element?.hasAttribute("hidden") === false ? element.textContent : undefined;
+  return element?.closest("[hidden]") === null ? element.textContent : undefined;
 };
 const hiddenLineShown = () =>
   box()?.querySelector(".tks-list-notice-text")?.hasAttribute("hidden") === false;
@@ -154,10 +154,10 @@ describe("createHiddenNotice", () => {
     },
   );
 
-  it.each<readonly [string, ListFilter, number, number]>([
-    ["a kind on Dim, with nothing hidden", "dim", 0, 2],
-    ["a kind on Hide, beside hidden rows", "hide", 1, 2],
-  ])("counts the failed lookups of %s", (_name, filter, hiddenRows, failedRows) => {
+  it.each<readonly [string, ListFilter, number, number, boolean]>([
+    ["a kind on Dim, with nothing hidden", "dim", 0, 2, false],
+    ["a kind on Hide, beside hidden rows", "hide", 1, 2, true],
+  ])("counts the failed lookups of %s", (_name, filter, hiddenRows, failedRows, hiddenShown) => {
     applyFilters({ ai: filter });
     rows().slice(0, hiddenRows).forEach((row) => {
       mark(row, ["ai"]);
@@ -165,13 +165,30 @@ describe("createHiddenNotice", () => {
     rows().slice(hiddenRows, hiddenRows + failedRows).forEach(fail);
     start();
     expect(shown()).toBe(true);
-    expect(hiddenLineShown()).toBe(hiddenRows > 0);
+    expect(hiddenLineShown()).toBe(hiddenShown);
     expect(failedLine()).toBe(i18n.plural("notice_list_failed", failedRows));
   });
 
-  it("counts no failed lookup of a kind that is off", () => {
-    applyFilters({ ai: "off", drm: "hide" });
-    fail(rowAt(0));
+  it("puts the failed sentence first, so the bar ends on its button", () => {
+    hidingRows(1);
+    fail(rowAt(1));
+    start();
+    const parts = [...(box()?.children ?? [])].filter((part) => !part.hasAttribute("aria-live"));
+    expect(parts.map((part) => part.className)).toStrictEqual([
+      "tks-list-notice-failed",
+      "tks-list-notice-text",
+      "tks-list-notice-button",
+    ]);
+  });
+
+  it.each<readonly [string, Partial<Record<KindId, ListFilter>>, (row: Element) => void]>([
+    ["a kind on Dim with no failed lookup", { ai: "dim" }, (row) => {
+      mark(row, ["ai"]);
+    }],
+    ["a failed lookup of a kind that is off", { ai: "off", drm: "hide" }, fail],
+  ])("shows no notice for %s", (_name, filters, arrange) => {
+    applyFilters(filters);
+    arrange(rowAt(0));
     start();
     expect(shown()).toBe(false);
   });
@@ -187,23 +204,51 @@ describe("createHiddenNotice", () => {
     expect(failedLine()).toBe(i18n.plural("notice_list_failed", 1));
   });
 
-  it("announces the failed sentence once it stops changing", async () => {
-    applyFilters({ ai: "dim" });
-    fail(rowAt(0));
-    start();
-    delays.run();
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    expect(box()?.querySelector("[aria-live='polite']")?.textContent).toBe(
-      i18n.plural("notice_list_failed", 1),
-    );
+  it("moves focus from the button to the bar when nothing is left to hide", async () => {
+    hidingRows(1);
+    fail(rowAt(1));
+    await settle();
+    button().focus();
+    rowAt(0).removeAttribute(HOST_KINDS);
+    await settle();
+    expect(document.activeElement).toBe(box());
   });
 
-  it("shows no notice while no kind is on Hide", () => {
-    applyFilters({ ai: "dim" });
-    mark(rowAt(0), ["ai"]);
-    start();
-    expect(shown()).toBe(false);
-  });
+  const FAILED_CHANGES = [
+    {
+      name: "a second row fails",
+      change: () => {
+        fail(rowAt(1));
+      },
+      expected: i18n.plural("notice_list_failed", 2),
+    },
+    {
+      name: "the failed row gets its answer",
+      change: () => {
+        mark(rowAt(0), ["drm"]);
+      },
+      expected: undefined,
+    },
+    {
+      name: "the failed row leaves the page",
+      change: () => {
+        rowAt(0).remove();
+      },
+      expected: undefined,
+    },
+  ];
+
+  it.each(FAILED_CHANGES.map((each) => [each.name, each] as const))(
+    "follows the failed lookups when %s",
+    async (_name, { change, expected }) => {
+      applyFilters({ ai: "dim" });
+      fail(rowAt(0));
+      start();
+      change();
+      await settle();
+      expect(failedLine()).toBe(expected);
+    },
+  );
 
   it("counts no host outside the list", () => {
     const outside = make.page.searchRow(make.appId());
@@ -305,16 +350,29 @@ describe("createHiddenNotice", () => {
     expect(line()).toBe(i18n.plural("notice_list_hidden", 1));
   });
 
-  it("announces the line once it stops changing", async () => {
-    hidingRows(1);
-    addHiddenRow();
-    await settle();
+  it.each<readonly [string, () => Promise<void>, string]>([
+    ["the hidden line", async () => {
+      hidingRows(1);
+      addHiddenRow();
+      await settle();
+    }, i18n.plural("notice_list_hidden", 2)],
+    ["the failed sentence", async () => {
+      applyFilters({ ai: "dim" });
+      fail(rowAt(0));
+      start();
+      await settle();
+    }, i18n.plural("notice_list_failed", 1)],
+    ["both, failed sentence first, in one message", async () => {
+      hidingRows(1);
+      fail(rowAt(1));
+      await settle();
+    }, [i18n.plural("notice_list_failed", 1), i18n.plural("notice_list_hidden", 1)].join(" ")],
+  ])("announces %s once it stops changing", async (_name, arrange, expected) => {
+    await arrange();
     expect(delays.size).toBe(1);
     delays.run();
     await new Promise((resolve) => requestAnimationFrame(resolve));
-    expect(box()?.querySelector("[aria-live='polite']")?.textContent).toBe(
-      i18n.plural("notice_list_hidden", 2),
-    );
+    expect(box()?.querySelector("[aria-live='polite']")?.textContent).toBe(expected);
   });
 
   it("stops on pagehide, ending the reveal, and resumes on a bfcache pageshow", async () => {

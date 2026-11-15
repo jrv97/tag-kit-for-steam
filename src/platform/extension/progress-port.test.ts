@@ -22,6 +22,7 @@ describe("serveProgress", () => {
     const source = fake.progressSource();
     const port = fake.tabPort();
     serveProgress(source, port);
+    source.send(make.progress());
     port.receive(RECHECK_MESSAGE);
     port.receive(make.text.token());
     expect(source.rechecks).toBe(1);
