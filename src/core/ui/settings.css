@@ -105,8 +105,26 @@
 }
 
 .tks-options-version {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--tks-space-2);
   color: var(--tks-color-text-subtle);
   font-size: var(--tks-size-sm);
+}
+
+/* Once after an update, the release it updated to reads brighter than the plain version */
+.tks-options-version > span {
+  color: var(--tks-color-text);
+}
+
+/* The popup's intro, shown once between the header and the load strip and never removed */
+.tks-intro {
+  margin: 0;
+  padding-block-end: var(--tks-space-2);
+  color: var(--tks-color-text);
+  font-size: var(--tks-size-sm);
+  line-height: var(--tks-leading-sm);
+  text-wrap: pretty;
 }
 
 .tks-card {

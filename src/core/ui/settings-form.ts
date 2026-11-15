@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import { CREATOR_ROLES, type CreatorKey, type CreatorRole, toCreatorKey } from "../creator";
+import { releaseNotesUrl } from "../feedback-links";
 import { dateFormat } from "../i18n/date-format";
 import type { BareMessageKey } from "../i18n/t";
 import type { IgnoreLists } from "../ignored";
@@ -42,7 +43,7 @@ import { createBackupCard } from "./backup-card";
 import { ownText } from "./badge";
 import { type ActionCard, cardButton } from "./card-parts";
 import { createChipFields } from "./chip-fields";
-import { elementFactory, errorLine, FIELD_ERROR, quietButton } from "./element";
+import { elementFactory, errorLine, externalLink, FIELD_ERROR, quietButton } from "./element";
 import { facetChoiceKey } from "./facet-choices";
 import { createFeedbackFooter } from "./feedback-footer";
 import { parseIcon } from "./icon";
@@ -52,6 +53,7 @@ import { keyDescription, keyText } from "./kind-keys";
 import { createLoadStrip } from "./load-strip";
 import { createLookupCard } from "./lookup-card";
 import { createOrderCard, type OrderCard } from "./order-card";
+import type { ReleaseNotice } from "./release-notice";
 import { createResetCard } from "./reset-card";
 import { adoptStyles, SETTINGS_CSS, TOKENS_CSS } from "./styles";
 import { GENERAL_TAB, TAB_IDS, tabHash, type TabId, tabsInOrder, toTabId } from "./tab-id";
@@ -70,6 +72,8 @@ interface SettingsHeader {
   readonly version: string;
   /** The icon shown at 32px: `icon-48.png` on the page, `icon-32.png` in the popup. */
   readonly iconUrl?: string;
+  /** Said once in the popup: the intro under the header, or the update line for the version. */
+  readonly notice?: ReleaseNotice;
 }
 
 export interface SettingsFormDeps {
@@ -330,10 +334,7 @@ export async function mountSettingsForm(
       node.append(icon);
     }
     const text = element("div");
-    text.append(
-      element("h1", "tks-options-title", i18n.t("ext_name")),
-      element("div", "tks-options-version", i18n.t("options_version", { version: info.version })),
-    );
+    text.append(element("h1", "tks-options-title", i18n.t("ext_name")), versionLine(info));
     node.append(text);
     if (deps.allSettingsUrl !== undefined) {
       node.append(gear(deps.allSettingsUrl));
@@ -343,6 +344,21 @@ export async function mountSettingsForm(
       node.append(goBackButton);
     }
     return node;
+  }
+
+  /** The version, or once after an update the version it updated to and a link to its notes. */
+  function versionLine({ version, notice }: SettingsHeader): HTMLElement {
+    const line = element("div", "tks-options-version");
+    if (notice !== "updated") {
+      line.textContent = i18n.t("options_version", { version });
+      return line;
+    }
+    line.append(
+      element("span", "", i18n.t("options_version_updated", { version })),
+      " ",
+      externalLink(doc, "", releaseNotesUrl(version), i18n.t("options_whats_new")),
+    );
+    return line;
   }
 
   /** The popup's way to every setting: a gear link. */
@@ -849,6 +865,9 @@ export async function mountSettingsForm(
     ? undefined
     : createLoadStrip(doc, i18n, deps.progress, { idPrefix: prefix });
   const top: HTMLElement[] = deps.header === undefined ? [] : [header(deps.header)];
+  if (deps.header?.notice === "intro") {
+    top.push(element("p", "tks-intro", i18n.t("options_intro")));
+  }
   if (strip !== undefined) {
     top.push(strip.element);
   }

@@ -6,6 +6,7 @@ import { createLogger } from "../../core/log";
 import type { KeyValueStore } from "../../core/ports";
 import { parseSettings } from "../../core/settings/settings";
 import { ALLOW_KEY, CREATOR_ALLOW_KEYS, UI_STATE_KEY } from "../../core/storage-keys";
+import { takeReleaseNotice } from "../../core/ui/release-notice";
 import { mountSettingsForm, type SettingsContext } from "../../core/ui/settings-form";
 import { parseTabHash, tabHash, type TabId } from "../../core/ui/tab-id";
 import { createUiState, decodeTabRequest, type UiState } from "../../core/ui/ui-state";
@@ -92,19 +93,20 @@ async function main(): Promise<void> {
   const uiState = createUiState(store);
   const session = createExtensionStore(sessionStorageArea());
   const catalogs = CATALOGS;
+  const page = context === "page";
+  const version = extensionVersion();
 
   // On a failed read the page renders in the browser language and the form shows the error.
-  const { setting, i18n, failure } = await readSettingsI18n(
-    settings,
-    catalogs,
-    { browserLang: navigator.language },
-  );
+  // The popup reads its one-time notice beside the settings, so the first frame holds it.
+  const [{ setting, i18n, failure }, notice] = await Promise.all([
+    readSettingsI18n(settings, catalogs, { browserLang: navigator.language }),
+    page ? undefined : takeReleaseNotice(store, version),
+  ]);
   if (failure !== undefined) {
     createLogger(i18n, console, false).error(failure.problem);
   }
   fillText(document, i18n);
 
-  const page = context === "page";
   const initialTab = page ? parseTabHash(location.hash) : undefined;
   const optionsUrl = extensionUrl(OPTIONS_PAGE);
   const form = await mountSettingsForm(document.body, {
@@ -116,7 +118,11 @@ async function main(): Promise<void> {
     layout: page ? "tabs" : "list",
     colors: page,
     locales: Object.keys(catalogs),
-    header: { version: extensionVersion(), iconUrl: extensionUrl(ICONS[context]) },
+    header: {
+      version,
+      iconUrl: extensionUrl(ICONS[context]),
+      ...(notice === undefined ? {} : { notice }),
+    },
     ...(initialTab === undefined ? {} : { initialTab }),
     // A file chooser can close the toolbar popup before the file arrives, so backup is page only
     ...(page

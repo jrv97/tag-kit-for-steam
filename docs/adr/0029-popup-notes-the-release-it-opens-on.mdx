@@ -1,0 +1,77 @@
+---
+status: accepted
+date: 2026-11-15
+decision-makers: Jorge Rodriguez de la Vega
+---
+
+# The popup notes the release it opens on
+
+## Context and problem statement
+
+A new install gets no word on what the extension does, and an update gets no word on what changed. Extension Workshop's onboarding guide opens a tab from `runtime.onInstalled` for both. That event fires only in a background script, and rule 3 keeps the one background script to the toolbar icon ([ADR 0027 (dim the toolbar icon outside the store)](0027-dim-the-toolbar-icon-outside-the-store.mdx)). The toolbar popup is the one surface a person opens on their own. How does it tell a first open from an update, and when does it stop telling?
+
+## Decision drivers
+
+- Rule 3: no new background work.
+- Rule 18: the popup's layout never moves under a person's pointer.
+- Rule 1: nothing leaves the browser for this.
+- A person who used an earlier build should read the update line, not the intro.
+- No permission and no install warning.
+
+## Considered options
+
+1. The popup compares the manifest version with one it stores in `storage.local` under its own key, and writes the new one when it shows the notice (chosen).
+2. The same comparison, written only when the person dismisses the notice with a button.
+3. `runtime.onInstalled` in the background script opens a tab on install and on update.
+4. The same comparison, with the version as a field of the `v2:ui` record.
+
+## Decision outcome
+
+Chosen option 1.
+
+- `v2:version` holds the release the popup last opened on, as a string. The popup reads it beside the settings, before the form mounts, and the first frame holds the notice.
+- With no stored release, the popup shows the intro (`options_intro`) between its header and the load strip. Settings, an ignore list or a remembered tab in storage mark an install from before this record, which gets the update line instead.
+- With another stored release, the header's version line reads `options_version_updated` and links to the release's notes on GitHub (`options_whats_new`), a plain link the person opens in a tab with the version alone in its address.
+- The popup writes the version as it shows the notice. The next open shows neither. A failed write shows the notice again on the next open, which tries the write again.
+- The options page reads and writes nothing of it. The key is interface state, as `v2:ui` is: the backup leaves it out, and removing the extension clears it.
+- The userscript has no popup and shows nothing. Its manager announces an install and an update with the script's name and version, and the settings dialog opens only from the manager's menu.
+
+### Library check (rule 12)
+
+Nothing adopted. The feature is one `get`, one `set` and a string comparison through the existing `KeyValueStore` port.
+
+### Consequences
+
+- Good: no background work, no permission and no new host.
+- Good: nothing is removed from the popup while it is open, so nothing below the notice moves.
+- Bad: a person who opens the popup and closes it before reading has lost the notice. The update line links to the release notes, which stay on GitHub.
+- Bad: an install that has stored nothing but cached results gets the intro on its first update to this release.
+- Neutral: the comparison is equality, not order. Moving back to an earlier build shows the update line for it.
+
+### Confirmation
+
+Unit tests cover each stored state through a fake store, the failed read and the failed write, and the header and intro the form draws for each notice. `scripts/check_bundle.py` allows the release notes prefix only in the bundles that show the settings.
+
+## Pros and cons of the options
+
+### 1. Stored version, written on show
+
+- Good: no control to add, and the popup keeps one layout while it is open.
+- Bad: a notice read too fast is gone.
+
+### 2. Stored version, written on dismiss
+
+- Good: the notice stays until the person says they read it.
+- Bad: a dismiss removes the notice and moves every row under the pointer, against rule 18, or leaves an empty block in its place.
+- Bad: a notice nobody dismisses pushes the tag rows down on every open.
+
+### 3. `runtime.onInstalled` opens a tab
+
+- Good: the browser says whether the event is an install or an update, with the previous version.
+- Bad: background work beyond the icon, which rule 3 rules out without a new ADR.
+- Bad: a tab opens unasked on every update.
+
+### 4. A field of `v2:ui`
+
+- Good: one record of interface state.
+- Bad: `createUiState` writes the tab record whole, and each write would need to keep the version. The two change for different reasons.

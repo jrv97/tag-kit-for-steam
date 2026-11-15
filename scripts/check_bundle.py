@@ -133,12 +133,14 @@ ENGLISH = ROOT / "src" / "locales" / DEFAULT_LOCALE / "messages.json"
 STORE_MATCH = ["https://store.steampowered.com/*"]
 RELEASE_BASE = f"{REPO_URL}/releases/latest/download"
 ALLOWED_HOSTS = {"api.steampowered.com", "store.steampowered.com"}
-# The feedback links of the settings (src/core/feedback-links.ts): plain links a person opens in a
-# tab, never requested. Only these exact URLs, and only in the bundles that show the settings.
+# The feedback links of the settings and the prefix of the popup's release notes link
+# (src/core/feedback-links.ts): plain links a person opens in a tab, never requested. Only these
+# exact strings, and only in the bundles that show the settings.
 FEEDBACK_URLS = (
     f"{ISSUES_URL}/new?template=bug_report.yml",
     f"{ISSUES_URL}/new?template=feature_request.yml",
     "https://forms.gle/Fo652zzyFWUQn2qK9",
+    f"{REPO_URL}/releases/tag/",
 )
 HEADER_START = "// ==UserScript=="
 HEADER_END = "// ==/UserScript=="

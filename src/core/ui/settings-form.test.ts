@@ -11,6 +11,7 @@ import {
 } from "../../../tests/helpers/settings";
 import { headingOf as heading, mountForm } from "../../../tests/helpers/settings-form";
 import { CREATOR_ROLES, type CreatorRole } from "../creator";
+import { releaseNotesUrl } from "../feedback-links";
 import { SHIPPED_CATALOGS } from "../i18n/shipped";
 import { type BareMessageKey, createI18n } from "../i18n/t";
 import { createIgnoreLists } from "../ignored";
@@ -877,6 +878,41 @@ describe("the page around the tabs", () => {
     expect(gear?.textContent).toBe("");
     expect(root.querySelector(".tks-options-footer a")).toBeNull();
     expect(header?.querySelector("button")).toBeNull();
+  });
+
+  it.each(
+    [
+      [
+        "no notice",
+        {},
+        (version: string) => i18n.t("options_version", { version }),
+        undefined,
+        undefined,
+      ],
+      [
+        "the intro",
+        { notice: "intro" },
+        (version: string) => i18n.t("options_version", { version }),
+        undefined,
+        i18n.t("options_intro"),
+      ],
+      [
+        "the update line",
+        { notice: "updated" },
+        (version: string) =>
+          `${i18n.t("options_version_updated", { version })} ${i18n.t("options_whats_new")}`,
+        releaseNotesUrl,
+        undefined,
+      ],
+    ] as const,
+  )("draws %s with the header", async (_name, notice, line, notes, intro) => {
+    const version = make.text.version();
+    const { root } = await mountForm({ ...POPUP, header: { version, ...notice } });
+    expect(root.querySelector(".tks-options-version")?.textContent).toBe(line(version));
+    expect(root.querySelector(".tks-options-version a")?.getAttribute("href")).toBe(
+      notes?.(version),
+    );
+    expect(root.querySelector(".tks-options-header + .tks-intro")?.textContent).toBe(intro);
   });
 
   it("keeps the gear small: one path of fewer than 400 bytes", async () => {
