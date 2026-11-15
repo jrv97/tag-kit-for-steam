@@ -14,7 +14,8 @@
   @grant and every @grant is used; valibot's license block is in the body; no userscript header
   in any other bundle.
 - No eval( or new Function in any bundle (rule 2); no URL outside the two Valve hosts, except the
-  three feedback links of the settings footer, which options.js and the userscript may carry.
+  two feedback links of the settings footer and the release notes prefix of the popup, which
+  options.js and the userscript may carry.
 - Catalogs: each shipped bundle carries exactly the messages its code reads (decision 58). Every
   key or plural base that a string literal of its code names is in its inlined catalogs, and every
   message there is named, so a missing key fails here and never falls back to the raw key on a
@@ -139,7 +140,6 @@ ALLOWED_HOSTS = {"api.steampowered.com", "store.steampowered.com"}
 SETTINGS_LINKS = (
     f"{ISSUES_URL}/new?template=bug_report.yml",
     f"{ISSUES_URL}/new?template=feature_request.yml",
-    "https://forms.gle/Fo652zzyFWUQn2qK9",
     f'"{REPO_URL}/releases/tag/"',
 )
 HEADER_START = "// ==UserScript=="
