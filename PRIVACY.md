@@ -26,6 +26,12 @@ Every one of these requests is made without cookies (`credentials: "omit"`), so 
 
 Cached results are reused: a checked app is not requested again until its entry expires.
 
+## Links that open other sites
+
+The settings page and the userscript dialog end with four links: the FAQ, a bug report form and a feedback form, all on GitHub, and an anonymous feedback form. The anonymous form is a Google Form, hosted by Google. The toolbar popup's update line links to the release notes on GitHub.
+
+Each link opens in a new tab only when you click it. The extension does not request these pages and adds no app ID or setting to their addresses; the release notes link names only the version. Once a page opens, GitHub or Google sees your IP address, and what you type into a form goes to them under their own privacy policies.
+
 ## What is never read or sent
 
 The extension does not read your Steam account, wishlist contents, library, cookies or browsing history, and does not send app IDs, settings or any other data to any other host.

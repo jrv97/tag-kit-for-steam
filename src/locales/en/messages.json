@@ -1568,8 +1568,12 @@
     "description": "Footer of the toolbar popup."
   },
   "options_feedback_label": {
-    "message": "Feedback",
-    "description": "Accessible name of the group of three links at the bottom of the settings: report a bug, leave feedback, send anonymous feedback."
+    "message": "Help and feedback",
+    "description": "Accessible name of the group of four links at the bottom of the settings: the common questions, report a bug, leave feedback, send anonymous feedback."
+  },
+  "options_feedback_faq": {
+    "message": "Common questions",
+    "description": "Link at the bottom of the settings that opens the project's page of common questions and answers (in English) in a new tab. Keep it short; an icon precedes it."
   },
   "options_feedback_bug": {
     "message": "Report a bug",

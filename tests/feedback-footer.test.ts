@@ -88,4 +88,14 @@ describe("feedback footer", () => {
     const line = readme.split("\n").find((each) => each.includes(url));
     expect(line).toContain(`/lucide/${icon}.svg`);
   });
+
+  it("points the FAQ link at a README heading", () => {
+    const anchor = FEEDBACK_LINKS.find(({ id }) => id === "faq")?.url.split("#")[1];
+    const slugs = readme
+      .split("\n")
+      .filter((line) => line.startsWith("#"))
+      .map((line) => line.replace(/^#+\s*/, "").toLowerCase().replaceAll(/[^\w\s-]/g, ""))
+      .map((text) => text.trim().replaceAll(/\s+/g, "-"));
+    expect(slugs).toContain(anchor);
+  });
 });

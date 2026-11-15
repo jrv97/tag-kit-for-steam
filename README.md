@@ -9,7 +9,9 @@
 
 # Tag Kit for Steam
 
-A browser extension for Chromium-based browsers and Firefox, and a userscript (Tampermonkey and Violentmonkey) that tag items on the Steam store with what Valve's own data says about them: AI Generated Content Disclosure, Anti-Cheat (Kernel Level flagged separately), 3rd-party DRM, 3rd-Party Account, 3rd-party EULA, PvP (friend request), In-App Purchases, Valve's Steam Deck and Steam Machine compatibility ratings, Family Sharing as Steam's features list it, and Early Access.
+Tag Kit for Steam is a browser extension for Chrome, Edge and Firefox that tags games on the Steam store with what Steam's own data says about them.
+
+It also runs in other Chromium-based browsers and as a userscript in Tampermonkey and Violentmonkey. It tags AI Generated Content Disclosure, Anti-Cheat (Kernel Level flagged separately), 3rd-party DRM, 3rd-Party Account, 3rd-party EULA, PvP, In-App Purchases, Valve's Steam Deck and Steam Machine compatibility ratings, Family Sharing as Steam's features list it, and Early Access.
 
 > Status: published on the Chrome Web Store, Firefox Add-ons and Greasy Fork (links under [Install](#install)). [Releases](https://github.com/jrv97/tag-kit-for-steam/releases) are on GitHub.
 
@@ -52,7 +54,7 @@ Each tag follows Steam's own words:
 - Family Sharing: Steam lists Family Sharing among the game's features, which Valve computes. The chip reads "Family Sharing", or "No Family Sharing" for a paid game whose list leaves it out. For that game the card reads "Family Sharing is not supported for this game" and "According to the features Steam lists for this game", and the banner and the settings keep Steam's words, "Family Sharing not Available".
 - Early Access: the developer set the game's release state to Early Access, and Steam flags the game. The chip reads "Early Access", and the card carries Steam's line "Early Access Game", the developer's note, the release date and, on the game's own page, the latest update post.
 
-The AI badge does not say a game uses AI, and the absence of a badge does not mean a game is AI-free: the report comes from the developer, and the badge marks what developers chose to report.
+The AI badge marks what developers chose to report on Steam. Its absence says nothing about how a game was made.
 
 ### On the store
 
@@ -105,18 +107,72 @@ The toolbar popup lists every tag by its short name, with its Show, Dim and Hide
 - <img src="https://cdn.simpleicons.org/greasyfork" alt="" width="16" height="16"> Userscript on [Greasy Fork](https://greasyfork.org/en/scripts/604708-tag-kit-for-steam), for Tampermonkey or Violentmonkey.
 - <img src="https://cdn.simpleicons.org/github/8b949e" alt="" width="16" height="16"> Userscript from GitHub: open the `.user.js` file from the [latest release](https://github.com/jrv97/tag-kit-for-steam/releases/latest) in Tampermonkey or Violentmonkey.
 
-## Feedback
+## Help and feedback
 
+- <img src="https://api.iconify.design/lucide/message-circle-question-mark.svg?color=%238f73f3" alt="" width="16" height="16"> [Read the FAQ](https://github.com/jrv97/tag-kit-for-steam#faq)
 - <img src="https://api.iconify.design/lucide/bug.svg?color=%238f73f3" alt="" width="16" height="16"> [Report a bug](https://github.com/jrv97/tag-kit-for-steam/issues/new?template=bug_report.yml)
 - <img src="https://api.iconify.design/lucide/lightbulb.svg?color=%238f73f3" alt="" width="16" height="16"> [Request a feature](https://github.com/jrv97/tag-kit-for-steam/issues/new?template=feature_request.yml)
 - <img src="https://api.iconify.design/lucide/languages.svg?color=%238f73f3" alt="" width="16" height="16"> [Request a language or fix a translation](https://github.com/jrv97/tag-kit-for-steam/issues/new?template=translation.yml)
-- <img src="https://api.iconify.design/lucide/message-square-heart.svg?color=%238f73f3" alt="" width="16" height="16"> [Send quick anonymous feedback](https://forms.gle/Fo652zzyFWUQn2qK9)
+- <img src="https://api.iconify.design/lucide/message-square-heart.svg?color=%238f73f3" alt="" width="16" height="16"> [Send quick anonymous feedback](https://forms.gle/Fo652zzyFWUQn2qK9) (a Google Form)
+- <img src="https://api.iconify.design/lucide/star.svg?color=%238f73f3" alt="" width="16" height="16"> Rate it on [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/tag-kit-for-steam/reviews/) or the [Chrome Web Store](https://chromewebstore.google.com/detail/ai-reporter-for-steam/jpbjlfnkdmmdccfiocblhkjdejaihnkp/reviews)
+
+## FAQ
+
+### Why does a game have no chip?
+
+A chip appears only when Steam's data carries one of the tags you switched on and that tag's badge switch is on. A game whose developer reported nothing for a tag, or for which Steam sent no data, gets no chip; there is no "clean" or "checked" chip. A missing AI chip means Steam's data for the game lacks an AI Generated Content Disclosure, or the lookup got no answer. It says nothing about how the game was made.
+
+The Steam Deck and Steam Machine tags work the same way: a game Valve has not rated gets no chip. Family Sharing is the one tag that can show a missing feature. A paid game whose features Steam lists without Family Sharing gets "No Family Sharing", and its card names the features Steam lists as the source.
+
+A game you ignored shows no chip for the tags you ignored it for, and the same goes for games by a developer or publisher you ignored. The settings list what you ignored.
+
+### What do Show, Dim and Hide do?
+
+Each tag has its own list filter: "Games with this tag" in its settings tab, and the Show, Dim and Hide control on its row in the toolbar popup.
+
+- Show leaves lists as they are, apart from the chips. It is the default.
+- Dim fades the games with that tag in lists. Hovering over a game or moving keyboard focus to it brings it back.
+- Hide removes those games from lists. On search results one line says how many titles it hid, and its button shows them again, dimmed, until you press Hide them or reload. Where hiding would break a list (the wishlist, the discovery queue, the store home's main carousel and the large carousel on hub and sale pages), the games are dimmed instead.
+
+When a game carries several tags, the strongest filter wins: Hide over Dim over Show.
+
+### What does "could not be checked" mean, and what does Check again do?
+
+A lookup fails when a request breaks, Steam limits requests or Steam's answer does not parse. Dim and Hide never act on a game whose lookup failed, since its tags are unknown. On search results, the line Tag Kit adds above the results then says how many titles could not be checked for the tags set to Dim or Hide.
+
+The toolbar popup and the userscript dialog say "Tags loaded for 46 games. 2 could not be checked" and offer a Check again button. It asks Steam again for those games only, up to 50 games per request, without a reload. While Steam limits requests, it waits for the pause to end and then asks.
+
+In the General tab of the settings, Lookup results shows how many games are kept on your device and clears them, all of them or only those Steam gave no answer for.
+
+### The userscript does nothing in Chrome or Edge. What do I turn on?
+
+Chrome, Edge and other Chromium browsers run userscripts only after you allow it for the script manager. Open `chrome://extensions` (`edge://extensions` in Edge), choose Details on Tampermonkey or Violentmonkey and turn on "Allow User Scripts". Before Chrome 138, the switch was Developer mode on the extensions page. Then reload the store page.
+
+The userscript opens its settings from the script manager's menu, under "Settings". Changes apply right away. A script manager without `GM_addValueChangeListener` applies them on the next page load, and the dialog says so.
+
+### What is the text at the top of the toolbar popup?
+
+The first time you open the popup, a short intro sits under its header and explains the switches and the list filters. After an update, the header says "Updated to" and the new version, with a "What's new" link to the release notes on GitHub. Each shows once. The userscript shows neither.
+
+### Why is the toolbar icon dimmed?
+
+The icon is dimmed on tabs outside the Steam store and in full color on store tabs. The extension runs only on `store.steampowered.com`. The popup and its switches work on any tab.
+
+### Why does a developer's Early Access note show bold text and lists?
+
+Developers write the Early Access note in Steam's formatting (BBCode), and the hover card and the banner show that formatting: bold, italic, underline, strikethrough, headings, lists, quotes, code and horizontal rules. A link shows its words without the link, pictures and videos are left out, and a spoiler shows as "Spoiler" without its hidden words. A bracketed tag outside that set (`[UPDATE]`, for one) stays as the developer typed it. Other developer text, the AI Generated Content Disclosure among it, shows as plain text.
+
+### Does the extension send my data anywhere?
+
+Only app IDs and the page's language, and only to Valve. The app IDs of the games on the page go to Valve's own hosts without cookies to look up their tags. Nothing goes to the developer of this extension or to any other host. Your settings and lookup results stay in your browser. [PRIVACY.md](PRIVACY.md) has the details.
 
 ## Privacy
 
 Nothing is collected. App IDs of the items on the page go, without cookies, only to Valve's own hosts you are already using. See [PRIVACY.md](PRIVACY.md).
 
 ## Development
+
+[CONTRIBUTING.md](CONTRIBUTING.md) covers translations, changelog fragments and the branch, commit and pull request conventions.
 
 Requirements: [mise](https://mise.jdx.dev) and Git. mise installs every other tool at the pinned version (Node, pnpm, Python, uv, dprint, ruff, mypy, shellcheck, shfmt, actionlint, zizmor, changie, gh, web-ext), and pnpm installs the JavaScript libraries (esbuild, TypeScript, oxlint, knip, valibot, vitest) and the test DOM (happy-dom) from the lockfile. On Windows, use Git for Windows; see `mise.local.toml.example` for putting Git Bash ahead of WSL's `bash` when running tasks from PowerShell.
 
