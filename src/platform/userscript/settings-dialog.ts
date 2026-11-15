@@ -4,6 +4,8 @@ import type { IgnoreLists } from "../../core/ignored";
 import type { Clock, KeyValueStore } from "../../core/ports";
 import type { ProgressSource } from "../../core/progress";
 import type { StoredSettings } from "../../core/settings/settings-source";
+import { cardButton } from "../../core/ui/card-parts";
+import { elementFactory } from "../../core/ui/element";
 import { mountSettingsForm } from "../../core/ui/settings-form";
 import { adoptStyles, DIALOG_CSS } from "../../core/ui/styles";
 import type { UiState } from "../../core/ui/ui-state";
@@ -42,38 +44,28 @@ export async function openSettingsDialog(deps: SettingsDialogDeps): Promise<void
   }
   const opener = doc.activeElement;
 
-  const host = doc.createElement("div");
-  host.className = HOST_CLASS;
+  const element = elementFactory(doc);
+  const host = element("div", HOST_CLASS);
   const shadow = host.attachShadow({ mode: "open" });
   adoptStyles(shadow, DIALOG_CSS);
 
-  const dialog = doc.createElement("dialog");
-  const title = doc.createElement("h1");
-  title.className = "tks-dialog-title";
+  const dialog = element("dialog");
+  const title = element("h1", "tks-dialog-title", i18n.t("ext_name"));
   title.id = "tks-dialog-title";
-  title.textContent = i18n.t("ext_name");
   dialog.setAttribute("aria-labelledby", title.id);
 
-  const close = doc.createElement("button");
-  close.type = "button";
-  close.className = "tks-button";
+  const close = cardButton(doc, i18n.t("userscript_close"));
   close.setAttribute(CLOSE_ATTRIBUTE, "");
-  close.textContent = i18n.t("userscript_close");
 
-  const head = doc.createElement("div");
-  head.className = "tks-dialog-head";
+  const head = element("div", "tks-dialog-head");
   head.append(title, close);
 
-  const formRoot = doc.createElement("div");
-  const body = doc.createElement("div");
-  body.className = "tks-dialog-body";
+  const formRoot = element("div");
+  const body = element("div", "tks-dialog-body");
   body.append(formRoot);
   dialog.append(head, body);
   if (!deps.live) {
-    const note = doc.createElement("p");
-    note.className = "tks-dialog-note";
-    note.textContent = i18n.t("userscript_reload_note");
-    dialog.append(note);
+    dialog.append(element("p", "tks-dialog-note", i18n.t("userscript_reload_note")));
   }
   shadow.append(dialog);
   doc.body.append(host);

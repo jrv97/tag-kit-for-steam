@@ -4,6 +4,8 @@ export const VARIANT_ATTRIBUTE = "data-tks-variant";
 export const QUIET_VARIANT = "quiet";
 /** The filled look of the button a card or dialog leads with. */
 export const PRIMARY_VARIANT = "primary";
+/** The class of the line under a field or card that says an action failed. */
+export const FIELD_ERROR = "tks-field-error";
 
 /** A new element with its class and its text, each when given (always `textContent`). */
 type ElementFactory = <K extends keyof HTMLElementTagNameMap>(
@@ -39,6 +41,14 @@ export function plainButton(doc: Document, className: string, text?: string): HT
   const button = createElement(doc, "button", className, text);
   button.type = "button";
   return button;
+}
+
+/** A hidden `p` that screen readers announce once a failure shows it, with its text when given. */
+export function errorLine(doc: Document, className: string, text?: string): HTMLParagraphElement {
+  const line = createElement(doc, "p", className, text);
+  line.setAttribute("role", "alert");
+  line.hidden = true;
+  return line;
 }
 
 /** A plain button in the quiet variant, with its text. */

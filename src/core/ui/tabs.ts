@@ -1,3 +1,5 @@
+import { elementFactory, plainButton } from "./element";
+
 /** Names the tab a tab button, or a button that switches to a tab, belongs to. */
 export const TAB_ATTRIBUTE = "data-tks-tab";
 
@@ -49,22 +51,19 @@ export interface Tabs<Id extends string> {
 export function createTabs<Id extends string>(options: TabsOptions<Id>): Tabs<Id> {
   const { doc, idPrefix } = options;
   let { ids } = options;
-  const list = doc.createElement("div");
-  list.className = "tks-tablist";
+  const element = elementFactory(doc);
+  const list = element("div", "tks-tablist");
   list.setAttribute("role", "tablist");
   list.setAttribute("aria-label", options.label);
   const tabs = new Map<Id, HTMLButtonElement>();
   const panels = new Map<Id, HTMLElement>();
 
   for (const id of ids) {
-    const tab = doc.createElement("button");
-    tab.type = "button";
-    tab.className = "tks-tab";
+    const tab = plainButton(doc, "tks-tab");
     tab.id = `${idPrefix}tab-${id}`;
     tab.setAttribute("role", TAB_ROLE);
     tab.setAttribute(TAB_ATTRIBUTE, id);
-    const panel = doc.createElement("div");
-    panel.className = "tks-tabpanel";
+    const panel = element("div", "tks-tabpanel");
     panel.id = `${idPrefix}panel-${id}`;
     panel.setAttribute("role", "tabpanel");
     panel.setAttribute("aria-labelledby", tab.id);
@@ -74,10 +73,8 @@ export function createTabs<Id extends string>(options: TabsOptions<Id>): Tabs<Id
     list.append(tab);
   }
   const { group } = options;
-  const caption = doc.createElement("div");
-  caption.className = "tks-tab-group";
+  const caption = element("div", "tks-tab-group", group?.caption ?? "");
   caption.setAttribute("aria-hidden", HIDDEN);
-  caption.textContent = group?.caption ?? "";
 
   function lookup<T>(map: ReadonlyMap<Id, T>, id: Id): T {
     const found = map.get(id);

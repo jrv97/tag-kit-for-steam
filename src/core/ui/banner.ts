@@ -14,7 +14,7 @@ import type { MessageCatalog } from "../ports";
 import { ALLOW_ALL, type AllowScope, toAllowScope } from "../settings/allow-data";
 import { announce, POLITE } from "./announce";
 import { ROLE_LABELS } from "./creator-roles";
-import { elementFactory, plainButton, VARIANT_ATTRIBUTE } from "./element";
+import { elementFactory, errorLine, plainButton, VARIANT_ATTRIBUTE } from "./element";
 import {
   buildIgnoreMenu,
   CREATOR_ATTRIBUTE,
@@ -103,6 +103,7 @@ const ACTIONS = ["toggle", ...MENU_ACTIONS] as const;
 /** How long a menu opened by hover stays open after the pointer leaves the button and menu. */
 export const HOVER_CLOSE_MS = 300;
 const SPLIT_SELECTOR = ".tks-ignore";
+const BANNER_ERROR = "tks-banner-error";
 
 type Action = (typeof ACTIONS)[number];
 
@@ -223,13 +224,6 @@ export function createBanner(
     return node;
   }
 
-  function errorLine(): HTMLElement {
-    const line = element("p", "tks-banner-error");
-    line.setAttribute("role", "alert");
-    line.hidden = true;
-    return line;
-  }
-
   /** Long notes start clamped; short ones lose the clamp and the toggle before first paint. */
   function measure(quote: HTMLElement, toggle: HTMLElement): void {
     if (!quote.isConnected) {
@@ -341,7 +335,7 @@ export function createBanner(
     aside.append(...view.shown.map(buildEntry), ...notes.map(note));
     const foot = element("div", "tks-banner-foot");
     foot.append(buildIgnoreMenu(doc, i18n, view, { open: menuOpen, groups: groupsOpen }));
-    aside.append(foot, errorLine());
+    aside.append(foot, errorLine(doc, BANNER_ERROR));
     return aside;
   }
 
@@ -461,7 +455,7 @@ export function createBanner(
     try {
       await change();
     } catch {
-      const error = box.querySelector<HTMLElement>(".tks-banner-error");
+      const error = box.querySelector<HTMLElement>(`.${BANNER_ERROR}`);
       if (error !== null) {
         error.textContent = i18n.t(failure);
         error.hidden = false;

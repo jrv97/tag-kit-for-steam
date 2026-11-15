@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { setBody } from "../../../tests/helpers/dom";
 import { make } from "../../../tests/helpers/factory";
+import { fake } from "../../../tests/helpers/fakes";
 import { englishI18n } from "../../../tests/helpers/i18n";
 import type { AiVerdict } from "../kinds/ai";
 import { taggedView } from "../kinds/facets";
@@ -8,7 +9,7 @@ import { KIND_IDS, type KindId } from "../kinds/id";
 import type { ChipWords } from "../kinds/kind-settings";
 import { kindsInOrder, parseOrder } from "../kinds/order";
 import { KIND_BY_ID, perKind } from "../kinds/registry";
-import type { AnyDisclosed, KindVerdicts } from "../kinds/verdicts";
+import type { KindVerdicts } from "../kinds/verdicts";
 import { type AllowScope, perScope } from "../settings/allow-data";
 import { DEFAULT_SETTINGS } from "../settings/settings";
 import { type AppPageView, createAppPageUi } from "./app-page";
@@ -25,28 +26,13 @@ const i18n = englishI18n();
 const ARC = make.fixture.verdicts(make.fixture.app.arcRaiders);
 /** The game's developer, the one creator each view lists. */
 const DEVELOPER = make.text.creator();
-const settled = () => Promise.resolve();
-const actions = {
-  ignore: settled,
-  restore: settled,
-  ignoreCreator: settled,
-  restoreCreator: settled,
-};
-
-interface Bound {
-  readonly entries: readonly AnyDisclosed[];
-  readonly ownPage: boolean | undefined;
-}
-
-let bound = new Map<Element, Bound>();
+let bound = fake.cardTriggers().bound;
 
 function setup() {
   setBody(PAGE);
-  bound = new Map();
-  const card = {
-    bind: (trigger: Element, entries: readonly AnyDisclosed[], ownPage?: boolean) =>
-      bound.set(trigger, { entries, ownPage }),
-  };
+  const { card, bound: binds } = fake.cardTriggers();
+  bound = binds;
+  const { actions } = fake.bannerActions();
   return createAppPageUi(document, i18n, actions, { frame: () => undefined, card });
 }
 

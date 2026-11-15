@@ -1,4 +1,11 @@
-import { createElement, plainButton, PRIMARY_VARIANT, VARIANT_ATTRIBUTE } from "./element";
+import {
+  createElement,
+  errorLine,
+  FIELD_ERROR,
+  plainButton,
+  PRIMARY_VARIANT,
+  VARIANT_ATTRIBUTE,
+} from "./element";
 import { withIcon } from "./icon";
 import type { LucideName } from "./lucide";
 
@@ -112,10 +119,8 @@ export interface CardReport {
 
 export function createCardReport(doc: Document, announce: (text: string) => void): CardReport {
   const status = createElement(doc, "p", "tks-card-status");
-  const error = createElement(doc, "p", "tks-field-error");
-  error.setAttribute("role", "alert");
+  const error = errorLine(doc, FIELD_ERROR);
   status.hidden = true;
-  error.hidden = true;
 
   function show(node: HTMLElement, text: string | undefined): void {
     node.hidden = text === undefined;

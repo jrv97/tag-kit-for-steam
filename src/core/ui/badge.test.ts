@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { setBody } from "../../../tests/helpers/dom";
 import { make } from "../../../tests/helpers/factory";
+import { fake } from "../../../tests/helpers/fakes";
 import { hostView, type HostViewOptions } from "../../../tests/helpers/host-view";
 import { englishI18n } from "../../../tests/helpers/i18n";
 import { STATUS_KINDS } from "../../../tests/helpers/settings";
@@ -9,7 +10,6 @@ import { KIND_IDS, type KindId } from "../kinds/id";
 import type { ChipWords } from "../kinds/kind-settings";
 import { kindsInOrder, OVERLAY_CHIPS, parseOrder } from "../kinds/order";
 import { KIND_BY_ID, KINDS } from "../kinds/registry";
-import type { AnyDisclosed } from "../kinds/verdicts";
 import { compactSize, createBadgeRenderer, createChip } from "./badge";
 import type { BadgeSlot } from "./host";
 
@@ -62,14 +62,15 @@ describe("createBadgeRenderer", () => {
   const AI_NAME = nameOf("ai");
   const MANY: readonly KindId[] = ["ai", "drm", "pvp", "eula", "kernel"];
 
-  let bound = new Map<Element, readonly AnyDisclosed[]>();
-  let renderer = createBadgeRenderer(document, i18n, { bind: () => undefined });
+  let triggers = fake.cardTriggers();
+  let renderer = createBadgeRenderer(document, i18n, triggers.card);
+  /** The verdicts the hover card was last bound to on `trigger`. */
+  const boundTo = (trigger: Element | null) =>
+    trigger === null ? undefined : triggers.bound.get(trigger)?.entries;
 
   beforeEach(() => {
-    bound = new Map();
-    renderer = createBadgeRenderer(document, i18n, {
-      bind: (trigger, entries) => bound.set(trigger, entries),
-    });
+    triggers = fake.cardTriggers();
+    renderer = createBadgeRenderer(document, i18n, triggers.card);
   });
 
   const full = (anchor: Element): BadgeSlot => ({ kind: "full", anchor, position: "afterend" });
@@ -114,7 +115,7 @@ describe("createBadgeRenderer", () => {
     expect(badge?.getAttribute("data-tks-kind")).toBe("ai");
     expect(badge?.querySelector("svg")).toBeNull();
     expect(badge?.hasAttribute("title")).toBe(false);
-    expect(badge === null ? undefined : bound.get(badge)).toEqual([verdict]);
+    expect(boundTo(badge)).toEqual([verdict]);
   });
 
   it.each(
@@ -174,7 +175,7 @@ describe("createBadgeRenderer", () => {
       renderer = createBadgeRenderer(
         document,
         i18n,
-        { bind: () => undefined },
+        fake.cardTriggers().card,
         undefined,
         () => words,
       );
@@ -237,7 +238,7 @@ describe("createBadgeRenderer", () => {
     const expected = KIND_IDS.map((id) => verdicts[id]);
     expect(chipsIn(host)).toHaveLength(KIND_IDS.length);
     for (const element of chipsIn(host)) {
-      expect(bound.get(element)).toEqual(expected);
+      expect(boundTo(element)).toEqual(expected);
     }
   });
 
@@ -249,7 +250,7 @@ describe("createBadgeRenderer", () => {
       renderer = createBadgeRenderer(
         document,
         i18n,
-        { bind: (trigger, entries) => bound.set(trigger, entries) },
+        triggers.card,
         () => kindsInOrder(order),
       );
     });
@@ -267,7 +268,7 @@ describe("createBadgeRenderer", () => {
           }),
         );
         expect(kindsOf(host)).toEqual([...listed.slice(0, OVERLAY_CHIPS), null]);
-        expect(bound.get(chipAt(host, -1))?.map((v) => v.kind)).toEqual(listed);
+        expect(boundTo(chipAt(host, -1))?.map((v) => v.kind)).toEqual(listed);
       },
     );
 
@@ -336,7 +337,7 @@ describe("createBadgeRenderer", () => {
     renderer.render(view(host, slot, { verdict: next }));
     expect(host.querySelector(".tks-chips")).toBe(group);
     const badge = host.querySelector(".tks-badge");
-    expect(badge === null ? undefined : bound.get(badge)).toEqual([next]);
+    expect(boundTo(badge)).toEqual([next]);
   });
 
   it("draws the group again when the kinds, the allowance or the slot change", () => {
@@ -369,7 +370,7 @@ describe("createBadgeRenderer", () => {
       [chip("kernel"), nameOf("kernel")],
     ]);
     expect(chips.some((c) => c.hasAttribute("title"))).toBe(false);
-    expect(chips.every((c) => bound.has(c))).toBe(true);
+    expect(chips.every((c) => triggers.bound.has(c))).toBe(true);
   });
 
   it("gives compact chips outside a link no pointer", () => {
