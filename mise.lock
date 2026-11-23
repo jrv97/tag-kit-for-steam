@@ -164,7 +164,7 @@ url = "https://nodejs.org/dist/v24.22.3/node-v24.22.3-win-x64.zip"
 
 [[tools."npm:web-ext"]]
 version = "10.8.0"
-aube = { path = ".mise/locks/npm-web-ext/10.8.0", digest = "sha256:7616da5ddf44ab0d6cc416aaa69c0f7affccf930dfb3748033ba51b7b7cd2cc1" }
+aube = { path = ".mise/locks/npm-web-ext/10.8.0", digest = "sha256:8a489619af94d979dbac621114e334412a1289f4b6ec9c510b481eb13ea70b6d" }
 backend = "npm:web-ext"
 specifiers = ["10.8.0"]
 
