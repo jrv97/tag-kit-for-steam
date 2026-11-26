@@ -12,7 +12,7 @@
     "@types/chrome": "0.3.7",
     "esbuild": "0.28.2",
     "happy-dom": "21.0.4",
-    "knip": "6.46.0",
+    "knip": "6.46.1",
     "oxlint": "1.94.0",
     "oxlint-tsgolint": "7.0.2007",
     "puppeteer-core": "25.18.1",
