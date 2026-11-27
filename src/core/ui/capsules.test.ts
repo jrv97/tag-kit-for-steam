@@ -340,19 +340,31 @@ describe("createCapsuleUi", () => {
     },
   );
 
-  it("lets go of the boxes of a host that left the page while its image had no size", async () => {
+  // The size watch reports a removed image that had a size, and nothing for one that had none
+  it.each([
+    [
+      "had a size, once the image reports its removal",
+      TEXT_TIER,
+      (found: CapsuleHost) => found.anchor,
+    ],
+    ["had no size, at the next size report", NO_SIZE, () => document.body],
+  ])("lets go of both boxes of a host that left the page while its image %s", async (
+    _name,
+    before,
+    reported,
+  ) => {
     const id = make.appId();
     const { ui, flush, watched, sized } = setup(new Map([[id, AI]]));
     const { found, resize } = imageHost(id, TEXT_TIER);
-    labelOn(found, ON_IMAGE);
+    labelOn(found, NO_SIZE);
     ui.render({ found: [found], changed: [] });
     await flush();
     expect(watched.size).toBe(2);
-    resize(NO_SIZE);
-    sized(found.anchor, NO_SIZE);
+    resize(before);
+    sized(found.anchor, before);
     await flush();
     found.element.remove();
-    sized(document.body, NO_SIZE);
+    sized(reported(found), NO_SIZE);
     expect(watched.size).toBe(0);
   });
 

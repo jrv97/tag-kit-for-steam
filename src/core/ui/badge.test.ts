@@ -453,6 +453,10 @@ describe("createBadgeRenderer", () => {
   });
 
   it("draws the group again when the kinds, the allowance or the slot change", () => {
+    const frames = fake.queue();
+    renderer = createBadgeRenderer(document, i18n, triggers.card, {
+      frame: framePhases(frames.frame),
+    });
     const { host, title, image } = capsule();
     renderer.render(view(host, full(title), { verdicts: make.verdicts.only(["ai"]) }));
     const first = host.querySelector(".tks-chips");
@@ -464,7 +468,9 @@ describe("createBadgeRenderer", () => {
     renderer.render(view(host, full(title), { verdicts, maxChips: 1 }));
     expect(kindsOf(host)).toEqual(["ai", null]);
     renderer.render(view(host, make.compactSlot(image), { verdicts, maxChips: 1 }));
-    expect(image.querySelector(".tks-chips")?.getAttribute("data-tks-chips")).toBe("compact");
+    frames.run();
+    expect(host.querySelectorAll(".tks-chips")).toHaveLength(1);
+    expect(host.querySelector(".tks-chips")?.getAttribute("data-tks-chips")).toBe("compact");
   });
 
   it("draws the compact chips in their tier, linked to the capsule link", () => {

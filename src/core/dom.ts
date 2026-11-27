@@ -31,7 +31,7 @@ export interface FramePhases {
 /** Hears a read or a write that threw. */
 type Report = (problem: unknown) => void;
 
-/** Throws `problem` again in a task of its own, where the page reports it. */
+/** Throws `problem` again in a microtask of its own, where the page reports it. */
 function rethrow(problem: unknown): void {
   queueMicrotask(() => {
     throw problem;

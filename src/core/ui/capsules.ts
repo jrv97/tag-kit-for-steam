@@ -273,11 +273,15 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
     sweep();
     for (const { element, width } of resized) {
       const record = watched.get(element);
-      if (
-        record === undefined || !element.isConnected
-        || (element !== record.host.anchor && element !== record.labels)
-      ) {
+      if (record === undefined || (element !== record.host.anchor && element !== record.labels)) {
         unwatch(element);
+      } else if (!record.host.anchor.isConnected) {
+        unsized.delete(record);
+        unwatchHost(record);
+      } else if (!element.isConnected) {
+        // The label box left a host that stays; the next draw watches the one that took its place.
+        unwatch(element);
+        queue(record);
       } else if (width !== (element === record.labels ? record.labelsWidth : record.width)) {
         queue(record);
       }
