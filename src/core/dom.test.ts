@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { make } from "../../tests/helpers/factory";
 import { fake } from "../../tests/helpers/fakes";
 import { framePhases } from "./dom";
 
@@ -24,6 +25,24 @@ describe("framePhases", () => {
       ...passes.map((each) => each.read),
       ...passes.map((each) => each.write),
     ]);
+  });
+
+  it("reports a read or a write that throws and runs the rest of the pass", () => {
+    const frames = fake.queue();
+    const report = fake.spy((_problem: unknown) => undefined);
+    const phases = framePhases(frames.frame, report);
+    const [inRead, inWrite] = [new Error(make.text.note()), new Error(make.text.note())];
+    const write = fake.spy(() => undefined);
+    phases.read(() => {
+      throw inRead;
+    });
+    phases.read(() => () => {
+      throw inWrite;
+    });
+    phases.read(() => write);
+    frames.run();
+    expect(report.mock.calls).toStrictEqual([[inRead], [inWrite]]);
+    expect(write).toHaveBeenCalledTimes(1);
   });
 
   it("leaves a read queued during a pass for the next frame", () => {

@@ -41,6 +41,7 @@ import {
   SAMPLE_CONFIG,
   unreadableFile,
 } from "./backup";
+import { box } from "./boxes";
 import {
   badCreatorKeyTexts,
   badCreatorNames,
@@ -215,6 +216,8 @@ export const make = {
   chipText: freshChipText,
   /** A compact badge slot on an image box; overrides win. */
   compactSlot,
+  /** A fresh image or store label box, by name. */
+  box,
   /** Browser windows in CSS pixels, both inside the settings page's fixed frame. */
   viewport: {
     /** Tall enough for every settings tab. */

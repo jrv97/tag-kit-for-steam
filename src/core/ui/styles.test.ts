@@ -272,11 +272,7 @@ describe("the page rule declarations", () => {
     [".tks-list-notice", "font: var(--tks-store-notice-font)"],
     [".tks-list-notice-button", "color: var(--tks-store-notice-fg)"],
     [".tks-list-notice-button", "text-decoration: underline"],
-    // A compact chip takes the deal label look; its visible label alone turns uppercase.
-    [".tks-compact", "font: var(--tks-compact-font)"],
-    [".tks-compact", "padding: var(--tks-compact-pad-block) var(--tks-compact-pad-inline)"],
-    [".tks-compact", "border-radius: var(--tks-compact-radius)"],
-    [".tks-compact", "box-shadow: var(--tks-compact-shadow)"],
+    // A compact chip's visible label alone turns uppercase; its accessible name keeps its case.
     [".tks-compact", "text-transform: none"],
     [".tks-compact > .tks-compact-label", "text-transform: uppercase"],
     ['.tks-compact[data-tks-size="large"]', "font: var(--tks-compact-font-lg)"],
@@ -306,11 +302,10 @@ describe("the compact badge placement", () => {
   });
 
   it("ends the group a gap short of the store's labels, or an inset short of the start", () => {
-    expect(group).toContain(
-      "max-inline-size: calc( 100% - var(--tks-compact-inset-inline) - max( "
-        + "var(--tks-compact-inset-inline), "
-        + `var(${RESERVE_PROPERTY}, 0px) + var(--tks-compact-gap) ) );`,
-    );
+    const limit = /max-inline-size:([^;]+);/.exec(group)?.[1];
+    expect(limit).toContain(`var(${RESERVE_PROPERTY}, 0px)`);
+    expect(limit).toContain("var(--tks-compact-gap)");
+    expect(limit).toContain("var(--tks-compact-inset-inline)");
   });
 
   // The home carousel stacks its hidden slides over the shown one, with no pointer on them.

@@ -28,18 +28,9 @@ const ROW: RowPlacement = {
   anchor: (host) => host.firstElementChild ?? undefined,
 };
 
-/** Image boxes: none yet, too small for a badge, and one for the text tier. */
-const NO_SIZE = new DOMRect(0, 0, 0, 0);
-const SMALL = new DOMRect(0, 0, 120, 45);
-const TEXT_TIER = new DOMRect(0, 0, 231, 87);
-/**
- * Store deal labels: in the image's top-left corner, in its top-right corner, under the image and
- * beside it.
- */
-const LABEL_ON_IMAGE = new DOMRect(6, 6, 120.4, 19);
-const LABEL_ON_IMAGE_END = new DOMRect(104.6, 6, 120.4, 19);
-const LABEL_BELOW = new DOMRect(6, 90, 120, 19);
-const LABEL_BESIDE = new DOMRect(-130, 6, 120, 19);
+const NO_SIZE = make.box("none");
+const SMALL = make.box("small");
+const TEXT_TIER = make.box("textTier");
 
 interface SetupOptions {
   readonly allowed?: ReadonlySet<AppId>;
@@ -134,25 +125,44 @@ function viewAt(views: readonly HostView[], index: number): HostView {
   return view;
 }
 
-/** A host whose image box measures `size`, for compact badges. */
+/** Gives `element` the box `rect`, for its layout size and its place in the viewport. */
+function measure(element: Element, rect: DOMRect): void {
+  vi.spyOn(element, "getBoundingClientRect").mockReturnValue(rect);
+  Object.defineProperties(element, {
+    offsetWidth: { configurable: true, get: () => Math.round(rect.width) },
+    offsetHeight: { configurable: true, get: () => Math.round(rect.height) },
+  });
+}
+
+/** A host whose image box measures `size`, for compact badges, and a way to resize that box. */
 function imageHost(id: AppId, size: DOMRect) {
   const found = host(id, {
     ...GENERIC,
     anchor: (element) => element.querySelector(".art") ?? undefined,
   });
-  const box = vi.spyOn(found.anchor, "getBoundingClientRect");
-  box.mockReturnValue(size);
-  return { found, box };
+  measure(found.anchor, size);
+  return {
+    found,
+    resize: (rect: DOMRect) => {
+      measure(found.anchor, rect);
+    },
+  };
 }
 
-/** Puts a store deal label with the box `rect` in the host. */
-function labelOn(found: CapsuleHost, rect: DOMRect): void {
+/** Puts a store deal label with the box `rect` in the host, and a way to resize it. */
+function labelOn(found: CapsuleHost, rect: DOMRect) {
   found.element.insertAdjacentHTML("beforeend", make.page.storeLabel);
   const label = found.element.querySelector(STORE_LABELS);
-  if (label === null) {
+  const labels = label?.parentElement;
+  if (label === null || labels === null || labels === undefined) {
     throw new TypeError();
   }
-  vi.spyOn(label, "getBoundingClientRect").mockReturnValue(rect);
+  const resize = (next: DOMRect) => {
+    measure(labels, next);
+    measure(label, next);
+  };
+  resize(rect);
+  return { labels, resize };
 }
 
 describe("createCapsuleUi", () => {
@@ -232,18 +242,20 @@ describe("createCapsuleUi", () => {
     expect(found.anchor.hasAttribute("data-tks-anchor")).toBe(true);
   });
 
+  const ON_IMAGE = make.box("labelOnImage");
+  const ON_IMAGE_END = make.box("labelOnImageEnd");
+  const WIDE = make.box("labelWide");
+
   it.each([
-    ["on the image", LABEL_ON_IMAGE, "ltr", Math.ceil(LABEL_ON_IMAGE.right - TEXT_TIER.left)],
+    ["on the image", ON_IMAGE, "ltr", Math.ceil(ON_IMAGE.right - TEXT_TIER.left)],
     [
       "on a right-to-left image",
-      LABEL_ON_IMAGE_END,
+      ON_IMAGE_END,
       "rtl",
-      Math.ceil(
-        TEXT_TIER.right - LABEL_ON_IMAGE_END.left,
-      ),
+      Math.ceil(TEXT_TIER.right - ON_IMAGE_END.left),
     ],
-    ["below it", LABEL_BELOW, "ltr", 0],
-    ["beside it", LABEL_BESIDE, "ltr", 0],
+    ["below it", make.box("labelBelow"), "ltr", 0],
+    ["beside it", make.box("labelBeside"), "ltr", 0],
   ])("reserves the reach of a store label %s", async (_name, label, direction, reserve) => {
     const id = make.appId();
     const { ui, views, flush } = setup(new Map([[id, AI]]));
@@ -254,6 +266,26 @@ describe("createCapsuleUi", () => {
     await flush();
     expect(viewAt(views, 0).slot).toMatchObject({ kind: "compact", reserve });
   });
+
+  it.each([["shows late", NO_SIZE, ON_IMAGE], ["grows", ON_IMAGE, WIDE]])(
+    "draws a compact host again when its store label %s",
+    async (_name, before, after) => {
+      const id = make.appId();
+      const { ui, views, flush, watched, sized } = setup(new Map([[id, AI]]));
+      const { found } = imageHost(id, TEXT_TIER);
+      const { labels, resize } = labelOn(found, before);
+      ui.render({ found: [found], changed: [] });
+      await flush();
+      expect([...watched]).toEqual([found.anchor, labels]);
+      resize(after);
+      sized(labels, after);
+      await flush();
+      expect(views).toHaveLength(2);
+      expect(viewAt(views, 1).slot).toMatchObject({
+        reserve: Math.ceil(after.right - TEXT_TIER.left),
+      });
+    },
+  );
 
   it("gives a small image no slot", async () => {
     const id = make.appId();
@@ -266,16 +298,16 @@ describe("createCapsuleUi", () => {
   it("draws a compact host again at each new width of its image box, until it leaves", async () => {
     const id = make.appId();
     const { ui, detect, views, flush, watched, sized } = setup(new Map([[id, AI]]));
-    const { found, box } = imageHost(id, NO_SIZE);
+    const { found, resize } = imageHost(id, NO_SIZE);
     ui.render({ found: [found], changed: [] });
     await flush();
     expect(viewAt(views, 0).slot).toBeUndefined();
     expect([...watched]).toEqual([found.anchor]);
-    box.mockReturnValue(SMALL);
+    resize(SMALL);
     sized(found.anchor, SMALL);
     await flush();
     expect(viewAt(views, 1).slot).toBeUndefined();
-    box.mockReturnValue(TEXT_TIER);
+    resize(TEXT_TIER);
     sized(found.anchor, TEXT_TIER);
     await flush();
     expect(viewAt(views, 2).slot).toMatchObject({ kind: "compact", size: "text" });
@@ -288,19 +320,41 @@ describe("createCapsuleUi", () => {
     expect(detect).toHaveBeenCalledTimes(1);
   });
 
-  it.each([["the same width", TEXT_TIER], ["no width", NO_SIZE]])(
+  // After the box reports `next`: how many draws there are once it reports its old width again
+  it.each([["the same width", TEXT_TIER, 1], ["no width, as in a hidden tab", NO_SIZE, 2]])(
     "keeps a compact host as drawn when its image box reports %s",
-    async (_name, next) => {
+    async (_name, next, drawsAfterReturn) => {
       const id = make.appId();
       const { ui, views, flush, sized } = setup(new Map([[id, AI]]));
-      const { found } = imageHost(id, TEXT_TIER);
+      const { found, resize } = imageHost(id, TEXT_TIER);
       ui.render({ found: [found], changed: [] });
       await flush();
+      resize(next);
       sized(found.anchor, next);
       await flush();
       expect(views).toHaveLength(1);
+      resize(TEXT_TIER);
+      sized(found.anchor, TEXT_TIER);
+      await flush();
+      expect(views).toHaveLength(drawsAfterReturn);
     },
   );
+
+  it("lets go of the boxes of a host that left the page while its image had no size", async () => {
+    const id = make.appId();
+    const { ui, flush, watched, sized } = setup(new Map([[id, AI]]));
+    const { found, resize } = imageHost(id, TEXT_TIER);
+    labelOn(found, ON_IMAGE);
+    ui.render({ found: [found], changed: [] });
+    await flush();
+    expect(watched.size).toBe(2);
+    resize(NO_SIZE);
+    sized(found.anchor, NO_SIZE);
+    await flush();
+    found.element.remove();
+    sized(document.body, NO_SIZE);
+    expect(watched.size).toBe(0);
+  });
 
   it("lets go of the size watch on pagehide and watches again on a return", async () => {
     const id = make.appId();

@@ -28,12 +28,35 @@ export interface FramePhases {
   readonly read: (read: FrameRead) => void;
 }
 
+/** Hears a read or a write that threw. */
+type Report = (problem: unknown) => void;
+
+/** Throws `problem` again in a task of its own, where the page reports it. */
+function rethrow(problem: unknown): void {
+  queueMicrotask(() => {
+    throw problem;
+  });
+}
+
+/** Runs `step`, and hands what it throws to `report`. */
+function attempt<T>(step: () => T, report: Report): T | undefined {
+  try {
+    return step();
+  } catch (problem: unknown) {
+    report(problem);
+    return undefined;
+  }
+}
+
 /**
  * Runs the reads queued for a frame, then every write they returned, so no write comes between two
  * reads. Modules that share one keep that order across them. A read queued meanwhile waits for
- * the next pass.
+ * the next pass. A read or write that throws goes to `report`, and the rest of the pass runs.
  */
-export function framePhases(frame: (callback: () => void) => void): FramePhases {
+export function framePhases(
+  frame: (callback: () => void) => void,
+  report: Report = rethrow,
+): FramePhases {
   let reads: FrameRead[] = [];
   return {
     read: (read) => {
@@ -44,9 +67,11 @@ export function framePhases(frame: (callback: () => void) => void): FramePhases 
       frame(() => {
         const due = reads;
         reads = [];
-        const writes = due.map((each) => each());
+        const writes = due.map((each) => attempt(each, report));
         for (const write of writes) {
-          write?.();
+          if (write !== undefined) {
+            attempt(write, report);
+          }
         }
       });
     },

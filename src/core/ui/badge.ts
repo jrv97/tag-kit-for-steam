@@ -126,6 +126,17 @@ interface Draw {
 interface Drawn extends Draw {
   /** The `span.tks-chips` that holds this host's chips. */
   readonly group: HTMLElement;
+  /** The group in view that `group` replaces once it passes its fit check. */
+  readonly replaces: HTMLElement | undefined;
+}
+
+/** Caps a compact group at the reach of the store's labels, in pixels; 0 lifts the cap. */
+function setReserve(group: HTMLElement, reserve: number): void {
+  if (reserve > 0) {
+    group.style.setProperty(RESERVE_PROPERTY, `${String(reserve)}px`);
+  } else {
+    group.style.removeProperty(RESERVE_PROPERTY);
+  }
 }
 
 /** Whether two slots differ at most in the width of their image box. */
@@ -181,7 +192,8 @@ export interface BadgeRendererOptions {
  * disclosed, not ignored and shown by its settings, in the person's tag order. A placement shows
  * the first `maxChips` of them; a "+N" chip stands for the rest. On an image, a kind chip that
  * does not fit whole folds into the "+N" chip too, checked in the next frame. A wider image draws
- * a folded group again; a narrower one checks the group in place. Each chip shows the person's
+ * a folded group again; a narrower one checks the group in place. Chips in view stay until the
+ * group that replaces them has passed its check. Each chip shows the person's
  * text when there is one. Every chip registers with the hover card, which lists all the kinds. A
  * host with no such kind loses its chips. The chips of a host sit in one group, so a refresh
  * removes and places them as one.
@@ -218,8 +230,8 @@ export function createBadgeRenderer(
     if (present.length > shown) {
       group.append(chipFor(slot, moreText(i18n, present.length - shown)));
     }
-    if (slot.kind === "compact" && slot.reserve > 0) {
-      group.style.setProperty(RESERVE_PROPERTY, `${String(slot.reserve)}px`);
+    if (slot.kind === "compact") {
+      setReserve(group, slot.reserve);
     }
     return group;
   }
@@ -246,8 +258,11 @@ export function createBadgeRenderer(
     }
   }
 
-  /** Places a host's chips. Compact kind chips wait hidden for the next fit check. */
-  function place(host: Element, draw: Draw): void {
+  /**
+   * Places a host's chips. Compact kind chips wait hidden for the next fit check, and `replaces`,
+   * the group in view, stays until they pass it.
+   */
+  function place(host: Element, draw: Draw, replaces?: HTMLElement): void {
     const group = build(draw);
     draw.slot.anchor.insertAdjacentElement(draw.slot.position, group);
     if (draw.slot.kind === "compact") {
@@ -257,10 +272,31 @@ export function createBadgeRenderer(
       }
     }
     bind(group, draw.present);
-    drawn.set(host, { ...draw, group });
-    if (group.hasAttribute(FIT_ATTRIBUTE)) {
+    const waits = group.hasAttribute(FIT_ATTRIBUTE);
+    if (!waits) {
+      detach(replaces);
+    }
+    drawn.set(host, { ...draw, group, replaces: waits ? replaces : undefined });
+    if (waits) {
       check(host);
     }
+  }
+
+  /**
+   * Draws a host's chips anew. The group in view stays until the new one passes its fit check,
+   * capped at once by the new reach of the store's labels.
+   */
+  function redraw(host: Element, current: Drawn | undefined, draw: Draw): void {
+    const inView = current?.group.getAttribute(FIT_ATTRIBUTE) === "pending"
+      ? current.replaces
+      : current?.group;
+    if (current?.group !== inView) {
+      detach(current?.group);
+    }
+    if (inView !== undefined && draw.slot.kind === "compact") {
+      setReserve(inView, draw.slot.reserve);
+    }
+    place(host, draw, inView);
   }
 
   /**
@@ -307,10 +343,11 @@ export function createBadgeRenderer(
           continue;
         }
         if (short && current.shown > 0) {
-          detach(current.group);
-          place(host, { ...current, shown: current.shown - 1 });
+          redraw(host, current, { ...current, shown: current.shown - 1 });
         } else {
           current.group.removeAttribute(FIT_ATTRIBUTE);
+          detach(current.replaces);
+          drawn.set(host, { ...current, replaces: undefined });
         }
       }
     };
@@ -329,6 +366,7 @@ export function createBadgeRenderer(
       const texts = words?.();
       if (present === undefined || slot === undefined) {
         detach(current?.group);
+        detach(current?.replaces);
         drawn.delete(host);
         return;
       }
@@ -342,8 +380,7 @@ export function createBadgeRenderer(
         keep(host, current, present, slot);
         return;
       }
-      detach(current?.group);
-      place(host, { present, slot, maxChips, shown, words: texts });
+      redraw(host, current, { present, slot, maxChips, shown, words: texts });
     },
   };
 }

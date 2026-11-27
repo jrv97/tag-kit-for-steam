@@ -198,7 +198,9 @@ export async function start(deps: AppDeps): Promise<App> {
   // A new object only when a chip text changed, which tells the chips to draw again
   let words: ChipWords = settings.kinds;
   // One read-then-write pass per frame, so the chips' fit check reads before the draws write
-  const frame = framePhases(animationFrame(doc));
+  const frame = framePhases(animationFrame(doc), (problem) => {
+    logger.error(problem);
+  });
   const capsules = createCapsuleUi({
     document: doc,
     detector: detectors.detector,

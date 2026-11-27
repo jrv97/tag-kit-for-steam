@@ -12,6 +12,7 @@ import {
   turnDetector,
 } from "./fake-detector";
 import { fakeFileTransfer, fakeFileTransferHarness } from "./fake-file-transfer";
+import { fakeFit } from "./fake-fit";
 import { fakeFetch, fakeHttp, heldHttp, swappingRoute, timedHttp, withheldHttp } from "./fake-http";
 import { fakePageProgress, fakeProgressSource, fakeTabPort } from "./fake-progress";
 import { fakeSender, fakeStorePage, fakeTabIcon, fakeTabMessages } from "./fake-store-tab";
@@ -106,6 +107,8 @@ export const fake = {
   queue: manualQueue,
   /** Hover card triggers that record each element's binding and open nothing. */
   cardTriggers: recordingTriggers,
+  /** A fit check for compact chips whose room for kind chips a test sets. */
+  fit: fakeFit,
   /** Banner actions whose promises a test settles by hand; a resolve shows the next view. */
   bannerActions: manualBannerActions,
   /** A callback that records its calls and runs `answer`, or returns nothing without one. */

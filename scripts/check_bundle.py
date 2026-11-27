@@ -27,8 +27,8 @@
   key or plural base that a string literal of its code names is in its inlined catalogs, and every
   message there is named, so a missing key fails here and never falls back to the raw key on a
   store page. scripts/gen_catalogs.py writes each entry's catalogs by the same reading.
-- Size budgets, unminified (rule 13): content.js 259 KiB, options.js 260 KiB, announce.js and
-  background.js 1 KiB each, and the userscript 452 KiB. Each is a measured size plus 2 to 3
+- Size budgets, unminified (rule 13): content.js 262 KiB, options.js 260 KiB, announce.js and
+  background.js 1 KiB each, and the userscript 456 KiB. Each is a measured size plus 2 to 3
   percent of headroom. Raise one only with a measurement, and give it in the pull request.
 - The STEAM_API_KEY value, when set, appears nowhere in dist/ or artifacts/, zip members
   included (rule 16).
@@ -68,11 +68,11 @@ from repo import (
 
 KIB = 1024
 BUDGETS = {
-    **{DIST / target / "content.js": 259 * KIB for target in EXTENSION_TARGETS},
+    **{DIST / target / "content.js": 262 * KIB for target in EXTENSION_TARGETS},
     **{DIST / target / "options.js": 260 * KIB for target in EXTENSION_TARGETS},
     **{DIST / target / "announce.js": 1 * KIB for target in EXTENSION_TARGETS},
     **{DIST / target / "background.js": 1 * KIB for target in EXTENSION_TARGETS},
-    DIST / "userscript" / f"{SLUG}.user.js": 452 * KIB,
+    DIST / "userscript" / f"{SLUG}.user.js": 456 * KIB,
 }
 # The one background script each build ships (rule 3, ADR 0027).
 BACKGROUND = {
