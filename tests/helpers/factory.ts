@@ -15,6 +15,7 @@ import {
   type UnknownReason,
   type VerdictSource,
 } from "../../src/core/types";
+import type { BadgeSlot } from "../../src/core/ui/host";
 import { appId } from "./app-ids";
 import {
   APP_PAGES,
@@ -131,7 +132,7 @@ import {
   v1Settings,
   v2Allow,
 } from "./stored-raw";
-import { capsuleGrid, queueSlide, searchRow, SURFACES } from "./surfaces";
+import { capsuleGrid, queueSlide, searchRow, STORE_LABEL, SURFACES } from "./surfaces";
 import {
   bareDisclosed,
   demoOf,
@@ -149,6 +150,27 @@ import {
 function loadProgress(overrides: Partial<LoadProgress> = {}): LoadProgress {
   const total = freshCount();
   return { total, answered: total - 1, unknown: 0, failed: 0, ...overrides };
+}
+
+type CompactSlot = Extract<BadgeSlot, { kind: "compact"; }>;
+
+/**
+ * A compact badge slot at the end of `anchor`: a text tier image box 300px wide with no store
+ * label on it, so two calls give the same slot. Overrides win.
+ */
+function compactSlot(
+  anchor: Element,
+  overrides: Partial<Omit<CompactSlot, "kind" | "anchor">> = {},
+): CompactSlot {
+  return {
+    kind: "compact",
+    anchor,
+    position: "beforeend",
+    size: "text",
+    width: 300,
+    reserve: 0,
+    ...overrides,
+  };
 }
 
 /**
@@ -183,12 +205,16 @@ export const make = {
   time: freshTime,
   /** A fresh span in milliseconds. */
   duration: freshDuration,
+  /** A fresh positive whole number, such as a size in pixels. */
+  count: freshCount,
   /** A fresh tag color in normal form. */
   color: freshColor,
   /** A page's load progress with fresh counts, one game still loading; overrides win. */
   progress: loadProgress,
   /** A fresh chip text that fits every chip text field. */
   chipText: freshChipText,
+  /** A compact badge slot on an image box; overrides win. */
+  compactSlot,
   /** Browser windows in CSS pixels, both inside the settings page's fixed frame. */
   viewport: {
     /** Tall enough for every settings tab. */
@@ -292,6 +318,7 @@ export const make = {
     searchRow,
     queueSlide,
     capsuleGrid,
+    storeLabel: STORE_LABEL,
   },
   fixture: {
     app: FIXTURE_APPS,

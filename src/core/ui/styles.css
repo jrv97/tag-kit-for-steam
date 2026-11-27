@@ -79,8 +79,8 @@
 }
 
 /* Store hover cards: the chips end the card's app block as a line of their own, apart from the
-   user tags. The classic card is a light ground, so its chips take the compact badge's solid
-   surface and light text, 12.65:1 on that surface and 11:1 or more against the card. */
+   user tags. The classic card is a light ground, so its chips take a solid surface and light
+   text, 12.65:1 on that surface and 11:1 or more against the card. */
 #global_hover .tks-chips,
 [popover] .tks-chips[data-tks-chips="full"] {
   display: flex;
@@ -91,8 +91,8 @@
 }
 
 #global_hover .tks-badge {
-  background: var(--tks-tag-solid, var(--tks-compact-bg));
-  color: var(--tks-tag-light, var(--tks-compact-fg));
+  background: var(--tks-tag-solid, var(--tks-badge-solid-bg));
+  color: var(--tks-tag-light, var(--tks-badge-solid-fg));
 }
 
 /* The React card's info block: the store's tags sit 4px in from its padding and 4px apart */
@@ -101,8 +101,9 @@
   margin-inline-start: var(--tks-space-1);
 }
 
-/* Compact badge: mirrors the store's corner flags, at the inline-end corner. The group sits there
-   and its chips shrink to the image's width, the label ending in an ellipsis. */
+/* Compact badge: a row at the inline-end corner, across from the store's deal labels. It ends a
+   gap short of the labels' far edge, or an inset short of the start edge. The app writes that
+   edge in --tks-compact-reserve. Chips shrink to fit. */
 
 .tks-chips[data-tks-chips="compact"] {
   position: absolute;
@@ -110,8 +111,20 @@
   inset-inline-end: var(--tks-compact-inset-inline);
   z-index: var(--tks-z-badge);
   flex: initial;
-  max-inline-size: calc(100% - var(--tks-compact-inset-inline));
+  gap: var(--tks-compact-gap);
+  max-inline-size: calc(
+    100% - var(--tks-compact-inset-inline) -
+      max(
+      var(--tks-compact-inset-inline),
+      var(--tks-compact-reserve, 0px) + var(--tks-compact-gap)
+    )
+  );
   pointer-events: none;
+}
+
+/* Hidden for the frame or two it takes to fold the chips that do not fit into "+N" */
+.tks-chips[data-tks-fit="pending"] {
+  visibility: hidden;
 }
 
 /* Inside the capsule link: hovering a chip is hovering the link, and the hover card opens. The

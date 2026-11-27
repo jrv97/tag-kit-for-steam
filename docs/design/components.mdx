@@ -26,7 +26,7 @@ Every class, attribute and custom property starts with `tks-`.
 1. **Label the report, never judge it.** A report can cover one marketing image or live generated gameplay, and some notes say AI was barely used. Attribute every fact to the developer ("reported", "named by the developer", "in the developer's own words"). No red, no warning triangles. Our own colors carry no verdict. A person's custom tag color (experimental, decision 49) is their pick for that tag, so it changes how a tag looks and never what it says.
 2. **Nothing for absence.** "Not disclosed" and "unknown" render nothing: no neutral chip, no check mark. The host's `data-tks-kinds` leaves them out.
 3. **Quote verbatim.** The developer's notes are data: set as text nodes with `white-space: pre-line`, never translated, summarized or highlighted. A note Steam stores as BBCode keeps Steam's formatting through `tks-bb-*` classes (ADR 0030).
-4. **Feel native.** Look and behave as close to the store's own UI as possible: its sizes, type, neutrals, surfaces and interaction patterns, so injected UI has no seam. Model each store-page component on its closest store element (the banner on the notice bubbles, the full badge on the tag chips, the compact badge on the corner flags, the tag section on the store's tag row). Only the violet hue marks a component as ours, so nobody mistakes it for a store feature. A person can swap the violet for their own color per tag (experimental, decision 49); the defaults stay violet.
+4. **Feel native.** Look and behave as close to the store's own UI as possible: its sizes, type, neutrals, surfaces and interaction patterns, so injected UI has no seam. Model each store-page component on its closest store element (the banner on the notice bubbles, the full badge on the tag chips, the compact badge on the deal labels over capsule images, the tag section on the store's tag row). Only the violet hue marks a component as ours, so nobody mistakes it for a store feature. A person can swap the violet for their own color per tag (experimental, decision 49); the defaults stay violet.
 5. **Never block.** No modals over store pages, no overlays over content, no focus stealing, no layout shift after a component's first paint.
 6. **Copy lives in catalogs.** Components hold message keys, never text. Leave room for translations about 40% longer than English.
 7. **Cheap at scale.** Express state with `data-tks-*` attributes and CSS, never per-node inline styles. A setting change is one attribute write per kind on the root element, and a custom color is one custom property per kind on the root element. The one exception is the values a tag with facets picks: a change to them draws the hosts again, writing only what changed (decision 61).
@@ -35,7 +35,7 @@ Every class, attribute and custom property starts with `tks-`.
 
 - Use Steam's words for each tag: its own line for the kind ("Uses Kernel Level Anti-Cheat", "Incorporates 3rd-party DRM", "Requires 3rd-Party Account", "Requires agreement to a 3rd-party EULA", "PvP", "In-App Purchases", "Steam Deck Compatibility", "Steam Machine Compatibility", "Family Sharing", "Early Access Game") and, for AI, Steam's heading "AI Generated Content Disclosure". A rating keeps Steam's word for its value: Verified, Playable, Unsupported, and Family Sharing keeps Steam's "Family Sharing" and "Family Sharing not Available" where no source line follows, while its derived value's chip and card line are the maintainer's own words (decision 64). Valve's Unknown (0) is never shown, and never as Unsupported. Spanish follows Steam's Spain Spanish. Our own copy never says "uses AI", "AI-free" or "no AI", and never states a tag's absence ("No" and a tag's name, or "none", "free of" or "-free" beside one), in any locale; the copy test fails the build on them. The one exception is Family Sharing's derived value, by key (`kind_family_unsupported_chip`, `kind_family_unsupported_line`; ADR 0016, amended), and only with its source line in the card.
 - Plain, short, sentence case: "Ignore this game", "All tags", "Show full report".
-- One line names a tag everywhere: Steam's line is the hover card entry title, the banner entry heading, the settings section title and, after the chip's visible text, the rest of the chip's accessible name. The chip itself is short: AI, KLAC, Anti-Cheat, DRM, Account, EULA, PvP, IAP, Early Access. A tag with values puts the value after a short device word: "Deck Unsupported", "Steam Machine Playable" (`kind_facet_chip`), named "Deck Unsupported: Steam Deck Compatibility"; its banner heading reads "Steam Deck Compatibility: Unsupported" (`kind_facet_name`). A value with a chip of its own (`FacetDefinition.chip`) shows that chip and is named by it, then Steam's word alone. For Family Sharing the listed value's chip is Steam's full word, "Family Sharing" (`kind_family_heading`), and the derived value's chip is the maintainer's "No Family Sharing" (`kind_family_unsupported_chip`), named "No Family Sharing: Family Sharing not Available". On a narrow compact badge the label may end in an ellipsis (`.tks-compact-label`).
+- One line names a tag everywhere: Steam's line is the hover card entry title, the banner entry heading, the settings section title and, after the chip's visible text, the rest of the chip's accessible name. The chip itself is short: AI, KLAC, Anti-Cheat, DRM, Account, EULA, PvP, IAP, Early Access. A tag with values puts the value after a short device word: "Deck Unsupported", "Steam Machine Playable" (`kind_facet_chip`), named "Deck Unsupported: Steam Deck Compatibility"; its banner heading reads "Steam Deck Compatibility: Unsupported" (`kind_facet_name`). A value with a chip of its own (`FacetDefinition.chip`) shows that chip and is named by it, then Steam's word alone. For Family Sharing the listed value's chip is Steam's full word, "Family Sharing" (`kind_family_heading`), and the derived value's chip is the maintainer's "No Family Sharing" (`kind_family_unsupported_chip`), named "No Family Sharing: Family Sharing not Available". On a narrow compact badge a chip whose label would be cut short folds into the "+N" chip (section 2).
 - A person may name a tag's chips in their own words (decision 67, ADR 0017): `kinds.<id>.chip` for every chip and `kinds.<id>.chipCompact` for small images. The text replaces the tag's word and keeps Steam's value word ("SD Unsupported"); for Family Sharing it replaces the whole chip. It is drawn through `textContent` only and never enters a catalog. Steam's words stay in the hover card, the banner's headings, the settings heading, the package summary and every chip's accessible name after the visible text.
 - Name the source: the developer ("In the developer's own words:", "AI service named by the developer:", "Declared by the developer on the store page"), or Valve for what Valve computes: "According to Valve" for the device ratings (decision 63), and the kind's own line for Family Sharing, "According to the features Steam lists for this game" (`kind_family_source`, decision 64). Under the derived value only, the card line `kind_family_unsupported_line` reads "Family Sharing is not supported for this game", and that source line always follows it.
 - The opt-out lives in one Ignore menu at the foot of the banner (ADR 0026): "Ignore this game" (every tag), a creator's "All tags", and each tag by its short label. The store has its own Ignore button just above; ours only affects this extension.
@@ -50,8 +50,8 @@ One dark theme. Store pages are dark, and the settings pages open from them.
 - **Neutrals are sampled.** `tks-color-bg-page`, `tks-color-bg-page-deep` and `tks-color-bg-row` are the store's own grounds: our components sit on them and never paint them. `tks-color-bg-panel`, `tks-color-bg-raised` and `tks-color-bg-sunken` are the settings pages' surfaces.
 - **Text:** on the banner wash, everything is `tks-banner-fg`, the store's own bubble text color. Elsewhere, `tks-color-text-strong` for headings, `tks-color-text` for body copy, `tks-color-text-muted` for meta lines, `tks-color-text-subtle` for help and dates. Muted and subtle never go on the banner wash, and subtle never on the store's row hover.
 - **Violet is ours.** Every other hue already means something on the store: blue is links, tags and the wishlist; green is buy, discount and owned; tan is the store's own third-party notices; red is live. Violet carries no traffic-light verdict, which matters because the badge must not judge. It stays the default for every tag. A person may give a tag a color of their own (see "A tag's own color" below); that is theirs to choose and lifts the guarantees of this page for them alone.
-- **The accent scale:** `tks-accent-100` for compact badge text, `tks-accent-200` for full badge text, `tks-accent-300` for links and the focus ring, `tks-accent-400` for non-text brand fills and edges (and the full badge tint at 20%), `tks-accent-800` and `tks-accent-600` at 80% for the banner wash, `tks-accent-600` and `tks-accent-700` for solid fills with white text, `tks-accent-900` for the compact badge's dark surface.
-- **A tag's own color (experimental).** One hex color for each tag, entered on the full options page and in the userscript dialog (section 6), not in the toolbar popup. It plays the role of accent 400 and every other shade is mixed from it at a fixed share (`tks-kind-mix-*` in `tokens.css`): the full badge tint and the chips of the Tag Kit section (the color at 20%), their text and the hover card title (the color mixed 37% into white), the compact badge's surface (22% into black), its text (24% into white) and its edge (the color), and the banner wash (31% and 66% into black, both drawn at 80%). Switches, buttons, focus rings, the banner's text and every neutral keep their tokens. The color is used as given: nothing clamps, adjusts or checks its contrast, so a very light or very dark pick can fall below the AA and 3:1 pairs of the Contrast section for the person who picked it. Unset keeps today's violet and its guarantees. A banner with one tag takes that tag's color for the wash; a banner that lists several tags keeps the default violet. Forced colors still override it.
+- **The accent scale:** `tks-accent-100` for the chip text in the classic hover card, `tks-accent-200` for full badge text, `tks-accent-300` for links and the focus ring, `tks-accent-400` for non-text brand fills and edges (the compact badge's edge, and the full badge tint at 20%), `tks-accent-800` and `tks-accent-600` at 80% for the banner wash, `tks-accent-600` and `tks-accent-700` for solid fills with white text, `tks-accent-900` for the chip surface in the classic hover card.
+- **A tag's own color (experimental).** One hex color for each tag, entered on the full options page and in the userscript dialog (section 6), not in the toolbar popup. It plays the role of accent 400 and every other shade is mixed from it at a fixed share (`tks-kind-mix-*` in `tokens.css`): the full badge tint and the chips of the Tag Kit section (the color at 20%), their text and the hover card title (the color mixed 37% into white), the chips of the classic hover card (their surface 22% into black, their text 24% into white), the compact badge's edge (the color; its fill and text keep their tokens), and the banner wash (31% and 66% into black, both drawn at 80%). Switches, buttons, focus rings, the banner's text and every neutral keep their tokens. The color is used as given: nothing clamps, adjusts or checks its contrast, so a very light or very dark pick can fall below the AA and 3:1 pairs of the Contrast section for the person who picked it. Unset keeps today's violet and its guarantees. A banner with one tag takes that tag's color for the wash; a banner that lists several tags keeps the default violet. Forced colors still override it.
 - **Error** is text, always with words, never a red fill: `tks-color-error` on extension pages, `tks-banner-error` inside the banner.
 - Never set a store hue (blue, green, tan, red) to a new meaning.
 
@@ -62,14 +62,14 @@ Every text pair meets WCAG 2.2 AA on the grounds its token's note names; see the
 - **Store pages:** the `page` family, which names the store's own "Motiva Sans" first. It is referenced by name only, never bundled; outside the store it falls back to Noto Sans or Arial.
 - **The summary box, the tag section and the hidden results notice:** the `summary` family (Arial), like the store's own summary rows, tag chips and search notice bar.
 - **Extension pages:** the `ext` family, a system UI stack. The store font is not available there.
-- Sizes follow the store's 11, 12, 13, 15, 18 and 24px steps, plus 14/21 for quoted notes, the size the store sets its own disclosure section in. The banner's title and meta lines are set light (300), like the store's own notices, and its notes italic, like the store's disclosure section. Use the named styles: `tks-text-badge`, `tks-text-compact`, `tks-text-compact-lg`, `tks-text-banner-title`, `tks-text-banner-meta`, `tks-text-banner-quote`, `tks-text-banner-button`, `tks-text-banner-note` on store pages; `tks-text-options-title`, `tks-text-card-title`, `tks-text-popup-caption`, `tks-text-body`, `tks-text-help` on extension pages.
+- Sizes follow the store's 11, 12, 13, 15, 18 and 24px steps, plus 14/21 for quoted notes, the size the store sets its own disclosure section in, and 10px to 12px with the window width for the compact badge, as the store's deal labels. The banner's title and meta lines are set light (300), like the store's own notices, and its notes italic, like the store's disclosure section. Use the named styles: `tks-text-badge`, `tks-text-compact`, `tks-text-compact-lg`, `tks-text-banner-title`, `tks-text-banner-meta`, `tks-text-banner-quote`, `tks-text-banner-button`, `tks-text-banner-note` on store pages; `tks-text-options-title`, `tks-text-card-title`, `tks-text-popup-caption`, `tks-text-body`, `tks-text-help` on extension pages.
 - Never shrink type to fit a translation; truncate a badge or let the block wrap.
 
 ## Space, radius, layering
 
-- Spacing is the store's React scale: `tks-space-0` to `tks-space-6` (2, 4, 8, 12, 16, 24, 32px). Badges keep their own exact paddings (`tks-badge-pad-inline`, `tks-compact-pad-inline`).
-- Radii are small or none, like the store's: none on the banner and the compact badge (like the notice bubbles and corner flags), `tks-radius-xs` (1px) on the allow-listed note, `tks-radius-sm` (2px) for the full badge, buttons and segments, `tks-radius-md` (4px) for cards on extension pages, `tks-radius-pill` only for the switch track.
-- No shadows on store pages except `tks-compact-shadow`, which keeps a compact badge's edge over mid-tone art, and the hover card's, which copies the store's own popup shadow. The banner is flat, like the store's notice bubbles. Cards on extension pages are flat.
+- Spacing is the store's React scale: `tks-space-0` to `tks-space-6` (2, 4, 8, 12, 16, 24, 32px). Badges keep their own exact paddings (`tks-badge-pad-inline`, `tks-compact-pad-block`, `tks-compact-pad-inline`).
+- Radii are small or none, like the store's: none on the banner (like the notice bubbles), `tks-compact-radius` (3px) on the compact badge (like the deal labels), `tks-radius-xs` (1px) on the allow-listed note, `tks-radius-sm` (2px) for the full badge, buttons and segments, `tks-radius-md` (4px) for cards on extension pages, `tks-radius-pill` only for the switch track.
+- No shadows on store pages except `tks-compact-shadow`, the drop shadow of the store's deal labels, and the hover card's, which copies the store's own popup shadow. The banner is flat, like the store's notice bubbles. Cards on extension pages are flat.
 - `tks-z-badge` (4) sits over capsule art, the store's corner flags and its hover microtrailer video (z-index 3), under its hover popups.
 - `tks-z-hovercard` (2100) sits over the store's game hover popup (1526) and its React capsule hover layer (2000), for our hover card (section 15).
 
@@ -82,7 +82,7 @@ Every text pair meets WCAG 2.2 AA on the grounds its token's note names; see the
 
 ## Longer translations and direction
 
-- Badges stay on one line and truncate past their cap; the full label stays in the DOM text screen readers read, and the hover card shows it in full.
+- Badges stay on one line and truncate past their cap, with the full label in the DOM text screen readers read; a compact chip that would truncate folds into "+N" instead. The hover card shows every label in full.
 - Everything else wraps. Nothing that holds copy gets a fixed height; controls with copy have a minimum block size.
 - Use logical properties (`padding-inline`, `inset-inline-end`, `border-inline-start`, `text-align: start`). The one physical value is the switch thumb's `translateX`. Right-to-left is out of scope for v1, but nothing here assumes left or right.
 - No text in icons or images.
@@ -189,7 +189,7 @@ Built like the store's own tag chips, in our hue.
 - Search rows: directly after the title, with `margin-inline-start: tks-space-2`, keeping their full size. The title line clips with `overflow: hidden`, so on a row with chips it becomes a flex row: the title shrinks and ends in an ellipsis, and the chips stay visible. The platform icons below keep their place.
 - Wishlist rows: directly after the title element, `margin-inline-start: tks-space-2`. The exact anchor is unverified until the surface spike.
 - DLC rows on an app page: the last child of the name (`.game_area_dlc_name`), so the chips follow the name text. The row is a flex row that spreads name and price apart, so chips between them would float mid-row at a different spot on each row. On a row with chips the name becomes a flex row: its trailing space drops, and `margin-inline-start: tks-space-2` is the whole gap, as on search rows. A long name wraps beside the badge.
-- Store hover cards (ADR 0031): the classic card (`#global_hover`) takes the group as the last child of the game's app block, `margin-block-start: tks-space-2` under the user tags. Its ground is light, so its chips take the compact badge's surface and text (`tks-compact-bg`, `tks-compact-fg`, 12.66:1; the surface stands 11.1:1 against the card). The React card on tag hubs and sale pages takes the group as the last child of its info block, under the reviews and the release line, `margin-inline-start: tks-space-1` and its chips `tks-space-1` apart, as the store's tags in that card are. Both draw in the frame the card opens.
+- Store hover cards (ADR 0031): the classic card (`#global_hover`) takes the group as the last child of the game's app block, `margin-block-start: tks-space-2` under the user tags. Its ground is light, so its chips take a solid surface and light text (`tks-badge-solid-bg`, accent 900, and `tks-badge-solid-fg`, accent 100: 12.65:1; the surface stands 11.1:1 against the card). The React card on tag hubs and sale pages takes the group as the last child of its info block, under the reviews and the release line, `margin-inline-start: tks-space-1` and its chips `tks-space-1` apart, as the store's tags in that card are. Both draw in the frame the card opens.
 - A row placement picks the slot: `after` makes the group the anchor's next sibling, `end` its last child.
 - Any other row: after the title, never before it, so titles stay aligned.
 
@@ -211,14 +211,14 @@ Built like the store's own tag chips, in our hue.
 
 ## 2. Compact badge
 
-The overlay badge for capsule images, from 180px-wide capsules up to large header capsules, on an opaque surface so it reads over any art.
+The overlay badge for capsule images, from 180px-wide capsules up to large header capsules. A near-black fill and a colored edge let it read over any art.
 
 Preview: `previews/CompactBadge.html`.
 
 ### When to use
 
 - A host with a kind to show whose capsule image is at least 180px wide and 32px tall. Smaller images get nothing on the image; a row-shaped host still gets full chips.
-- One chip per kind in one group: the first two kinds of the tag order (`OVERLAY_CHIPS`), then a "+N" chip. Never alongside full chips on the same host.
+- One chip per kind in one group: the first two kinds of the tag order (`OVERLAY_CHIPS`), fewer where a chip's text would be cut short, then a "+N" chip for the rest. Never alongside full chips on the same host.
 
 ### What the consumer provides
 
@@ -240,21 +240,26 @@ Preview: `previews/CompactBadge.html`.
 | Tier | Image box | Renders | Height | Type | Inset |
 | --- | --- | --- | --- | --- | --- |
 | none | under 180px wide or 32px tall | nothing | | | |
-| `text` | 180 to 399px wide | label | `tks-compact-height` 19px | `tks-text-compact` 11/17 medium | `tks-compact-inset-block` 5px, `tks-compact-inset-inline` 5px |
-| `large` | 400px wide and 150px tall | label | `tks-compact-height-lg` 22px | `tks-text-compact-lg` 12/20 medium | same |
+| `text` | 180 to 399px wide | label | 18.5 to 21px | `tks-text-compact` 10 to 12px / 1.25 medium | `tks-compact-inset-block` 6px, `tks-compact-inset-inline` 6px |
+| `large` | 400px wide and 150px tall | label | 21px | `tks-text-compact-lg` 12px / 1.25 medium | same |
 
-Tiers depend on image size only. A longer translation truncates inside its tier and never moves the badge to another. The `text` tier shows the person's short chip text (`kinds.<id>.chipCompact`), else their chip text, else the catalog's; the `large` tier shows their chip text, else the catalog's. The accessible name follows the label shown.
+Tiers depend on image size only. The height follows from the type and the padding; no rule sets it. A longer translation folds into "+N" inside its tier and never moves the badge to another. The `text` tier shows the person's short chip text (`kinds.<id>.chipCompact`), else their chip text, else the catalog's; the `large` tier shows their chip text, else the catalog's. The accessible name follows the label shown.
 
 ### Look and placement
 
-Built as a mirror of the store's own corner flags (in library, on wishlist): solid, square, 19px tall, and 5px from the top and 5px from the end edge, so the two margins match.
+Built as a mirror of the store's deal labels on capsule images ("First-Time Discount", "Top Seller"; `.CapsuleDecorators.HasReasonBanner > span`, sampled on the specials page on 2026-11-27): a near-black fill, white uppercase text, 3px corners and a soft drop shadow, 6px from the top and 6px from the end edge.
 
-- `tks-compact-fg` on `tks-compact-bg` (12.65:1 whatever the art), square corners, a 1px `tks-compact-border` and `tks-compact-shadow`.
-- Unlike the store's mid-tone flags, the surface is dark (accent 900) and keeps an edge. Together they give every kind of art a boundary at 3:1 or more: the edge against black (5.91:1), the surface against white (16.63:1), mid grey (4.21:1) and violet (3.34:1).
-- Block-start, inline-end corner (top right in English), mirroring the store's flags, which sit top-left. The store also owns the bottom edge (prices).
+- `tks-compact-fg` (white) on `tks-compact-bg` (`rgba(9, 11, 15, 0.88)`), `tks-compact-radius` (3px), `tks-compact-shadow` (`2px 1px 5px` black at 35%), and `tks-compact-pad-block` (2px) by `tks-compact-pad-inline` (6px) of padding in both tiers.
+- A 1px edge in `tks-compact-border` (accent 400), or in the tag's own color (`tks-tag-edge`). The edge is the only colored part, and it marks the chips as ours beside the store's labels.
+- Type: `tks-compact-font`, medium, in the page font (Motiva Sans), `tks-size-compact` (10px to 12px with the window width) on `tks-leading-compact` (1.25). The large tier reads `tks-compact-font-lg`, 12px (`tks-size-sm`) on the same leading. A chip is 18.5px tall at 10px text and 21px at 12px.
+- Uppercase comes from `text-transform` alone. The catalog text, the accessible name and a person's own chip text stay as written.
+- White text holds 14.71:1 or more on the fill whatever the art. The fill gives the chip its boundary against white art (14.71:1), mid grey (4.45:1) and violet (4.92:1); against black art the fill blends in (1.06:1) and the edge carries the boundary (5.91:1).
+- One row at the block-start, inline-end corner (top right in English), chips `tks-compact-gap` (5px) apart. The store's deal labels sit at the start corner, 6px in, and the store also owns the bottom edge (prices).
 - `z-index: tks-z-badge`: over the art, the corner flags and the microtrailer video that home capsules play on hover, under the store's hover popups.
-- Maximum inline size is the image width less the inline inset (the group is anchored at the end edge only: the inset is subtracted once, and the start edge may be reached); past it the chips shrink and their text ends in an ellipsis. Two chips can take more room than the one label did before, and the badges share the store flags' row, so a longer translation on a small capsule can reach a store flag; see the open questions.
-- On home capsules, the store's options arrow (`.ds_options`, z-index 15) appears in the same corner on hover and covers about 39px of the group's inline end before the inset change, probably about 34px after (an estimate, not measured on a live page). Curator pages (`store.steampowered.com/curator/<id>/`) carry the same kind of three-dots control in that corner, beside or over the chips. The store control stays on top on purpose and there is no workaround for now (known issue, decision 33); at rest on home the chips are clear.
+- The capsule UI measures how far the deal labels reach into the image: whole pixels from the image's inline-start edge to the labels' far edge, mirrored in right-to-left. It writes that as `--tks-compact-reserve` on the group. The group's maximum inline size is the image width less the inline inset and less the larger of the inline inset or the reserve plus `tks-compact-gap`. The row then ends 5px short of the labels, or 6px short of the start edge on an image without labels. Past that the kind chips shrink, and a chip whose text the shrink cuts short folds into "+N" (next item). The "+N" chip never shrinks.
+- A group with a kind chip draws hidden (`data-tks-fit="pending"`, `visibility: hidden`) for one frame. In the next frame the renderer reads every pending group before it writes to any. Where a chip's text is cut short, it folds one more kind chip into the "+N" chip and checks that group again a frame later, until each group fits; a group that fits drops the attribute and shows. A resize, or a label the store's React adds late, draws the group again from the full `OVERLAY_CHIPS` allowance.
+- The reserve counts the deal labels only. The store's corner flags (`.ds_flag`, in library, on wishlist) are not measured, and a longer translation on a small capsule can reach one; see the open questions.
+- On home capsules, the store's options arrow (`.ds_options`, z-index 15) appears in the same corner on hover. It reaches about 39px in from the image's end edge, and the group starts 6px in: it covers about the last 33px of the group (an estimate, not measured on a live page). Curator pages (`store.steampowered.com/curator/<id>/`) carry the same kind of three-dots control in that corner, beside or over the chips. The store control stays on top on purpose and there is no workaround for now (known issue, decision 33); at rest on home the chips are clear.
 
 ### Pointer and accessibility
 
@@ -263,8 +268,10 @@ Built as a mirror of the store's own corner flags (in library, on wishlist): sol
 
 ### Don't
 
-- No translucent or blurred surface: contrast would depend on the art, and blur costs paint time on carousel pages.
-- No rounded corners: the store's flags are square.
+- No lighter or thinner fill: mid grey and violet art take their boundary from it.
+- No blurred fill: blur costs paint time on carousel pages.
+- Don't color the fill or the text. A tag's own color reaches the edge alone.
+- Don't uppercase catalog text or a person's chip text; the CSS does it.
 - Not bottom-left: cover art usually puts the game's logo there.
 
 ## 3. Tag section
@@ -585,7 +592,7 @@ Two stacked fields in each tag's tab, after the banner switch and before the col
 - A row of a text box (`tks-chip-input-inline-size`, `maxlength` 32 and 16, the limits the schema cuts to, counted by the browser in UTF-16 units) and a quiet Reset (`options_color_reset`; named `options_chip_reset_label` and `options_chip_compact_reset_label`, which begin with its text) shown while a text is stored. Under it a counter, `options_chip_count` ("5 of 32"), in `tks-text-help` with tabular figures, named with the help in the box's `aria-describedby`.
 - The placeholder is the catalog's word the field replaces: the tag's chip word, or for Family Sharing the chip of the first value it picks; the short field shows the chip text instead while one is typed.
 - Text is saved on `change` (Enter or leaving the box), cleaned by the schema that reads it back (one space for whitespace, no control or format characters, trimmed, cut to the limit), and the box shows the cleaned text. An emptied box clears the field, as Reset does, and Reset returns focus to the box. Text still being typed stays when another tab saves something else.
-- Under the fields, a live preview labelled `options_chip_preview`: the full badge and the `text` tier compact chip, drawn by the store page's own `createChipElement` and chip rules (`chips.css`) in the tag's color, from the text as typed and the first value the tag picks. The compact chip is capped at `tks-chip-preview-compact-max`, the narrowest store image less its insets, where a long text ends in an ellipsis as on the store. Each preview chip carries its accessible name.
+- Under the fields, a live preview labelled `options_chip_preview`: the full badge and the `text` tier compact chip, drawn by the store page's own `createChipElement` and chip rules (`chips.css`) in the tag's color, from the text as typed and the first value the tag picks. The compact chip is capped at `tks-chip-preview-compact-max`, the narrowest store image less its insets, where a long text ends in an ellipsis; on the store that chip folds into "+N" (section 2). Each preview chip carries its accessible name.
 
 ### The color field (experimental)
 
@@ -1483,11 +1490,14 @@ WCAG 2.2 AA: 4.5:1 for text, 3:1 for non-text. Grounds are the store's own, samp
 | Full badge text on its tint | search row | 8.19 |
 | Tag section chip text `tks-accent-200` on its tint | page | 7.46 |
 | Tag section label `tks-color-text-muted` | page | 6.97 |
-| Compact text `tks-accent-100` on `tks-accent-900` | any art (solid) | 12.65 |
-| Compact edge `tks-accent-400` (surface 1.26) | black art | 5.91 |
-| Compact surface | white art | 16.63 |
-| Compact surface (edge 1.11) | mid grey art `#808080` | 4.21 |
-| Compact surface (edge blends in) | violet art `#7458e0` | 3.34 |
+| Compact text `tks-compact-fg` on `tks-compact-bg` | white art | 14.71 |
+| Compact edge `tks-compact-border` (fill 1.06) | black art | 5.91 |
+| Compact edge `tks-compact-border` | white art | 3.55 |
+| Compact fill | white art | 14.71 |
+| Compact fill (edge 1.11) | mid grey art `#808080` | 4.45 |
+| Compact fill (edge blends in) | violet art `#7458e0` | 4.92 |
+| Classic hover card chip text `tks-badge-solid-fg` on `tks-badge-solid-bg` | solid | 12.65 |
+| Classic hover card chip surface `tks-badge-solid-bg` | the card | 11.1 |
 | Banner text `tks-banner-fg` | bright end | 5.54 |
 | Banner text `tks-banner-fg` | dark end | 9.84 |
 | Banner button label `tks-banner-button-fg` | bright end | 8.06 |
@@ -1526,7 +1536,7 @@ WCAG 2.2 AA: 4.5:1 for text, 3:1 for non-text. Grounds are the store's own, samp
 - The banner button's edge is white at 40%, the store's own, and 2.63:1 on our bright end. Its white label (8.06:1) identifies the button, so WCAG 1.4.11 does not ask 3:1 of the edge.
 - `tks-color-text-subtle` only on page, row, panel, raised and sunken. On the store's row hover it is 3.32:1.
 - `tks-accent-300` as link text only on solid grounds. On the store's row hover it is 4.45:1, so links there use `tks-accent-200`.
-- The compact badge's surface stays at accent 900. A mid-tone flag color such as accent 700 would leave mid grey art with no boundary at 3:1 (surface 2.54, edge 1.11) and violet art at 2.01.
+- The compact badge's fill stays `tks-compact-bg`, near-black at 88%. On mid grey and violet art the edge blends in, and the fill alone keeps the boundary above 3:1. On black art the fill blends in and the 1px edge carries the boundary.
 - None of this holds for a tag the person gave a color of their own (experimental): the tint, text, edge, surface and wash are mixed from the picked color, and nothing checks or adjusts them. The defaults keep every pair above; decision 49.
 - The switch's off track is 1.55:1 against raised; its `tks-toggle-track-off-border` edge carries the 3:1.
 

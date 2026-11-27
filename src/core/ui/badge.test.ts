@@ -5,12 +5,13 @@ import { fake } from "../../../tests/helpers/fakes";
 import { hostView, type HostViewOptions } from "../../../tests/helpers/host-view";
 import { englishI18n } from "../../../tests/helpers/i18n";
 import { STATUS_KINDS } from "../../../tests/helpers/settings";
+import { framePhases } from "../dom";
 import { COMPAT_FACETS } from "../kinds/compat";
 import { KIND_IDS, type KindId } from "../kinds/id";
 import type { ChipWords } from "../kinds/kind-settings";
 import { kindsInOrder, OVERLAY_CHIPS, parseOrder } from "../kinds/order";
 import { KIND_BY_ID, KINDS } from "../kinds/registry";
-import { compactSize, createBadgeRenderer } from "./badge";
+import { compactSize, createBadgeRenderer, FIT_ATTRIBUTE, RESERVE_PROPERTY } from "./badge";
 import type { BadgeSlot } from "./host";
 
 function capsule(): {
@@ -74,12 +75,6 @@ describe("createBadgeRenderer", () => {
   });
 
   const full = (anchor: Element): BadgeSlot => ({ kind: "full", anchor, position: "afterend" });
-  const overlay = (anchor: Element, size: "text" | "large" = "text"): BadgeSlot => ({
-    kind: "compact",
-    anchor,
-    position: "beforeend",
-    size,
-  });
 
   /** A chip's visible text and its accessible name. */
   function texts(element: Element) {
@@ -152,20 +147,14 @@ describe("createBadgeRenderer", () => {
     /** Where a chip draws: on a row, or over an image in the text or the large tier. */
     const SLOTS = {
       full: (at: Capsule) => full(at.title),
-      text: (at: Capsule) => overlay(at.image, "text"),
-      large: (at: Capsule) => overlay(at.image, "large"),
+      text: (at: Capsule) => make.compactSlot(at.image, { size: "text" }),
+      large: (at: Capsule) => make.compactSlot(at.image, { size: "large" }),
     };
     type SlotKind = keyof typeof SLOTS;
 
     beforeEach(() => {
       words = {};
-      renderer = createBadgeRenderer(
-        document,
-        i18n,
-        triggers.card,
-        undefined,
-        () => words,
-      );
+      renderer = createBadgeRenderer(document, i18n, triggers.card, { words: () => words });
     });
 
     /** The visible text of the first chip drawn in a slot, with these texts for AI. */
@@ -234,12 +223,9 @@ describe("createBadgeRenderer", () => {
 
     beforeEach(() => {
       order = KIND_IDS;
-      renderer = createBadgeRenderer(
-        document,
-        i18n,
-        triggers.card,
-        () => kindsInOrder(order),
-      );
+      renderer = createBadgeRenderer(document, i18n, triggers.card, {
+        order: () => kindsInOrder(order),
+      });
     });
 
     it.each<readonly KindId[]>([KIND_IDS, parseOrder(["pvp", "eula"]), parseOrder(["drm"])])(
@@ -249,7 +235,7 @@ describe("createBadgeRenderer", () => {
         const { host, image } = capsule();
         const listed = order.filter((id) => MANY.includes(id));
         renderer.render(
-          view(host, overlay(image), {
+          view(host, make.compactSlot(image), {
             verdicts: make.verdicts.only(MANY),
             maxChips: OVERLAY_CHIPS,
           }),
@@ -305,13 +291,134 @@ describe("createBadgeRenderer", () => {
     it("draws the +N chip in the compact style over an image", () => {
       const { host, image } = capsule();
       const maxChips = 1;
-      renderer.render(view(host, overlay(image), { verdicts: make.verdicts.only(MANY), maxChips }));
+      renderer.render(
+        view(host, make.compactSlot(image), { verdicts: make.verdicts.only(MANY), maxChips }),
+      );
       const chips = chipsIn(host);
       expect(chips.map((c) => c.className)).toEqual(["tks-compact", "tks-compact"]);
       expect(chips[1]?.querySelector(".tks-compact-label")?.textContent).toBe(
         i18n.t("kind_chip_more", { count: String(MANY.length - maxChips) }),
       );
       expect(chips[1]?.getAttribute("data-tks-size")).toBe("text");
+    });
+  });
+
+  describe("fitting compact chips to the image", () => {
+    const ALLOWED = [...MANY.slice(0, OVERLAY_CHIPS), null];
+    let frames = fake.queue();
+    /** How many kind chips fit whole; a group with more shows one cut short. */
+    let room = Number.POSITIVE_INFINITY;
+
+    beforeEach(() => {
+      frames = fake.queue();
+      room = Number.POSITIVE_INFINITY;
+      renderer = createBadgeRenderer(document, i18n, triggers.card, {
+        frame: framePhases(frames.frame),
+        overflows: (group) => group.querySelectorAll("[data-tks-kind]").length > room,
+      });
+    });
+
+    function groupOf(host: Element): HTMLElement {
+      const group = host.querySelector<HTMLElement>(".tks-chips");
+      if (group === null) {
+        throw new RangeError();
+      }
+      return group;
+    }
+    const draw = (host: Element, slot: BadgeSlot | undefined) => {
+      renderer.render(
+        view(host, slot, { verdicts: make.verdicts.only(MANY), maxChips: OVERLAY_CHIPS }),
+      );
+    };
+    /** Runs frames until none is queued. */
+    const settle = () => {
+      while (frames.size > 0) {
+        frames.run();
+      }
+    };
+
+    it.each([OVERLAY_CHIPS, 1, 0])(
+      "with room for %i kind chips, folds the others into +N, then shows them",
+      (fits) => {
+        const { host, image } = capsule();
+        room = fits;
+        draw(host, make.compactSlot(image));
+        expect(groupOf(host).getAttribute(FIT_ATTRIBUTE)).toBe("pending");
+        settle();
+        expect(kindsOf(host)).toEqual([...MANY.slice(0, fits), null]);
+        expect(groupOf(host).hasAttribute(FIT_ATTRIBUTE)).toBe(false);
+      },
+    );
+
+    it.each([
+      ["the same slot", 0, 0, [null]],
+      ["a wider image", 1, 0, ALLOWED],
+      ["a new reach of the labels", 0, make.count(), ALLOWED],
+    ])("after a fold, draws from %s the kinds %j", (_name, wider, reserve, expected) => {
+      const { host, image } = capsule();
+      room = 0;
+      const slot = make.compactSlot(image);
+      draw(host, slot);
+      settle();
+      draw(host, make.compactSlot(image, { width: slot.width + wider, reserve }));
+      expect(kindsOf(host)).toEqual(expected);
+    });
+
+    it.each([
+      ["narrower", -1, "check", [MANY[0], null]],
+      ["wider", 1, null, ALLOWED],
+    ])("keeps a whole group in view on a %s image, checked as %s", (
+      _name,
+      change,
+      attribute,
+      expected,
+    ) => {
+      const { host, image } = capsule();
+      const slot = make.compactSlot(image);
+      draw(host, slot);
+      settle();
+      const group = groupOf(host);
+      room = 1;
+      draw(host, make.compactSlot(image, { width: slot.width + change }));
+      expect(groupOf(host)).toBe(group);
+      expect(group.getAttribute(FIT_ATTRIBUTE)).toBe(attribute);
+      settle();
+      expect(kindsOf(host)).toEqual(expected);
+    });
+
+    it("writes the labels' reach on the group", () => {
+      const { host, image } = capsule();
+      const reserve = make.count();
+      draw(host, make.compactSlot(image, { reserve }));
+      expect(groupOf(host).style.getPropertyValue(RESERVE_PROPERTY)).toBe(`${String(reserve)}px`);
+    });
+
+    it("checks every waiting group in one frame", () => {
+      const { host, image, title } = capsule();
+      draw(host, make.compactSlot(image));
+      draw(title, make.compactSlot(title));
+      expect(frames.size).toBe(1);
+    });
+
+    it("draws nothing for a host that lost its chips before the frame", () => {
+      const { host, image } = capsule();
+      draw(host, make.compactSlot(image));
+      draw(host, undefined);
+      settle();
+      expect(chipsIn(host)).toEqual([]);
+    });
+
+    it("checks a waiting group again when it comes back to the page", () => {
+      const { host, image } = capsule();
+      const slot = make.compactSlot(image);
+      draw(host, slot);
+      const group = groupOf(host);
+      group.remove();
+      settle();
+      image.append(group);
+      draw(host, slot);
+      settle();
+      expect(group.hasAttribute(FIT_ATTRIBUTE)).toBe(false);
     });
   });
 
@@ -338,7 +445,7 @@ describe("createBadgeRenderer", () => {
     const verdicts = make.verdicts.only(["ai", "drm"]);
     renderer.render(view(host, full(title), { verdicts, maxChips: 1 }));
     expect(kindsOf(host)).toEqual(["ai", null]);
-    renderer.render(view(host, overlay(image), { verdicts, maxChips: 1 }));
+    renderer.render(view(host, make.compactSlot(image), { verdicts, maxChips: 1 }));
     expect(host.querySelectorAll(".tks-chips")).toHaveLength(1);
     expect(host.querySelector(".tks-chips")?.getAttribute("data-tks-chips")).toBe("compact");
   });
@@ -346,7 +453,7 @@ describe("createBadgeRenderer", () => {
   it("draws the compact chips in their tier, linked to the capsule link", () => {
     const { host, image } = capsule();
     const verdicts = make.verdicts.only(["ai", "kernel"]);
-    renderer.render(view(host, overlay(image, "large"), { verdicts }));
+    renderer.render(view(host, make.compactSlot(image, { size: "large" }), { verdicts }));
     const group = image.querySelector(".tks-chips");
     const chips = Array.from(image.querySelectorAll<HTMLElement>(".tks-chips > .tks-compact"));
     expect(group?.getAttribute("data-tks-chips")).toBe("compact");
@@ -367,7 +474,7 @@ describe("createBadgeRenderer", () => {
     if (host === null || image === null) {
       throw new TypeError();
     }
-    renderer.render(view(host, overlay(image)));
+    renderer.render(view(host, make.compactSlot(image)));
     expect(image.querySelector(".tks-chips")?.hasAttribute("data-tks-in-link")).toBe(false);
   });
 

@@ -35,14 +35,24 @@
   .violet { background: radial-gradient(circle at 80% 20%, #8f73f3 0%, #7458e0 40%, #2a1d6b 100%); }
   .grey { background: #808080; }
   .sky { background: linear-gradient(180deg, #8fd3ff 0%, #ffd7a8 70%, #59341f 100%); }
-  /* Stand-in for the store's own top-left corner flag, to show the two never collide */
-  .flag {
+  /* Stand-in for one of the store's deal labels at the start corner, 88px wide. A group beside one
+     carries the reserve the capsule UI measures: the 6px inset plus the label, 94px. */
+  .deal {
     position: absolute;
-    inset-block-start: 5px;
-    inset-inline-start: 0;
-    inline-size: 64px;
-    block-size: 19px;
-    background: #4f95bd;
+    inset-block-start: 6px;
+    inset-inline-start: 6px;
+    box-sizing: border-box;
+    inline-size: 88px;
+    padding: var(--tks-compact-pad-block) var(--tks-compact-pad-inline);
+    overflow: hidden;
+    border-radius: var(--tks-compact-radius);
+    background: var(--tks-compact-bg);
+    box-shadow: var(--tks-compact-shadow);
+    color: var(--tks-compact-fg);
+    font: var(--tks-compact-font);
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
 </style>
 </head>
@@ -54,48 +64,73 @@
   </figure>
   <figure>
     <a class="art dark" href="#" style="width:184px;height:69px">
-      <span class="tks-compact" data-tks-size="text">
-      <span class="tks-compact-label">AI use reported</span></span></a>
+      <span class="tks-chips" data-tks-chips="compact">
+        <span class="tks-compact" data-tks-kind="ai" data-tks-size="text">
+        <span class="tks-compact-label">AI</span></span></span></a>
     <figcaption>184x69, dark art</figcaption>
   </figure>
   <figure>
-    <a class="art light" href="#" style="width:184px;height:69px"><span class="flag"></span>
-      <span class="tks-compact" data-tks-size="text">
-      <span class="tks-compact-label">AI use reported</span></span></a>
-    <figcaption>184x69, store flag top-left</figcaption>
+    <a class="art light" href="#" style="width:184px;height:69px">
+      <span class="deal">Hot Deal</span>
+      <span class="tks-chips" data-tks-chips="compact" style="--tks-compact-reserve:94px">
+        <span class="tks-compact" data-tks-kind="ai" data-tks-size="text">
+        <span class="tks-compact-label">AI</span></span>
+        <span class="tks-compact" data-tks-size="text">
+        <span class="tks-compact-label">+2</span></span></span></a>
+    <figcaption>184x69, deal label top-left: DRM folded into +2</figcaption>
   </figure>
   <figure lang="es">
-    <a class="art light" href="#" style="width:184px;height:69px"><span class="flag"></span>
-      <span class="tks-compact" data-tks-size="text">
-      <span class="tks-compact-label">Uso de IA declarado</span></span></a>
-    <figcaption>184x69, store flag top-left, Spanish</figcaption>
+    <a class="art light" href="#" style="width:184px;height:69px">
+      <span class="deal" lang="en">Hot Deal</span>
+      <span class="tks-chips" data-tks-chips="compact" style="--tks-compact-reserve:94px">
+        <span class="tks-compact" data-tks-kind="ai" data-tks-size="text">
+        <span class="tks-compact-label">IA</span></span>
+        <span class="tks-compact" data-tks-kind="drm" data-tks-size="text">
+        <span class="tks-compact-label">DRM</span></span></span></a>
+    <figcaption>184x69, deal label top-left, Spanish</figcaption>
   </figure>
   <figure>
     <a class="art busy" href="#" style="width:231px;height:87px">
-      <span class="tks-compact" data-tks-size="text">
-      <span class="tks-compact-label">AI use reported</span></span></a>
+      <span class="tks-chips" data-tks-chips="compact">
+        <span class="tks-compact" data-tks-kind="ai" data-tks-size="text">
+        <span class="tks-compact-label">AI</span></span>
+        <span class="tks-compact" data-tks-kind="drm" data-tks-size="text">
+        <span class="tks-compact-label">DRM</span></span></span></a>
     <figcaption>231x87, busy art</figcaption>
   </figure>
   <figure>
     <a class="art violet" href="#" style="width:224px;height:128px">
-      <span class="tks-compact" data-tks-size="text">
-      <span class="tks-compact-label">AI use reported</span></span></a>
-    <figcaption>224x128, violet art</figcaption>
+      <span class="tks-chips" data-tks-chips="compact">
+        <span class="tks-compact" data-tks-kind="anticheat" data-tks-size="text">
+        <span class="tks-compact-label">Anti-Cheat</span></span>
+        <span class="tks-compact" data-tks-kind="drm" data-tks-size="text">
+        <span class="tks-compact-label">DRM</span></span>
+        <span class="tks-compact" data-tks-size="text">
+        <span class="tks-compact-label">+1</span></span></span></a>
+    <figcaption>224x128, violet art, two kinds and +1</figcaption>
   </figure>
   <figure>
     <a class="art grey" href="#" style="width:231px;height:87px">
-      <span
-        class="tks-compact"
-        data-tks-size="text"
-        lang="es">
-      <span class="tks-compact-label">Uso de IA declarado por el desarrollador</span></span></a>
-    <figcaption>231x87, grey art, long Spanish label</figcaption>
+      <span class="tks-chips" data-tks-chips="compact">
+        <span
+          class="tks-compact"
+          data-tks-kind="earlyaccess"
+          data-tks-size="text"
+          style="--tks-tag-edge:#e8a23a">
+        <span class="tks-compact-label">Early Access</span></span></span></a>
+    <figcaption>231x87, grey art, a tag's own color on the edge</figcaption>
   </figure>
   <figure>
     <a class="art sky" href="#" style="width:460px;height:215px">
-      <span class="tks-compact" data-tks-size="large">
-      <span class="tks-compact-label">AI use reported</span></span></a>
-    <figcaption>460x215, large tier</figcaption>
+      <span class="deal">Hot Deal</span>
+      <span class="tks-chips" data-tks-chips="compact" style="--tks-compact-reserve:94px">
+        <span class="tks-compact" data-tks-kind="ai" data-tks-size="large">
+        <span class="tks-compact-label">AI</span></span>
+        <span class="tks-compact" data-tks-kind="earlyaccess" data-tks-size="large">
+        <span class="tks-compact-label">Early Access</span></span>
+        <span class="tks-compact" data-tks-size="large">
+        <span class="tks-compact-label">+1</span></span></span></a>
+    <figcaption>460x215, large tier, deal label top-left</figcaption>
   </figure>
   <figure>
     <a class="art sky" href="#" style="width:40px;height:30px"></a>

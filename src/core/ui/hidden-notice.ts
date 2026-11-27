@@ -1,4 +1,4 @@
-import { detach } from "../dom";
+import { animationFrame, detach } from "../dom";
 import { KINDS } from "../kinds/registry";
 import type { MessageCatalog } from "../ports";
 import { HOST_FAILED, HOST_HIDEABLE, HOST_KINDS } from "../scan/marks";
@@ -101,13 +101,7 @@ export function createHiddenNotice(options: HiddenNoticeOptions): HiddenNotice {
   const { document: doc, i18n } = options;
   const view = doc.defaultView;
   const root = doc.documentElement;
-  const frame = options.frame ?? ((callback: () => void) => {
-    if (view === null) {
-      callback();
-    } else {
-      view.requestAnimationFrame(callback);
-    }
-  });
+  const frame = options.frame ?? animationFrame(doc);
   const delay = options.delay ?? ((callback: () => void, ms: number) => {
     const id = setTimeout(callback, ms);
     return () => {

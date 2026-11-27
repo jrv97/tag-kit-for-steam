@@ -3,8 +3,8 @@ import type { TagKind } from "./kind";
 import { KIND_BY_ID, KINDS } from "./registry";
 
 /**
- * Chips a capsule overlay shows, the first kinds of the order: the image is narrow and the store's
- * own flags sit on it. A "+N" chip stands for the rest.
+ * Chips a capsule overlay shows at most, the first kinds of the order: the image is narrow and the
+ * store's own flags sit on it. Fewer show when they do not fit. A "+N" chip stands for the rest.
  */
 export const OVERLAY_CHIPS = 2;
 

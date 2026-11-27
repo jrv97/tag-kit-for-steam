@@ -19,6 +19,7 @@
 
 /* Shared */
 
+.tks-chips,
 .tks-badge,
 .tks-badge *,
 .tks-compact,
@@ -96,42 +97,73 @@
   flex-shrink: 1;
 }
 
-/* Compact badge */
+/* Compact badge: the store's deal label look. Only the edge takes a tag's own color, and it marks
+   the chips as ours beside Steam's labels. Uppercase is the label's look; the text stays as
+   written. */
 
 .tks-compact {
-  position: absolute;
-  /* Mirrors the store's corner flags: square, solid, 5px from the top and from the end edge */
-  inset-block-start: var(--tks-compact-inset-block);
-  inset-inline-end: var(--tks-compact-inset-inline);
-  z-index: var(--tks-z-badge);
   display: inline-flex;
   align-items: center;
-  block-size: var(--tks-compact-height);
-  max-inline-size: calc(100% - var(--tks-compact-inset-inline));
-  padding-inline: var(--tks-compact-pad-inline);
-  border: 1px solid var(--tks-compact-border);
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  padding: var(--tks-compact-pad-block) var(--tks-compact-pad-inline);
+  border: 1px solid var(--tks-tag-edge, var(--tks-compact-border));
+  border-radius: var(--tks-compact-radius);
   background: var(--tks-compact-bg);
   box-shadow: var(--tks-compact-shadow);
   color: var(--tks-compact-fg);
   font: var(--tks-compact-font);
   letter-spacing: normal;
-  text-transform: none;
+  text-transform: uppercase;
   white-space: nowrap;
   pointer-events: none; /* Default: clicks fall through to whatever is under the art */
 }
 
-/* Placed inside the capsule link: hovering it is hovering the link, so the hover card can
-   open without stealing clicks or hover previews. The chip takes the link's pointer state, so a
-   carousel slide the store hides from the pointer lets it through. */
-[data-tks-in-link="true"] > .tks-compact {
-  pointer-events: inherit;
-  cursor: pointer;
+.tks-compact[data-tks-size="large"] {
+  font: var(--tks-compact-font-lg);
 }
 
-.tks-compact[data-tks-size="large"] {
-  block-size: var(--tks-compact-height-lg);
-  padding-inline: var(--tks-compact-pad-inline-lg);
-  font: var(--tks-compact-font-lg);
+/* The "+N" chip, the one without a kind, stays whole; the kind chips before it give way */
+.tks-compact:not([data-tks-kind]) {
+  flex: none;
+}
+
+/* The group: one row at the inline-end corner, across from the store's deal labels at the start
+   corner. The row ends a gap short of the labels' far edge, which the app writes in
+   --tks-compact-reserve, or an inset short of the start edge. Past that its chips shrink. */
+.tks-chips[data-tks-chips="compact"] {
+  position: absolute;
+  inset-block-start: var(--tks-compact-inset-block);
+  inset-inline-end: var(--tks-compact-inset-inline);
+  z-index: var(--tks-z-badge);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tks-compact-gap);
+  min-inline-size: 0;
+  max-inline-size: calc(
+    100% - var(--tks-compact-inset-inline) -
+      max(
+      var(--tks-compact-inset-inline),
+      var(--tks-compact-reserve, 0px) + var(--tks-compact-gap)
+    )
+  );
+  pointer-events: none;
+}
+
+/* Hidden for the frame or two it takes to fold the chips that do not fit into "+N" */
+.tks-chips[data-tks-fit="pending"] {
+  visibility: hidden;
+}
+
+/* Inside the capsule link: hovering a chip is hovering the link, and the hover card opens. The
+   chips take the link's pointer state: a carousel slide hidden from the pointer lets it pass. */
+.tks-chips[data-tks-chips="compact"][data-tks-in-link="true"],
+.tks-chips[data-tks-in-link="true"] > .tks-compact {
+  pointer-events: inherit;
+}
+
+.tks-chips[data-tks-in-link="true"] > .tks-compact {
+  cursor: pointer;
 }
 
 /* Tag section: under the store's user-defined tags on the app page. The label is small and muted

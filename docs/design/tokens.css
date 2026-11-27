@@ -67,7 +67,7 @@
 
   /* Accent (ours) */
 
-  /* Compact badge text, 12.65:1 on accent 900. */
+  /* Text of the chips in the store's classic hover card, 12.65:1 on accent 900. */
   --tks-accent-100: #e4dcff;
   /* Full badge text: on its tint 8.19:1 over a row, 7.46:1 over the page, 5.21:1 over the store's
      row hover. Links on the store's row hover. */
@@ -87,8 +87,7 @@
   --tks-accent-700: #46318f;
   /* The banner wash's dark stop at 80%. */
   --tks-accent-800: #2c2160;
-  /* The compact badge's solid surface, so its text never depends on the art: 16.63:1 against white
-     art, 4.21:1 against mid grey, 3.34:1 against violet. */
+  /* The solid surface of the chips in the store's classic hover card, a light ground. */
   --tks-accent-900: #1f1840;
 
   /* A tag's custom color (experimental) */
@@ -103,9 +102,9 @@
   --tks-kind-mix-tint: 20%;
   /* Full badge text and hover card title: the color over white (accent 200). */
   --tks-kind-mix-text: 37%;
-  /* Compact badge text: the color over white (accent 100). */
+  /* Classic hover card chip text: the color over white (accent 100). */
   --tks-kind-mix-light: 24%;
-  /* Compact badge surface: the color over black (accent 900). */
+  /* Classic hover card chip surface: the color over black (accent 900). */
   --tks-kind-mix-solid: 22%;
   /* Banner wash, dark stop: the color over black (accent 800). */
   --tks-kind-mix-wash-start: 31%;
@@ -127,16 +126,22 @@
   /* Full badge tint: accent 400 at 20%, the store's tag-chip recipe in our hue. No border, like the
      store's chips. */
   --tks-badge-bg: rgba(143, 115, 243, 0.2);
+  /* Full badge in the store's classic hover card, a light ground: a solid surface, 11.1:1 against
+     the card. */
+  --tks-badge-solid-bg: var(--tks-accent-900);
+  /* Its label, 12.65:1 on that surface. */
+  --tks-badge-solid-fg: var(--tks-accent-100);
 
   /* Compact badge */
 
-  /* Compact badge surface: solid, like the store's corner flags, but dark. With the edge, every art
-     case has a boundary at 3:1 or more; against black art (1.26:1) the edge carries it. */
-  --tks-compact-bg: var(--tks-accent-900);
-  /* Compact badge label, 12.65:1 on its surface whatever the art. */
-  --tks-compact-fg: var(--tks-accent-100);
-  /* Compact badge edge: 5.91:1 against black art, 3.55:1 against white. On mid grey (1.11:1) and
-     violet art the surface carries the boundary instead. */
+  /* Compact badge surface: the fill of the store's deal labels on capsules, sampled 2026-11-27.
+     Over white art it stands 14.71:1, over mid grey 4.45:1, over violet 4.92:1; against black art
+     (1.06:1) the edge carries the boundary. */
+  --tks-compact-bg: rgba(9, 11, 15, 0.88);
+  /* Compact badge label, the store's white: 14.71:1 or more on the surface whatever the art. */
+  --tks-compact-fg: #ffffff;
+  /* Compact badge edge, the only part a tag's own color replaces: 5.91:1 against black art, 3.55:1
+     against white. */
   --tks-compact-border: var(--tks-accent-400);
 
   /* App page banner */
@@ -249,9 +254,8 @@
 
   /* Shadows */
 
-  /* Compact badge: an outer ring plus a soft drop that keeps the edge crisp over busy art. The
-     store's flags have none. */
-  --tks-compact-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.5);
+  /* Compact badge: the drop shadow of the store's deal labels. */
+  --tks-compact-shadow: 2px 1px 5px rgba(0, 0, 0, 0.35);
 
   /* Space */
 
@@ -273,20 +277,20 @@
   --tks-space-6: 32px;
   /* Full badge inline padding, as the store's tag chips. */
   --tks-badge-pad-inline: 7px;
-  /* Compact badge inline padding, text tier. */
-  --tks-compact-pad-inline: 5px;
+  /* Compact badge padding, both tiers: the store's deal labels. */
+  --tks-compact-pad-block: var(--tks-space-0);
+  --tks-compact-pad-inline: 6px;
   /* Banner button inline padding, as the store's outlined buttons. */
   --tks-banner-button-pad-inline: 15px;
   /* Banner button block padding, as the store's outlined buttons. */
   --tks-banner-button-pad-block: var(--tks-space-0);
-  /* Compact badge offset from the image's block-start edge: the store's corner flags sit 5px down.
-  */
-  --tks-compact-inset-block: 5px;
+  /* Compact badge offset from the image's block-start edge: the store's deal labels sit 6px in. */
+  --tks-compact-inset-block: 6px;
   /* Compact badge offset from the inline-end edge: equal to the block offset, so the badge sits the
      same distance from the top and the end edge. */
-  --tks-compact-inset-inline: 5px;
-  /* Compact badge inline padding, large tier. */
-  --tks-compact-pad-inline-lg: 7px;
+  --tks-compact-inset-inline: var(--tks-compact-inset-block);
+  /* Between compact chips, and between them and the store's deal labels: the labels' own gap. */
+  --tks-compact-gap: 5px;
   /* Gap between a control and its focus ring. */
   --tks-focus-offset: 2px;
 
@@ -296,6 +300,8 @@
   --tks-radius-xs: 1px;
   /* Full badge, banner button, buttons, segments, selects: the store's chip radius. */
   --tks-radius-sm: 2px;
+  /* Compact badge: the store's deal labels. */
+  --tks-compact-radius: 3px;
   /* Cards and the segmented control well on extension pages. */
   --tks-radius-md: 4px;
   /* The store's largest step. No use yet. */
@@ -311,10 +317,6 @@
   --tks-badge-max-inline-size: 180px;
   /* A row title keeps room for about this much before its chips wrap to a second line. */
   --tks-row-title-basis: 8em;
-  /* Compact badge block size, text tier: the store's corner-flag height. */
-  --tks-compact-height: 19px;
-  /* Compact badge block size, large tier. */
-  --tks-compact-height-lg: 22px;
   /* The store's standard control height. No use yet. */
   --tks-control-height: 36px;
   /* Minimum block size of buttons, selects, and segments on the full page. */
@@ -325,8 +327,9 @@
   --tks-color-input-inline-size: 9em;
   /* The chip text boxes of a tag: room for 32 characters of a short label. */
   --tks-chip-input-inline-size: 18em;
-  /* The compact chip of the settings preview: the narrowest store image less the two insets. */
-  --tks-chip-preview-compact-max: 174px;
+  /* The compact chip of the settings preview: the narrowest image with chips, 180px, less the two
+     insets. */
+  --tks-chip-preview-compact-max: calc(180px - 2 * var(--tks-compact-inset-inline));
   /* Options page column: the tab rail and the panels beside it. */
   --tks-options-max-width: 880px;
   /* Action popup width. */
@@ -340,10 +343,12 @@
 
   /* Font sizes */
 
-  /* Badges; the banner button, as the store's outlined buttons. */
+  /* Full badges; the banner button, as the store's outlined buttons. */
   --tks-size-xs: 11px;
   /* Help, dates, the allow-listed note, the hidden results notice, the large compact badge. */
   --tks-size-sm: 12px;
+  /* Compact badge, text tier: the store's deal labels, 10px to 12px with the window width. */
+  --tks-size-compact: clamp(10px, 0.85vw, 12px);
   /* Body copy on extension pages; banner source and service lines. */
   --tks-size-md: 13px;
   /* Banner notes: the store's description size. */
@@ -357,8 +362,10 @@
 
   /* Line heights */
 
-  /* Pairs with tks-size-xs: the banner button. Badges set their own 18px and 16px. */
+  /* Pairs with tks-size-xs: the banner button. Full badges set their own 19px. */
   --tks-leading-xs: 14px;
+  /* Both compact tiers, as the store's deal labels: 12.5px to 15px, so a chip is 18.5px to 21px. */
+  --tks-leading-compact: 1.25;
   /* Pairs with tks-size-sm. */
   --tks-leading-sm: 16px;
   /* Pairs with tks-size-md. */
@@ -425,8 +432,10 @@
   --tks-badge-font: var(--tks-weight-regular) var(--tks-size-xs) / 19px var(--tks-font-page);
   --tks-badge-radius: var(--tks-radius-sm);
 
-  --tks-compact-font: var(--tks-weight-medium) var(--tks-size-xs) / 17px var(--tks-font-page);
-  --tks-compact-font-lg: var(--tks-weight-medium) var(--tks-size-sm) / 20px var(--tks-font-page);
+  --tks-compact-font: var(--tks-weight-medium) var(--tks-size-compact) / var(--tks-leading-compact)
+    var(--tks-font-page);
+  --tks-compact-font-lg: var(--tks-weight-medium) var(--tks-size-sm) / var(--tks-leading-compact)
+    var(--tks-font-page);
 
   /* The store's DLC bubble recipe: 135 degrees, stops at 10% and 100% */
   --tks-banner-bg: linear-gradient(

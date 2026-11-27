@@ -6,7 +6,8 @@ export type CompactSize = "text" | "large";
 
 /**
  * Where a host's badge goes. The placement picks the anchor and the position; for a compact badge
- * the scanner measures the image box in its batched read and passes the tier.
+ * the scanner measures the image box in its batched read and passes the tier, the box's width and
+ * how far the store's deal labels reach into it.
  */
 export type BadgeSlot =
   | { readonly kind: "full"; readonly anchor: Element; readonly position: InsertPosition; }
@@ -15,6 +16,10 @@ export type BadgeSlot =
     readonly anchor: Element;
     readonly position: InsertPosition;
     readonly size: CompactSize;
+    /** The image box's inline size, whole pixels. A new width alone keeps a drawn group. */
+    readonly width: number;
+    /** Whole pixels from the box's inline-start edge to the far edge of the store's labels. */
+    readonly reserve: number;
   };
 
 /** What the renderers need to know about one capsule host. */
