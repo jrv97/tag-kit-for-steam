@@ -1,0 +1,94 @@
+---
+status: accepted
+date: 2026-11-27
+decision-makers: Jorge Rodriguez de la Vega
+---
+
+# Fold capsule chips into "+N" beside the store's deal labels
+
+## Context and problem statement
+
+In November 2026 the store's sale pages started to mark capsules with deal labels: "First-Time Discount", "Hot Deal", "Last Chance Deal", "90% Off or More", "Top Seller" and "Highly Rated". Each is a `span` in `.CapsuleDecorators.HasReasonBanner`, at the image's top-left, 6px in. Its own classes are hashed. Measured on the specials page on 2026-11-27, a label has a dark translucent fill (`rgba(9, 11, 15, 0.88)`), white uppercase Motiva Sans at weight 500, a 1px border in the label's color, a 3px radius, `2px 6px` padding and a soft shadow. Its text follows `clamp(10px, 0.85vw, 12px)` with a line height of 1.25, which gives 18.5px of height at 10px and 21px at 12px.
+
+The compact chips sit on the same images, top-right, in a look of their own. They now take the labels' look, with the kind's color on the border only, in one row at the top-right, 6px in and 5px apart. Both sides grow with their text. At a 1024px window a tile is 280px wide, and "First-Time Discount" alone takes 120px of it. Long chip text runs into the label: "No Family Sharing" beside "Early Access" does, and the same chips in Spanish do too. React also adds a label after the capsule mounts, and a tile changes width with the window.
+
+How should the chips keep clear of the labels?
+
+## Decision drivers
+
+- The native look: our chips read as the same family of marks as Steam's labels, and only their border color sets them apart.
+- Rule 4: chip text and accessible names stay as the catalog or the person wrote them. Uppercase is a CSS `text-transform`.
+- Rule 13: no polling, DOM reads batched before writes, no forced synchronous layout, no listener per node.
+- Rule 11: the label selector is placement data, and the scanner stays as it is.
+
+## Considered options
+
+1. One row at the top-right whose width CSS caps at the labels' reach, with a fit check in the next frame that folds a cut chip into the "+N" chip (chosen).
+2. A column at the left, under the labels.
+3. A column at the right.
+4. Measure each chip's text with a canvas `measureText` before drawing.
+5. Measure each group right after inserting it, in the same frame.
+
+## Decision outcome
+
+Chosen option 1.
+
+- `STORE_LABELS` in `scan/placements.ts` names the labels by their container: `.CapsuleDecorators.HasReasonBanner > span`.
+- `slotOf` in `ui/capsules.ts` reads the labels in the read phase it runs today. `reserveOf` keeps each label that has a width, overlaps the image box and sits in the host's own store layer, and takes the farthest reach from the image's inline start, in whole pixels. The image's `direction` sets which edge is the start. The slot carries the reach as `reserve`, beside the image's width.
+- The badge renderer writes the reach as `--tks-compact-reserve` on the chip group. CSS caps the group's `max-inline-size` at the image's width, less the inset and the reach plus the gap. Chips shrink inside that cap and show an ellipsis. Overflow runs toward the inline end and never reaches a label.
+- `framePhases` in `dom.ts` runs one pass per animation frame: every read queued for the frame, then every write those reads returned. `app.ts` hands one pass to the capsule UI and the badge renderer, so a fit check never reads after a draw has written in the same frame. A read or a write that throws goes to the logger, and the rest of the pass runs.
+- A group that shows a kind chip draws with `data-tks-fit="pending"`, which hides it, and queues its fit check in the next pass. The check reads first: a group is cut when one of its labels has a `scrollWidth` past its `clientWidth`. Then it writes: a cut group draws again with one kind chip fewer, folded into "+N", and waits for the next pass. The others lose the attribute and show. The "+N" chip never shrinks. A group settles within `OVERLAY_CHIPS` plus one frames. A group already in view stays until the group that replaces it passes its check, and leaves in that same write. It takes the new reach at once, which keeps it off a label that moved.
+- A new reach or a new size tier draws the group again from the allowance, `OVERLAY_CHIPS`. A new width alone keeps the group: a narrower image checks it again with `data-tks-fit="check"`, which leaves it in view while it folds, and a wider one draws again from the allowance only when the group had folded.
+- One `ResizeObserver` watches the images of compact hosts that show chips, and each host's label box, `.CapsuleDecorators` (`STORE_LABEL_BOX`), which sits on every sale capsule, empty and of no size until a label shows. It draws a host again when either box takes a layout width other than the last one read: a label that shows late, a font swap that widens one, a window resize. Widths come from `offsetWidth`, which leaves transforms out as the observer's border box does: a hover scale draws nothing. A box that loses its size, as in a hidden tab, keeps its chips until it has a size again. The watch drops a host's boxes when the host loses its chips or leaves the page. A host that leaves while its image has no size goes at the next size report or draw. A page restored from the back-forward cache draws its known hosts again, which watches their boxes again.
+- The look comes from `docs/design/tokens.css`: `--tks-compact-bg`, `--tks-compact-fg`, `--tks-compact-border` (accent-400, replaced by the kind's own color), `--tks-compact-font` with `--tks-size-compact` and `--tks-leading-compact`, `--tks-compact-shadow`, `--tks-compact-radius`, the insets and the gap. The large tier, an image of 400 by 150 or more, takes 12px text.
+- The classic hover card's chips keep their solid light-ground look through `--tks-badge-solid-bg` and `--tks-badge-solid-fg`. They read the compact tokens before.
+
+### Library check (rule 12)
+
+Nothing adopted. Libraries that fit text to a box (fitty, textFit) scale the font, and the chips keep the labels' size. Overflow menus in the "priority plus" pattern add a menu and listeners per element. `ResizeObserver`, `scrollWidth`, `clientWidth` and a CSS custom property cover the need.
+
+### Consequences
+
+- Good: on the specials page our chips and Steam's labels share font size, line height and height at 1024, 1280 and 1920px windows, with the same 6px inset and a 5px gap.
+- Good: no chip reaches a label, in English or in Spanish, and a resize shows the chips that fit at the new width.
+- Good: the fit check reads every pending group before it writes, in the same pass as the capsule UI's reads, and the page keeps one observer for all images.
+- Neutral: the text size follows Steam's labels in pixels. Page zoom scales chips and labels alike, and a browser's default font size changes neither.
+- Good: a label that shows late or changes width draws its host again in the frame after the observer reports it.
+- Bad: a new group with a kind chip stays hidden for one frame, and for one more frame per fold. A group in view stays in view while the group that replaces it folds, and the page holds both for those frames.
+- Bad: a label on a capsule without a label box reaches the chips only through the scanner's change path, up to a second later.
+- Bad: when the room left is narrower than the "+N" chip, that chip runs past the image's inline end.
+- Bad: the bundles grow. `content.js` measures 262,943 bytes, 7,062 more than before, and the userscript 456,768. The budgets in `scripts/check_bundle.py` rise to 262 KiB and 456 KiB, the measured sizes plus 2.0 and 2.2 percent.
+
+### Confirmation
+
+`badge.test.ts` draws a compact group hidden until its frame, then folds it with room for two, one and no kind chips. It checks what a narrower image, a wider one and a new reach draw, that the group carries `--tks-compact-reserve`, and that chips in view stay until their replacement passes its check. `capsules.test.ts` reads the reach of a label on a left-to-right and a right-to-left image, ignores one below or beside it, and draws a compact host again at each new width until the host leaves and when its label shows late or grows. It keeps a hidden tab's chips, draws them again on a return, and lets go of a host that left while hidden. `dom.test.ts` checks that a pass runs its reads before their writes and goes on past one that throws. `styles.test.ts` pins the uppercase label, the hidden pending group and the terms of the cap.
+
+On 2026-11-27 the dev bundle ran on the specials page at 1024, 1280 and 1920px windows, in English and Spanish. Chips and labels measured 10px text and 18.5px height, 10.88px and 19.59px, and 12px and 21px. Every row sat 6px in with 5px gaps, and no chip reached a label or showed an ellipsis. With Early Access and Family Sharing first in the tag order, a First-Time Discount tile at 280px folded into "+3". At 1920px the same tiles in Spanish showed the Family Sharing chip, "IA" and "+3".
+
+## Pros and cons of the options
+
+### 1. A capped row with a fit check in the next frame (chosen)
+
+- Good: the chips keep the place and the reading order they had.
+- Good: CSS keeps the chips off the labels from the first frame, and the fit check only picks how many to show.
+- Bad: one hidden frame per draw, and one more per fold.
+
+### 2. A column at the left, under the labels
+
+- Good: no chip shares a line with a label.
+- Bad: the chips cover more of the capsule art, and their place changes with the label's presence.
+
+### 3. A column at the right
+
+- Good: the chips keep the right edge and never meet a label on a short row.
+- Bad: each chip takes a line of the art, which covers more of it than a row.
+
+### 4. Canvas `measureText`
+
+- Good: it decides the count before drawing, with no hidden frame.
+- Bad: it measures text without the chip's padding, border, `text-transform` and the font's loading state, and duplicates layout the browser does.
+
+### 5. Measure in the same frame
+
+- Good: no hidden frame.
+- Bad: each read after an insert forces a layout, once per host, which rule 13 rules out.

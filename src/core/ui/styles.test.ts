@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { KIND_IDS } from "../kinds/id";
 import { PLACEMENTS } from "../scan/placements";
+import { RESERVE_PROPERTY } from "./badge";
 import { REVEAL_ATTRIBUTE } from "./hidden-notice";
 import { colorProperty } from "./kind-attributes";
 import { adoptStyles, BANNER_CSS, DIALOG_CSS, PAGE_CSS, SETTINGS_CSS, TOKENS_CSS } from "./styles";
@@ -13,8 +14,8 @@ function declared(css: string): ReadonlySet<string | undefined> {
 }
 
 const DEFINED = declared(TOKENS_CSS);
-/** What the app writes on the root element, so no stylesheet declares it. */
-const WRITTEN = new Set(KIND_IDS.map(colorProperty));
+/** What the app writes on elements (a tag's color on the root), so no stylesheet declares it. */
+const WRITTEN = new Set([...KIND_IDS.map(colorProperty), RESERVE_PROPERTY]);
 
 describe("generated stylesheets", () => {
   // A name is defined by tokens.css, by the app (a tag's color) or by the sheet itself (the shades
@@ -210,10 +211,14 @@ describe("the tag color rules", () => {
     expect(block(PAGE_CSS, ".tks-badge")).toContain(
       "color: var(--tks-tag-text, var(--tks-badge-fg))",
     );
+    // Only the compact chip's edge takes the color; its surface and text stay the store's.
     const compact = block(PAGE_CSS, ".tks-compact");
-    expect(compact).toContain("background: var(--tks-tag-solid, var(--tks-compact-bg))");
-    expect(compact).toContain("color: var(--tks-tag-light, var(--tks-compact-fg))");
+    expect(compact).toContain("background: var(--tks-compact-bg)");
+    expect(compact).toContain("color: var(--tks-compact-fg)");
     expect(compact).toContain("1px solid var(--tks-tag-edge, var(--tks-compact-border))");
+    const card = block(PAGE_CSS, "#global_hover .tks-badge");
+    expect(card).toContain("background: var(--tks-tag-solid, var(--tks-badge-solid-bg))");
+    expect(card).toContain("color: var(--tks-tag-light, var(--tks-badge-solid-fg))");
     expect(block(PAGE_CSS, ".tks-hovercard-title")).toContain(
       "color: var(--tks-tag-text, var(--tks-badge-fg))",
     );
@@ -267,6 +272,13 @@ describe("the page rule declarations", () => {
     [".tks-list-notice", "font: var(--tks-store-notice-font)"],
     [".tks-list-notice-button", "color: var(--tks-store-notice-fg)"],
     [".tks-list-notice-button", "text-decoration: underline"],
+    // A compact chip's visible label alone turns uppercase; its accessible name keeps its case.
+    [".tks-compact", "text-transform: none"],
+    [".tks-compact > .tks-compact-label", "text-transform: uppercase"],
+    ['.tks-compact[data-tks-size="large"]', "font: var(--tks-compact-font-lg)"],
+    // The "+N" chip stays whole, and a group waiting for its fit check stays out of sight.
+    [".tks-compact:not([data-tks-kind])", "flex: none"],
+    ['.tks-chips[data-tks-fit="pending"]', "visibility: hidden"],
   ])("%s has %s", (selector, declaration) => {
     expect(pageRule(selector)).toContain(declaration);
   });
@@ -281,16 +293,19 @@ describe("the chips on a narrow row", () => {
 
 describe("the compact badge placement", () => {
   const token = (name: string) => new RegExp(`${name}:\\s*([^;]+);`).exec(TOKENS_CSS)?.[1];
-  const group = PAGE_CSS.slice(PAGE_CSS.indexOf('.tks-chips[data-tks-chips="compact"] {'));
+  const group = pageRule('.tks-chips[data-tks-chips="compact"]').replace(/\s+/g, " ");
 
   it("sits the same distance from the top and the end edge", () => {
-    expect(token("--tks-compact-inset-inline")).toBe(token("--tks-compact-inset-block"));
+    expect(token("--tks-compact-inset-inline")).toBe("var(--tks-compact-inset-block)");
     expect(group).toContain("inset-block-start: var(--tks-compact-inset-block)");
     expect(group).toContain("inset-inline-end: var(--tks-compact-inset-inline)");
   });
 
-  it("keeps the group inside the image by subtracting the end inset once", () => {
-    expect(group).toContain("max-inline-size: calc(100% - var(--tks-compact-inset-inline))");
+  it("ends the group a gap short of the store's labels, or an inset short of the start", () => {
+    const limit = /max-inline-size:([^;]+);/.exec(group)?.[1];
+    expect(limit).toContain(`var(${RESERVE_PROPERTY}, 0px)`);
+    expect(limit).toContain("var(--tks-compact-gap)");
+    expect(limit).toContain("var(--tks-compact-inset-inline)");
   });
 
   // The home carousel stacks its hidden slides over the shown one, with no pointer on them.

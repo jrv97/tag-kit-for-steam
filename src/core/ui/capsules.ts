@@ -1,13 +1,15 @@
 import { failedForGood } from "../cache/ttl";
 import { createTransientRetry, type Delay } from "../detect/retry";
+import { animationFrame, type FramePhases, framePhases } from "../dom";
 import type { KindId } from "../kinds/id";
 import { KINDS, perKind } from "../kinds/registry";
 import { type KindVerdicts, recheckIds, type Relations, UNKNOWN_KINDS } from "../kinds/verdicts";
 import type { Logger } from "../log";
 import type { Detector } from "../ports";
 import type { LoadTracker, Recheck } from "../progress";
+import { sameLayer } from "../scan/layers";
 import { HOST_APPID } from "../scan/marks";
-import type { RowPlacement } from "../scan/placements";
+import { type RowPlacement, STORE_LABEL_BOX, STORE_LABELS } from "../scan/placements";
 import type { CapsuleHost, CapsuleRenderer, ScanBatch } from "../scan/renderer";
 import type { AppId } from "../types";
 import { compactSize } from "./badge";
@@ -23,7 +25,7 @@ const ANCHOR_MARK = "data-tks-anchor";
 /** Positions that already contain an absolutely placed badge. */
 const POSITIONED: ReadonlySet<string> = new Set(["relative", "absolute", "fixed", "sticky"]);
 
-/** Watches elements until they get a size; `ResizeObserver` fits it as is. */
+/** Watches elements for a change of size; `ResizeObserver` fits it as is. */
 export interface SizeWatch {
   observe(element: Element): void;
   unobserve(element: Element): void;
@@ -31,8 +33,14 @@ export interface SizeWatch {
   disconnect(): void;
 }
 
-/** Makes a size watch that reports elements whose box became non-empty. */
-type SizeWatchFactory = (onSized: (elements: readonly Element[]) => void) => SizeWatch;
+/** An element whose box changed size, with its new layout width in whole pixels: 0 with no box. */
+export interface Resized {
+  readonly element: Element;
+  readonly width: number;
+}
+
+/** Makes a size watch that reports elements whose box changed size, a removed one included. */
+type SizeWatchFactory = (onSized: (resized: readonly Resized[]) => void) => SizeWatch;
 
 /** One `ResizeObserver` for the page; a no-op where the document has no window. */
 function resizeWatch(doc: Document): SizeWatchFactory {
@@ -42,12 +50,50 @@ function resizeWatch(doc: Document): SizeWatchFactory {
       return { observe: () => undefined, unobserve: () => undefined, disconnect: () => undefined };
     }
     return new view.ResizeObserver((entries) => {
-      onSized(
-        entries.filter((entry) => entry.contentRect.width > 0 && entry.contentRect.height > 0)
-          .map((entry) => entry.target),
-      );
+      onSized(entries.map((entry) => ({
+        element: entry.target,
+        width: Math.round(entry.borderBoxSize[0]?.inlineSize ?? entry.contentRect.width),
+      })));
     });
   };
+}
+
+/**
+ * The element's layout size in whole pixels, transforms left out, as the size watch reports it. A
+ * hover scale changes neither.
+ */
+function layoutSize(element: Element, box: DOMRect): { width: number; height: number; } {
+  return element instanceof HTMLElement
+    ? { width: element.offsetWidth, height: element.offsetHeight }
+    : { width: Math.round(box.width), height: Math.round(box.height) };
+}
+
+/** The host's own box for the store's deal labels, outside any store layer inside the host. */
+function labelBoxOf(host: Element): Element | undefined {
+  for (const labels of host.querySelectorAll(STORE_LABEL_BOX)) {
+    if (sameLayer(labels, host)) {
+      return labels;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Whole pixels from the image box's inline-start edge to the far edge of the store's deal labels
+ * on it, or 0 with none. The compact chips end a gap short of that edge. A label inside a store
+ * layer of the host, as in a hover card, does not count.
+ */
+function reserveOf(host: Element, box: DOMRect, rtl: boolean): number {
+  let reserve = 0;
+  for (const label of host.querySelectorAll(STORE_LABELS)) {
+    const edge = label.getBoundingClientRect();
+    const overlaps = edge.width > 0 && edge.bottom > box.top && edge.top < box.bottom
+      && edge.right > box.left && edge.left < box.right;
+    if (overlaps && sameLayer(label, host)) {
+      reserve = Math.max(reserve, rtl ? box.right - edge.left : edge.right - box.left);
+    }
+  }
+  return Math.ceil(reserve);
 }
 
 export interface CapsuleUiOptions {
@@ -61,9 +107,12 @@ export interface CapsuleUiOptions {
   readonly isBadged: (kind: KindId) => boolean;
   /** What the renderers draw of an app's verdicts now (`taggedView`); the verdicts by default. */
   readonly tagged?: (verdicts: KindVerdicts) => KindVerdicts;
-  /** Schedules a read-then-write pass; `requestAnimationFrame` by default. */
-  readonly frame?: (callback: () => void) => void;
-  /** Watches image boxes that had no size when drawn; one `ResizeObserver` by default. */
+  /**
+   * Runs the reads, then the writes, of a frame; one per `requestAnimationFrame` by default. The
+   * badge renderer shares it, which keeps its fit check's reads before any write.
+   */
+  readonly frame?: FramePhases;
+  /** Watches the image boxes of compact badges for a new size; one `ResizeObserver` by default. */
   readonly watchSize?: SizeWatchFactory;
   /** Waits out a retry round after a transient answer; `setTimeout` by default. */
   readonly delay?: Delay;
@@ -104,6 +153,12 @@ interface HostRecord {
   readonly badged: Record<KindId, boolean>;
   /** A lookup in flight or a retry round will answer for the game again. */
   pending: boolean;
+  /** The layout width of a compact badge's image box at its last read, in whole pixels. */
+  width: number;
+  /** The box of the store's deal labels on the image, in the size watch beside the image. */
+  labels: Element | undefined;
+  /** The layout width of `labels` at its last read, in whole pixels. */
+  labelsWidth: number;
 }
 
 const NOT_ALLOWED: Readonly<Record<KindId, boolean>> = perKind(() => false);
@@ -119,38 +174,43 @@ interface Draw {
   readonly markAnchor: boolean;
 }
 
-/** Where a host's badge goes; `unsized` when its image box had no size to measure. */
+/** Where a host's badge goes, and the widths of a compact badge's image box and label box. */
 interface SlotRead {
   readonly slot: BadgeSlot | undefined;
   readonly markAnchor: boolean;
-  readonly unsized: boolean;
+  readonly width: number;
+  readonly labels: Element | undefined;
+  readonly labelsWidth: number;
 }
 
-const NO_SLOT: SlotRead = { slot: undefined, markAnchor: false, unsized: false };
+const NO_SLOT: SlotRead = {
+  slot: undefined,
+  markAnchor: false,
+  width: 0,
+  labels: undefined,
+  labelsWidth: 0,
+};
 
 /**
  * The adapter between the scanner and the renderers. Found hosts are detected in one call per
  * scan batch (the detector batches and caches) and drawn as each part of its answer lands;
  * changed hosts are drawn again from their known verdicts. Drawing reads every image box first
  * and writes after, in one frame per pass. Records live in a `WeakMap` keyed by host, and a
- * refresh walks the marked hosts in the page, so no host outlives its element. An image box with
- * no size waits in one shared size watch until a compact badge fits. Showing a hidden tab changes
- * no node the scanner sees, and tabs fade in.
+ * refresh walks the marked hosts in the page, so no host outlives its element. The image box and
+ * the deal label box of every host with a compact badge to show sit in one shared size watch,
+ * which draws the host again when either takes a new width: a window resize, a box that had no
+ * size, or a store label that shows late or resizes. A box that loses its size, as in a hidden
+ * tab, keeps what it shows. Showing a hidden tab changes no node the scanner sees.
  */
 export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
   const { document: doc, detector, renderers, isAllowed, isBadged, progress, logger } = options;
   const tagged = options.tagged ?? ((verdicts: KindVerdicts) => verdicts);
-  const frame = options.frame ?? ((callback: () => void) => {
-    const view = doc.defaultView;
-    if (view === null) {
-      callback();
-    } else {
-      view.requestAnimationFrame(callback);
-    }
-  });
+  const frame = options.frame ?? framePhases(animationFrame(doc));
   const records = new WeakMap<Element, HostRecord>();
-  /** Image boxes waiting for a size that fits a compact badge, with the host to draw again. */
-  let unsized = new WeakMap<Element, HostRecord>();
+  /** Image and label boxes of compact badges in the size watch, with the host to draw again. */
+  let watched = new WeakMap<Element, HostRecord>();
+  /** Watched hosts whose image had no size at its last read; `sweep` lets go of removed ones. */
+  let unsized = new Set<HostRecord>();
   const watchSize = options.watchSize ?? resizeWatch(doc);
   let sizeWatch: SizeWatch | undefined;
   let queued = new Set<HostRecord>();
@@ -179,52 +239,99 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
     const { placement, anchor } = host;
     if (placement.badge === "full") {
       return {
+        ...NO_SLOT,
         slot: { kind: "full", anchor, position: ROW_POSITION[placement.slot] },
-        markAnchor: false,
-        unsized: false,
       };
     }
     const box = anchor.getBoundingClientRect();
-    if (box.width === 0 || box.height === 0) {
-      return { ...NO_SLOT, unsized: true };
-    }
-    const size = compactSize(box.width, box.height);
+    const { width, height } = layoutSize(anchor, box);
+    const size = compactSize(width, height);
     if (size === undefined) {
-      return NO_SLOT;
+      return { ...NO_SLOT, width };
     }
-    const position = doc.defaultView?.getComputedStyle(anchor).position ?? "";
-    const markAnchor = !anchor.hasAttribute(ANCHOR_MARK) && !POSITIONED.has(position);
+    const style = doc.defaultView?.getComputedStyle(anchor);
+    const markAnchor = !anchor.hasAttribute(ANCHOR_MARK) && !POSITIONED.has(style?.position ?? "");
+    const reserve = reserveOf(host.element, box, style?.direction === "rtl");
+    const labels = labelBoxOf(host.element);
     return {
-      slot: { kind: "compact", anchor, position: "beforeend", size },
+      slot: { kind: "compact", anchor, position: "beforeend", size, width, reserve },
       markAnchor,
-      unsized: false,
+      width,
+      labels,
+      labelsWidth: labels === undefined
+        ? 0
+        : layoutSize(labels, labels.getBoundingClientRect()).width,
     };
   }
 
-  /** Draws a watched host again when its image box resizes, while that box is still its anchor. */
-  function onSized(elements: readonly Element[]): void {
-    for (const element of elements) {
-      const record = unsized.get(element);
-      if (record?.host.anchor === element) {
-        queue(record);
-      } else {
+  /**
+   * Draws a watched host again when its image box or its label box takes a new width, while both
+   * are still the host's. A label the store adds late or a font that swaps in changes the label
+   * box's width.
+   */
+  function onSized(resized: readonly Resized[]): void {
+    sweep();
+    for (const { element, width } of resized) {
+      const record = watched.get(element);
+      if (record === undefined || (element !== record.host.anchor && element !== record.labels)) {
         unwatch(element);
+      } else if (!record.host.anchor.isConnected) {
+        unsized.delete(record);
+        unwatchHost(record);
+      } else if (!element.isConnected) {
+        // The label box left a host that stays; the next draw watches the one that took its place.
+        unwatch(element);
+        queue(record);
+      } else if (width !== (element === record.labels ? record.labelsWidth : record.width)) {
+        queue(record);
       }
     }
   }
 
-  function watch(record: HostRecord): void {
-    const { anchor } = record.host;
-    if (!unsized.has(anchor)) {
+  function observe(element: Element, record: HostRecord): void {
+    if (!watched.has(element)) {
       sizeWatch ??= watchSize(onSized);
-      unsized.set(anchor, record);
-      sizeWatch.observe(anchor);
+      sizeWatch.observe(element);
+    }
+    watched.set(element, record);
+  }
+
+  /** Watches the host's image box and `labels`, its label box when it has one. */
+  function watch(record: HostRecord, labels: Element | undefined): void {
+    observe(record.host.anchor, record);
+    if (record.labels !== undefined && record.labels !== labels) {
+      unwatch(record.labels);
+    }
+    record.labels = labels;
+    if (labels !== undefined) {
+      observe(labels, record);
     }
   }
 
-  function unwatch(anchor: Element): void {
-    if (unsized.delete(anchor)) {
-      sizeWatch?.unobserve(anchor);
+  function unwatch(element: Element): void {
+    if (watched.delete(element)) {
+      sizeWatch?.unobserve(element);
+    }
+  }
+
+  function unwatchHost(record: HostRecord): void {
+    unwatch(record.host.anchor);
+    if (record.labels !== undefined) {
+      unwatch(record.labels);
+      record.labels = undefined;
+    }
+  }
+
+  /**
+   * Lets go of the boxes of hosts that left the page while their image had no size. The size
+   * watch reports no such removal.
+   */
+  function sweep(): void {
+    for (const record of unsized) {
+      if (!record.host.anchor.isConnected) {
+        unsized.delete(record);
+        unwatchHost(record);
+      }
     }
   }
 
@@ -236,17 +343,24 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
     giveUp(retry.cancel());
     sizeWatch?.disconnect();
     sizeWatch = undefined;
-    unsized = new WeakMap();
+    watched = new WeakMap();
+    unsized = new Set();
   }
 
-  function drawQueued(): void {
+  /** Reads the queued hosts' image boxes, and returns the write that draws them. */
+  function drawQueued(): () => void {
+    sweep();
     const batch = queued;
     queued = new Set();
     const draws: Draw[] = [];
-    // Read phase: image boxes and computed positions, only for hosts that will show a badge.
     for (const record of batch) {
       const { host, allowed, badged } = record;
-      if (record.verdicts === undefined || !host.element.isConnected) {
+      if (!host.element.isConnected) {
+        unsized.delete(record);
+        unwatchHost(record);
+        continue;
+      }
+      if (record.verdicts === undefined) {
         continue;
       }
       const verdicts = tagged(record.verdicts);
@@ -257,33 +371,46 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
         shows ||= verdicts[kind.id].state === "disclosed" && !allowed[kind.id]
           && badged[kind.id];
       }
-      const { slot, markAnchor, unsized: waits } = shows ? slotOf(host) : NO_SLOT;
-      if (waits) {
-        watch(record);
-      } else if (slot !== undefined) {
-        unwatch(slot.anchor);
+      const { slot, markAnchor, width, labels, labelsWidth } = shows ? slotOf(host) : NO_SLOT;
+      const compact = shows && host.placement.badge === "compact";
+      if (compact) {
+        watch(record, labels);
+      } else {
+        unwatchHost(record);
       }
-      draws.push({ record, verdicts, allowed, badged, slot, markAnchor });
-    }
-    // Write phase.
-    for (const { record, verdicts, allowed, badged, slot, markAnchor } of draws) {
-      if (markAnchor && slot !== undefined) {
-        slot.anchor.setAttribute(ANCHOR_MARK, "");
+      record.labelsWidth = labelsWidth;
+      if (compact && width === 0) {
+        unsized.add(record);
+      } else {
+        unsized.delete(record);
       }
-      const view = {
-        host: record.host.element,
-        verdicts,
-        allowed,
-        badged,
-        maxChips: record.host.placement.maxChips,
-        slot,
-        hideable: record.host.placement.hideable,
-        pending: record.pending,
-      };
-      for (const renderer of renderers) {
-        renderer.render(view);
+      // A box that lost its size, as in a hidden tab, keeps what it shows until it has one again.
+      const keeps = compact && width === 0 && record.width > 0;
+      record.width = width;
+      if (!keeps) {
+        draws.push({ record, verdicts, allowed, badged, slot, markAnchor });
       }
     }
+    return () => {
+      for (const { record, verdicts, allowed, badged, slot, markAnchor } of draws) {
+        if (markAnchor && slot !== undefined) {
+          slot.anchor.setAttribute(ANCHOR_MARK, "");
+        }
+        const view = {
+          host: record.host.element,
+          verdicts,
+          allowed,
+          badged,
+          maxChips: record.host.placement.maxChips,
+          slot,
+          hideable: record.host.placement.hideable,
+          pending: record.pending,
+        };
+        for (const renderer of renderers) {
+          renderer.render(view);
+        }
+      }
+    };
   }
 
   /** Whether the host shows one of `ids`, or a DLC or demo of one of them. */
@@ -307,10 +434,10 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
   }
 
   function queue(record: HostRecord): void {
-    if (queued.size === 0) {
-      frame(drawQueued);
-    }
     queued.add(record);
+    if (queued.size === 1) {
+      frame.read(drawQueued);
+    }
   }
 
   /**
@@ -361,7 +488,17 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
     }
   }
 
+  /** Watches the image boxes again after the page comes back from the back-forward cache. */
+  function onPageShow(event: PageTransitionEvent): void {
+    if (event.persisted) {
+      for (const record of knownRecords(() => true)) {
+        queue(record);
+      }
+    }
+  }
+
   doc.defaultView?.addEventListener("pagehide", disconnect);
+  doc.defaultView?.addEventListener("pageshow", onPageShow);
 
   return {
     render(batch: ScanBatch) {
@@ -382,6 +519,9 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
           allowed: { ...NOT_ALLOWED },
           badged: { ...ALL_BADGED },
           pending: false,
+          width: 0,
+          labels: undefined,
+          labelsWidth: 0,
         };
         records.set(host.element, record);
         found.push(record);
@@ -433,6 +573,7 @@ export function createCapsuleUi(options: CapsuleUiOptions): CapsuleUi {
     stop() {
       disconnect();
       doc.defaultView?.removeEventListener("pagehide", disconnect);
+      doc.defaultView?.removeEventListener("pageshow", onPageShow);
     },
   };
 }

@@ -44,6 +44,18 @@ export interface RowPlacement extends PlacementBase {
 
 export type Placement = OverlayPlacement | RowPlacement;
 
+/**
+ * The box the store draws its deal labels in on a capsule image. It sits on every capsule of a
+ * sale grid, empty and of no size until a label shows.
+ */
+export const STORE_LABEL_BOX = ".CapsuleDecorators";
+
+/**
+ * The store's deal labels on a capsule image ("Hot Deal", "First-Time Discount"), which compact
+ * chips keep clear of. Their own classes are hashed; their container's are not.
+ */
+export const STORE_LABELS = `${STORE_LABEL_BOX}.HasReasonBanner > span`;
+
 /** The box of the host's first capsule image. */
 const capsuleImage: AnchorRule = (host) => {
   const image = firstImage(host);

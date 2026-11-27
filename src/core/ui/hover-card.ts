@@ -1,4 +1,4 @@
-import { detach } from "../dom";
+import { animationFrame, detach } from "../dom";
 import { dateFormat } from "../i18n/date-format";
 import type { BareMessageKey } from "../i18n/t";
 import { KIND_BY_ID } from "../kinds/registry";
@@ -180,13 +180,7 @@ export function createHoverCard(
     };
   });
   const overflows = options.overflows ?? defaultOverflows;
-  const frame = options.frame ?? ((callback: () => void) => {
-    if (view === null) {
-      callback();
-    } else {
-      view.requestAnimationFrame(callback);
-    }
-  });
+  const frame = options.frame ?? animationFrame(doc);
   const bindings = new WeakMap<Element, Binding>();
 
   let card: Card | undefined;

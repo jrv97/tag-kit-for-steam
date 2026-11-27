@@ -71,6 +71,9 @@ export function searchRow(id: number): HTMLElement {
   return row;
 }
 
+/** The store's deal label block on a capsule image, as the specials page draws it, with no text. */
+export const STORE_LABEL = `<div class="CapsuleDecorators HasReasonBanner"><span></span></div>`;
+
 /** A React sale grid of captured tag hub capsules, one for each app in `ids`. */
 export function capsuleGrid(ids: readonly AppId[]): string {
   const page = new DOMParser().parseFromString(tagHub, "text/html");

@@ -11,6 +11,7 @@ import { createFullGameDetector } from "./detect/full-game";
 import { createGetItemsDetector } from "./detect/getitems";
 import { timeout } from "./detect/retry";
 import { createThrottledHttp } from "./detect/throttle";
+import { animationFrame, framePhases } from "./dom";
 import type { Catalogs } from "./i18n/catalog";
 import {
   DEFAULT_STEAM_LANGUAGE,
@@ -196,14 +197,19 @@ export async function start(deps: AppDeps): Promise<App> {
   const order = () => kindsInOrder(settings.order);
   // A new object only when a chip text changed, which tells the chips to draw again
   let words: ChipWords = settings.kinds;
+  // One read-then-write pass per frame, so the chips' fit check reads before the draws write
+  const frame = framePhases(animationFrame(doc), (problem) => {
+    logger.error(problem);
+  });
   const capsules = createCapsuleUi({
     document: doc,
     detector: detectors.detector,
     renderers: [
       createHostKindsRenderer(),
-      createBadgeRenderer(doc, i18n, card, order, () => words),
+      createBadgeRenderer(doc, i18n, card, { order, words: () => words, frame }),
       createPackageSummary(doc, i18n, order),
     ],
+    frame,
     isAllowed: (id, forKind, related) => isIgnored(ignored, id, forKind, related),
     isBadged: (forKind) => effectiveSettings(settings.kinds[forKind]).badge,
     tagged: (verdicts) => taggedView(verdicts, settings.kinds),

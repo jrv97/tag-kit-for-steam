@@ -35,19 +35,20 @@
   white-space: nowrap;
 }
 
-/* Compact badge: the store's corner flag look */
+/* Compact badge: the store's deal label look. Only the edge takes a tag's own color, so the chips
+   read as ours beside Steam's labels. */
 
 .tks-compact {
   display: inline-flex;
   align-items: center;
   flex: 0 1 auto;
-  block-size: var(--tks-compact-height);
   min-inline-size: 0;
-  padding-inline: var(--tks-compact-pad-inline);
+  padding: var(--tks-compact-pad-block) var(--tks-compact-pad-inline);
   border: 1px solid var(--tks-tag-edge, var(--tks-compact-border));
-  background: var(--tks-tag-solid, var(--tks-compact-bg));
+  border-radius: var(--tks-compact-radius);
+  background: var(--tks-compact-bg);
   box-shadow: var(--tks-compact-shadow);
-  color: var(--tks-tag-light, var(--tks-compact-fg));
+  color: var(--tks-compact-fg);
   font: var(--tks-compact-font);
   letter-spacing: normal;
   text-transform: none;
@@ -55,8 +56,16 @@
   pointer-events: none;
 }
 
+/* Uppercase is the visible label's look. The accessible name keeps the text as written. */
+.tks-compact > .tks-compact-label {
+  text-transform: uppercase;
+}
+
 .tks-compact[data-tks-size="large"] {
-  block-size: var(--tks-compact-height-lg);
-  padding-inline: var(--tks-compact-pad-inline-lg);
   font: var(--tks-compact-font-lg);
+}
+
+/* The "+N" chip, the one without a kind, stays whole; the kind chips before it give way */
+.tks-compact:not([data-tks-kind]) {
+  flex: none;
 }

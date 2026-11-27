@@ -2,18 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 import { setBody } from "../../../tests/helpers/dom";
 import { make } from "../../../tests/helpers/factory";
 import { fake } from "../../../tests/helpers/fakes";
+import { pageTransition } from "../../../tests/helpers/surfaces";
 import { createGetItemsDetector, DEFAULT_BATCH_LIMITS } from "../detect/getitems";
 import { MAX_RETRIES } from "../detect/retry";
+import { framePhases } from "../dom";
 import { isIgnored } from "../ignored";
 import type { AiVerdict } from "../kinds/ai";
 import { KIND_IDS, type KindId } from "../kinds/id";
 import { type KindVerdicts, type Relations, UNKNOWN_KINDS } from "../kinds/verdicts";
 import type { Detector } from "../ports";
 import { createLoadProgress } from "../progress";
-import { GENERIC, type Placement, type RowPlacement } from "../scan/placements";
+import { GENERIC, type Placement, type RowPlacement, STORE_LABELS } from "../scan/placements";
 import type { CapsuleHost } from "../scan/renderer";
 import type { AppId } from "../types";
-import { type CapsuleUi, createCapsuleUi, type SizeWatch } from "./capsules";
+import { type CapsuleUi, createCapsuleUi, type Resized, type SizeWatch } from "./capsules";
 import type { HostView } from "./host";
 
 const ROW: RowPlacement = {
@@ -26,11 +28,9 @@ const ROW: RowPlacement = {
   anchor: (host) => host.firstElementChild ?? undefined,
 };
 
-/** Image boxes: none yet, too small for a badge, too narrow, and one for the text tier. */
-const NO_SIZE = new DOMRect(0, 0, 0, 0);
-const SMALL = new DOMRect(0, 0, 120, 45);
-const NARROW = new DOMRect(0, 0, 1, 75);
-const TEXT_TIER = new DOMRect(0, 0, 231, 87);
+const NO_SIZE = make.box("none");
+const SMALL = make.box("small");
+const TEXT_TIER = make.box("textTier");
 
 interface SetupOptions {
   readonly allowed?: ReadonlySet<AppId>;
@@ -66,7 +66,7 @@ function setup(
   const frames: (() => void)[] = [];
   const watched = new Set<Element>();
   let disconnects = 0;
-  let reportSized: (elements: readonly Element[]) => void = () => undefined;
+  let reportSized: (resized: readonly Resized[]) => void = () => undefined;
   const ui = createCapsuleUi({
     document,
     detector,
@@ -76,7 +76,7 @@ function setup(
     }],
     isAllowed,
     isBadged: (kind) => !unbadged.has(kind),
-    frame: (callback) => frames.push(callback),
+    frame: framePhases((callback) => frames.push(callback)),
     logger: fake.logger().logger,
     watchSize: (onSized): SizeWatch => {
       reportSized = onSized;
@@ -97,8 +97,9 @@ function setup(
       callback();
     }
   };
-  const sized = (elements: readonly Element[]) => {
-    reportSized(elements);
+  /** Reports a new box for `element`, as the size watch does. */
+  const sized = (element: Element, box: DOMRect) => {
+    reportSized([{ element, width: box.width }]);
   };
   return { ui, detect, views, flush, watched, sized, disconnects: () => disconnects };
 }
@@ -124,15 +125,44 @@ function viewAt(views: readonly HostView[], index: number): HostView {
   return view;
 }
 
-/** A host whose image box measures `size`, for compact badges. */
+/** Gives `element` the box `rect`, for its layout size and its place in the viewport. */
+function measure(element: Element, rect: DOMRect): void {
+  vi.spyOn(element, "getBoundingClientRect").mockReturnValue(rect);
+  Object.defineProperties(element, {
+    offsetWidth: { configurable: true, get: () => Math.round(rect.width) },
+    offsetHeight: { configurable: true, get: () => Math.round(rect.height) },
+  });
+}
+
+/** A host whose image box measures `size`, for compact badges, and a way to resize that box. */
 function imageHost(id: AppId, size: DOMRect) {
   const found = host(id, {
     ...GENERIC,
     anchor: (element) => element.querySelector(".art") ?? undefined,
   });
-  const box = vi.spyOn(found.anchor, "getBoundingClientRect");
-  box.mockReturnValue(size);
-  return { found, box };
+  measure(found.anchor, size);
+  return {
+    found,
+    resize: (rect: DOMRect) => {
+      measure(found.anchor, rect);
+    },
+  };
+}
+
+/** Puts a store deal label with the box `rect` in the host, and a way to resize it. */
+function labelOn(found: CapsuleHost, rect: DOMRect) {
+  found.element.insertAdjacentHTML("beforeend", make.page.storeLabel);
+  const label = found.element.querySelector(STORE_LABELS);
+  const labels = label?.parentElement;
+  if (label === null || labels === null || labels === undefined) {
+    throw new TypeError();
+  }
+  const resize = (next: DOMRect) => {
+    measure(labels, next);
+    measure(label, next);
+  };
+  resize(rect);
+  return { labels, resize };
 }
 
 describe("createCapsuleUi", () => {
@@ -206,9 +236,56 @@ describe("createCapsuleUi", () => {
       kind: "compact",
       size: "text",
       position: "beforeend",
+      width: TEXT_TIER.width,
+      reserve: 0,
     });
     expect(found.anchor.hasAttribute("data-tks-anchor")).toBe(true);
   });
+
+  const ON_IMAGE = make.box("labelOnImage");
+  const ON_IMAGE_END = make.box("labelOnImageEnd");
+  const WIDE = make.box("labelWide");
+
+  it.each([
+    ["on the image", ON_IMAGE, "ltr", Math.ceil(ON_IMAGE.right - TEXT_TIER.left)],
+    [
+      "on a right-to-left image",
+      ON_IMAGE_END,
+      "rtl",
+      Math.ceil(TEXT_TIER.right - ON_IMAGE_END.left),
+    ],
+    ["below it", make.box("labelBelow"), "ltr", 0],
+    ["beside it", make.box("labelBeside"), "ltr", 0],
+  ])("reserves the reach of a store label %s", async (_name, label, direction, reserve) => {
+    const id = make.appId();
+    const { ui, views, flush } = setup(new Map([[id, AI]]));
+    const { found } = imageHost(id, TEXT_TIER);
+    found.anchor.setAttribute("style", `direction: ${direction}`);
+    labelOn(found, label);
+    ui.render({ found: [found], changed: [] });
+    await flush();
+    expect(viewAt(views, 0).slot).toMatchObject({ kind: "compact", reserve });
+  });
+
+  it.each([["shows late", NO_SIZE, ON_IMAGE], ["grows", ON_IMAGE, WIDE]])(
+    "draws a compact host again when its store label %s",
+    async (_name, before, after) => {
+      const id = make.appId();
+      const { ui, views, flush, watched, sized } = setup(new Map([[id, AI]]));
+      const { found } = imageHost(id, TEXT_TIER);
+      const { labels, resize } = labelOn(found, before);
+      ui.render({ found: [found], changed: [] });
+      await flush();
+      expect([...watched]).toEqual([found.anchor, labels]);
+      resize(after);
+      sized(labels, after);
+      await flush();
+      expect(views).toHaveLength(2);
+      expect(viewAt(views, 1).slot).toMatchObject({
+        reserve: Math.ceil(after.right - TEXT_TIER.left),
+      });
+    },
+  );
 
   it("gives a small image no slot", async () => {
     const id = make.appId();
@@ -218,40 +295,90 @@ describe("createCapsuleUi", () => {
     expect(viewAt(views, 0).slot).toBeUndefined();
   });
 
-  it("watches an image box with no size until a compact badge fits, then draws it", async () => {
+  it("draws a compact host again at each new width of its image box, until it leaves", async () => {
     const id = make.appId();
-    const { ui, detect, views, flush, watched, sized } = setup(
-      new Map([[id, AI]]),
-    );
-    const { found, box } = imageHost(id, NO_SIZE);
+    const { ui, detect, views, flush, watched, sized } = setup(new Map([[id, AI]]));
+    const { found, resize } = imageHost(id, NO_SIZE);
     ui.render({ found: [found], changed: [] });
     await flush();
     expect(viewAt(views, 0).slot).toBeUndefined();
     expect([...watched]).toEqual([found.anchor]);
-    box.mockReturnValue(NARROW);
-    sized([found.anchor]);
+    resize(SMALL);
+    sized(found.anchor, SMALL);
     await flush();
     expect(viewAt(views, 1).slot).toBeUndefined();
-    expect([...watched]).toEqual([found.anchor]);
-    box.mockReturnValue(TEXT_TIER);
-    sized([found.anchor]);
+    resize(TEXT_TIER);
+    sized(found.anchor, TEXT_TIER);
     await flush();
     expect(viewAt(views, 2).slot).toMatchObject({ kind: "compact", size: "text" });
+    expect([...watched]).toEqual([found.anchor]);
+    found.element.remove();
+    sized(found.anchor, SMALL);
+    await flush();
+    expect(views).toHaveLength(3);
     expect(watched.size).toBe(0);
     expect(detect).toHaveBeenCalledTimes(1);
   });
 
-  it("lets go of the size watch on pagehide and starts a new one when needed", async () => {
+  // After the box reports `next`: how many draws there are once it reports its old width again
+  it.each([["the same width", TEXT_TIER, 1], ["no width, as in a hidden tab", NO_SIZE, 2]])(
+    "keeps a compact host as drawn when its image box reports %s",
+    async (_name, next, drawsAfterReturn) => {
+      const id = make.appId();
+      const { ui, views, flush, sized } = setup(new Map([[id, AI]]));
+      const { found, resize } = imageHost(id, TEXT_TIER);
+      ui.render({ found: [found], changed: [] });
+      await flush();
+      resize(next);
+      sized(found.anchor, next);
+      await flush();
+      expect(views).toHaveLength(1);
+      resize(TEXT_TIER);
+      sized(found.anchor, TEXT_TIER);
+      await flush();
+      expect(views).toHaveLength(drawsAfterReturn);
+    },
+  );
+
+  // The size watch reports a removed image that had a size, and nothing for one that had none
+  it.each([
+    [
+      "had a size, once the image reports its removal",
+      TEXT_TIER,
+      (found: CapsuleHost) => found.anchor,
+    ],
+    ["had no size, at the next size report", NO_SIZE, () => document.body],
+  ])("lets go of both boxes of a host that left the page while its image %s", async (
+    _name,
+    before,
+    reported,
+  ) => {
+    const id = make.appId();
+    const { ui, flush, watched, sized } = setup(new Map([[id, AI]]));
+    const { found, resize } = imageHost(id, TEXT_TIER);
+    labelOn(found, NO_SIZE);
+    ui.render({ found: [found], changed: [] });
+    await flush();
+    expect(watched.size).toBe(2);
+    resize(before);
+    sized(found.anchor, before);
+    await flush();
+    found.element.remove();
+    sized(reported(found), NO_SIZE);
+    expect(watched.size).toBe(0);
+  });
+
+  it("lets go of the size watch on pagehide and watches again on a return", async () => {
     const id = make.appId();
     const { ui, flush, watched, disconnects } = setup(new Map([[id, AI]]));
     const { found } = imageHost(id, NO_SIZE);
     ui.render({ found: [found], changed: [] });
     await flush();
     expect(watched.size).toBe(1);
-    window.dispatchEvent(new Event("pagehide"));
+    window.dispatchEvent(pageTransition("pagehide"));
     expect(disconnects()).toBe(1);
     expect(watched.size).toBe(0);
-    ui.refresh();
+    window.dispatchEvent(pageTransition("pageshow"));
     await flush();
     expect([...watched]).toEqual([found.anchor]);
   });
@@ -264,15 +391,29 @@ describe("createCapsuleUi", () => {
     expect(disconnects()).toBe(0);
   });
 
-  it("does not watch a small image that has a size, nor a host without a badge", async () => {
+  it("watches a small image, which may grow, but not a host without a badge", async () => {
     const small = make.appId();
     const unbadged = make.appId();
     const { ui, flush, watched } = setup(
       new Map<AppId, AiVerdict>([[small, AI], [unbadged, NOT_DISCLOSED]]),
     );
-    ui.render({ found: [imageHost(small, SMALL).found], changed: [] });
+    const { found } = imageHost(small, SMALL);
+    ui.render({ found: [found], changed: [] });
     await flush();
     ui.render({ found: [imageHost(unbadged, NO_SIZE).found], changed: [] });
+    await flush();
+    expect([...watched]).toEqual([found.anchor]);
+  });
+
+  it("lets go of an image box once its host has no badge to show", async () => {
+    const id = make.appId();
+    const allowed = new Set<AppId>();
+    const { ui, flush, watched } = setup(new Map([[id, AI]]), { allowed });
+    ui.render({ found: [imageHost(id, TEXT_TIER).found], changed: [] });
+    await flush();
+    expect(watched.size).toBe(1);
+    allowed.add(id);
+    ui.refresh();
     await flush();
     expect(watched.size).toBe(0);
   });
@@ -427,7 +568,7 @@ describe("createCapsuleUi", () => {
       renderers: [{ render: (view) => drawn.push(view.host) }],
       isAllowed: () => false,
       isBadged: () => true,
-      frame: frames.frame,
+      frame: framePhases(frames.frame),
       progress,
       logger: fake.logger().logger,
     });
@@ -462,7 +603,7 @@ describe("createCapsuleUi", () => {
       renderers: [{ render: (view) => views.push(view) }],
       isAllowed: () => false,
       isBadged: () => true,
-      frame: frames.frame,
+      frame: framePhases(frames.frame),
       progress,
       logger,
     });
@@ -498,7 +639,7 @@ describe("createCapsuleUi", () => {
         renderers: [{ render: (view) => views.push(view) }],
         isAllowed: () => false,
         isBadged: () => true,
-        frame: frames.frame,
+        frame: framePhases(frames.frame),
         delay: timers.delay,
         progress,
         logger: fake.logger().logger,

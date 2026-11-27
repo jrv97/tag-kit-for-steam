@@ -5,7 +5,7 @@ import {
   type CreatorRole,
   toCreatorKey,
 } from "../creator";
-import { detach as detachNode } from "../dom";
+import { animationFrame, detach as detachNode } from "../dom";
 import type { BareMessageKey } from "../i18n/t";
 import type { KindId } from "../kinds/id";
 import type { ChipWords } from "../kinds/kind-settings";
@@ -121,17 +121,6 @@ function parseRole(value: string | null): CreatorRole | undefined {
   return CREATOR_ROLES.find((role) => role === value);
 }
 
-function defaultFrame(doc: Document): (callback: () => void) => void {
-  return (callback) => {
-    const view = doc.defaultView;
-    if (view === null) {
-      callback();
-    } else {
-      view.requestAnimationFrame(callback);
-    }
-  };
-}
-
 function defaultOverflows(quote: HTMLElement): boolean {
   return quote.scrollHeight > quote.clientHeight;
 }
@@ -199,7 +188,7 @@ export function createBanner(
   actions: BannerActions,
   options: BannerOptions = {},
 ): Banner {
-  const frame = options.frame ?? defaultFrame(doc);
+  const frame = options.frame ?? animationFrame(doc);
   const overflows = options.overflows ?? defaultOverflows;
   const element = elementFactory(doc);
 
