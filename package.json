@@ -14,7 +14,7 @@
     "happy-dom": "21.0.4",
     "knip": "6.47.0",
     "oxlint": "1.94.0",
-    "oxlint-tsgolint": "7.0.2007",
+    "oxlint-tsgolint": "7.0.2008",
     "puppeteer-core": "25.18.1",
     "rxjs": "7.8.2",
     "typescript": "7.0.2",
